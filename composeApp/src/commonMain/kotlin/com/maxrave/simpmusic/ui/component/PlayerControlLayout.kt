@@ -34,6 +34,7 @@ import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.SkipNext
 import com.maxrave.simpmusic.ui.icon.SkipPrevious
 import com.maxrave.simpmusic.ui.theme.seed
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.UIEvent
 
 @Composable
@@ -51,6 +52,7 @@ fun PlayerControlLayout(
     // light glass surface is nearly invisible.
     activeColor: Color = seed,
     contentColor: Color = Color.White,
+    smartShuffleMode: SmartShuffleMode = SmartShuffleMode.OFF,
     onUIEvent: (UIEvent) -> Unit,
 ) = LeftToRight {
     val height = if (isSmallSize) 48.dp else 96.dp
@@ -81,7 +83,7 @@ fun PlayerControlLayout(
                         },
                 contentAlignment = Alignment.Center,
             ) {
-                Crossfade(targetState = controllerState.isShuffle, label = "Shuffle Button") { isShuffle ->
+                Crossfade(targetState = controllerState.isShuffle || smartShuffleMode != SmartShuffleMode.OFF, label = "Shuffle Button") { isShuffle ->
                     if (!isShuffle) {
                         Icon(
                             imageVector = SimpIcons.Shuffle,
@@ -97,6 +99,13 @@ fun PlayerControlLayout(
                             modifier = Modifier.size(smallIcon.first),
                         )
                     }
+                }
+                if (smartShuffleMode == SmartShuffleMode.ENHANCED) {
+                    androidx.compose.material3.Text(
+                        "✦",
+                        color = activeColor,
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    )
                 }
             }
         }
