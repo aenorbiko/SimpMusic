@@ -259,11 +259,97 @@ class SharedViewModel(
     }
 
     /**
-     * A single button cycles Off -> Shuffle -> Enhanced (2 liked + 1 suggestion).
+     * Replace ONLY the remaining queue when a track is already playing.
+     * MediaPlayerHandler.removeMediaItem() removes tail items without seeking.
+     * loadMoreCatalog() appends the new tail without clearing the player.
      *
-     * Enhanced only builds the first block of 14 liked songs before playback.
-     * Further blocks are appended to the existing player without replacing the
-     * current track, when eight or fewer tracks remain in the queue.
+     * If there is no playing media item, begin a normal new queue instead.
+     */
+    private suspend fun applySmartQueueKeepingCurrent(
+        ordered: List<Track>,
+        sourceTracks: List<Track>,
+        requestedMode: SmartShuffleMode,
+        label: String,
+        recommendationIds: Set<String>,
+    ): Boolean {
+        val currentItem = mediaPlayerHandler.getCurrentMediaItem()
+        if (currentItem == null || currentItem.mediaId.isBlank()) {
+            // Nothing to preserve: first playback of a fresh queue.
+            mediaPlayerHandler.reset()
+            mediaPlayerHandler.setQueueData(
+                QueueData.Data(
+                    listTracks = ordered,
+                    firstPlayedTrack = ordered.first(),
+                    playlistId = null,
+                    playlistName = label,
+                    playlistType = PlaylistType.RADIO,
+                    continuation = null,
+                ),
+            )
+            _recommendedTrackIds.value = recommendationIds
+            mediaPlayerHandler.loadMediaItem(ordered.first(), Config.PLAYLIST_CLICK, 0)
+            return true
+        }
+
+        val oldTracks = mediaPlayerHandler.queueData.value?.data?.listTracks.orEmpty()
+        fun matchesCurrent(track: Track) =
+            currentItem.mediaId == track.videoId || currentItem.mediaId.endsWith(track.videoId)
+        val activeIndex = mediaPlayerHandler.currentOrderIndex()
+            .takeIf { it in oldTracks.indices && matchesCurrent(oldTracks[it]) }
+            ?: oldTracks.indexOfLast { matchesCurrent(it) }
+        if (activeIndex < 0) {
+            // Never reset somebody's current song just because metadata was unavailable.
+            makeToast("Could not safely change shuffle while playing; try again")
+            return false
+        }
+
+        val playedIds = oldTracks.take(activeIndex + 1).mapTo(hashSetOf()) { it.videoId }
+        val candidates = if (requestedMode == SmartShuffleMode.OFF) {
+            UpcomingQueuePlanner.originalOrderAfterCurrent(
+                liked = sourceTracks,
+                currentId = oldTracks[activeIndex].videoId,
+                playedIds = playedIds,
+                id = { it.videoId },
+            )
+        } else ordered
+        val plan = UpcomingQueuePlanner.preserveCurrent(
+            existingQueue = oldTracks,
+            currentIndex = activeIndex,
+            proposedUpcoming = candidates,
+            id = { it.videoId },
+        ) ?: return false
+
+        // No seeks, no reset(), no loadMediaItem(): preserve track, position and pause state.
+        for (position in oldTracks.lastIndex downTo activeIndex + 1) {
+            mediaPlayerHandler.removeMediaItem(position)
+        }
+        mediaPlayerHandler.setQueueData(
+            QueueData.Data(
+                listTracks = plan.preserved,
+                firstPlayedTrack = plan.preserved.firstOrNull(),
+                playlistId = null,
+                playlistName = label,
+                playlistType = PlaylistType.RADIO,
+                continuation = null,
+            ),
+        )
+        _recommendedTrackIds.value = recommendationIds.intersect(
+            plan.upcoming.mapTo(hashSetOf()) { it.videoId },
+        )
+        if (plan.upcoming.isNotEmpty()) {
+            mediaPlayerHandler.loadMoreCatalog(
+                plan.upcoming.toCollection(arrayListOf<Track>()),
+                isAddToQueue = false,
+            )
+        }
+        return true
+    }
+
+    /**
+     * One button: Off -> Shuffle -> Enhanced (2 liked + 1 suggestion) -> Off.
+     * The full Liked list is shuffled once; Enhanced fetches only 14 liked
+     * tracks (7 pairs) at a time and appends another batch when needed.
+     * Switching modes replaces only UP NEXT while the current track continues.
      */
     fun cycleLikedShuffle(
         liked: List<Track>,
@@ -283,7 +369,6 @@ class SharedViewModel(
         val requestedMode = modeBefore.next()
         val sourceTracks = liked.distinctBy { it.videoId }
 
-        // Invalidate earlier network requests and prefetches before changing modes.
         enhancedSession++
         val thisSession = enhancedSession
         smartShuffleJob?.cancel()
@@ -298,36 +383,48 @@ class SharedViewModel(
         _recommendedTrackIds.value = emptySet()
         _smartShuffleMode.value = requestedMode
 
+        switchingSmartQueue = true
         smartShuffleJob = viewModelScope.launch {
-            switchingSmartQueue = true
             try {
-                // We manage the ordering ourselves. Native shuffle would scramble 2+1.
+                // Native shuffle would scramble the precisely interleaved 2+1 order.
                 if (mediaPlayerHandler.controlState.value.isShuffle) {
                     mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle)
                 }
+                val activeMediaId = mediaPlayerHandler.getCurrentMediaItem()?.mediaId
+                val oldData = mediaPlayerHandler.queueData.value?.data?.listTracks.orEmpty()
+                val activeIndex = mediaPlayerHandler.currentOrderIndex()
+                    .takeIf { it in oldData.indices && (
+                        activeMediaId == oldData[it].videoId ||
+                            activeMediaId?.endsWith(oldData[it].videoId) == true
+                        )
+                    } ?: oldData.indexOfLast { it.videoId == activeMediaId || activeMediaId?.endsWith(it.videoId) == true }
+                val alreadyHeard = if (activeIndex in oldData.indices)
+                    oldData.take(activeIndex + 1).mapTo(hashSetOf()) { it.videoId }
+                else emptySet<String>()
+                val notYetPlayedLiked = sourceTracks.filterNot { it.videoId in alreadyHeard }
 
                 val ordered: List<Track>
                 val initialRecommendations: Set<String>
                 when (requestedMode) {
                     SmartShuffleMode.OFF -> {
-                        ordered = sourceTracks
+                        ordered = notYetPlayedLiked
                         initialRecommendations = emptySet()
                     }
                     SmartShuffleMode.SHUFFLE -> {
-                        ordered = sourceTracks.shuffled()
+                        ordered = notYetPlayedLiked.shuffled()
                         initialRecommendations = emptySet()
                     }
                     SmartShuffleMode.ENHANCED -> {
-                        val shuffled = sourceTracks.shuffled()
+                        val shuffled = notYetPlayedLiked.shuffled()
                         val firstLiked = shuffled.take(ENHANCED_LIKED_BATCH_SIZE)
                         val firstBatch = buildEnhancedBatch(
                             likedBatch = firstLiked,
                             songRepository = songRepository,
                             excludedIds = enhancedOwnedIds,
                         )
+                        if (thisSession != enhancedSession) return@launch
                         ordered = firstBatch.tracks
                         initialRecommendations = firstBatch.recommendedIds
-                        if (thisSession != enhancedSession) return@launch
                         enhancedLikedOrder = shuffled
                         nextEnhancedLikedIndex = firstLiked.size
                         enhancedUsedRecommendations.addAll(initialRecommendations)
@@ -336,27 +433,29 @@ class SharedViewModel(
                         }
                     }
                 }
-                if (thisSession != enhancedSession || ordered.isEmpty()) return@launch
+                if (thisSession != enhancedSession) return@launch
 
-                _recommendedTrackIds.value = initialRecommendations
                 val label = when (requestedMode) {
                     SmartShuffleMode.OFF -> name
                     SmartShuffleMode.SHUFFLE -> "$name · Shuffle"
                     SmartShuffleMode.ENHANCED -> "$name · Enhanced 2+1"
                 }
-                playingSmartQueueName = label
-                mediaPlayerHandler.reset()
-                mediaPlayerHandler.setQueueData(
-                    QueueData.Data(
-                        listTracks = ordered,
-                        firstPlayedTrack = ordered.first(),
-                        playlistId = null,
-                        playlistName = label,
-                        playlistType = PlaylistType.RADIO,
-                        continuation = null,
-                    ),
-                )
-                mediaPlayerHandler.loadMediaItem(ordered.first(), Config.PLAYLIST_CLICK, 0)
+                // Protect a currently playing item; a fresh queue still starts normally.
+                if (ordered.isNotEmpty() && applySmartQueueKeepingCurrent(
+                        ordered = ordered,
+                        sourceTracks = sourceTracks,
+                        requestedMode = requestedMode,
+                        label = label,
+                        recommendationIds = initialRecommendations,
+                    )
+                ) {
+                    playingSmartQueueName = label
+                } else if (ordered.isEmpty()) {
+                    // The current/played track is the only remaining liked song.
+                    _smartShuffleMode.value = SmartShuffleMode.OFF
+                } else {
+                    _smartShuffleMode.value = modeBefore
+                }
             } finally {
                 if (thisSession == enhancedSession) switchingSmartQueue = false
             }
