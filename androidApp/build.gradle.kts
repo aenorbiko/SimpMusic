@@ -16,6 +16,18 @@ plugins {
 android {
     val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
 
+    // Stable signing key comes only from a private GitHub Actions secret.
+    // A build without that secret remains a temporary-key debug build.
+    val enhancedSigningDir = System.getenv("SIMP_SIGNING_DIR")
+        ?.takeIf { it.isNotBlank() }
+        ?.let { File(it) }
+    val enhancedSigningProperties = enhancedSigningDir?.let { signingDir ->
+        val credentials = File(signingDir, "signing.properties")
+        if (credentials.isFile && File(signingDir, "simpmusic-enhanced.jks").isFile) {
+            Properties().apply { credentials.inputStream().use { load(it) } }
+        } else null
+    }
+
     namespace = "com.maxrave.simpmusic"
     compileSdk = 37
 
@@ -83,6 +95,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (enhancedSigningDir != null && enhancedSigningProperties != null) {
+            create("simpmusicEnhanced") {
+                storeFile = File(enhancedSigningDir, "simpmusic-enhanced.jks")
+                storePassword = enhancedSigningProperties.getProperty("storePassword")
+                keyAlias = enhancedSigningProperties.getProperty("keyAlias")
+                keyPassword = enhancedSigningProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -104,6 +127,10 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            // Stable key allows updates over earlier versions signed with it.
+            if (enhancedSigningProperties != null) {
+                signingConfig = signingConfigs.getByName("simpmusicEnhanced")
+            }
         }
     }
     compileOptions {
