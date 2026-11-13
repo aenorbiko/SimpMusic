@@ -273,7 +273,8 @@ class SharedViewModel(
         if (liked.isEmpty()) return
         val oldQueue = mediaPlayerHandler.queueData.value?.data
         val sameActiveSource =
-            _smartShuffleSource.value == sourceId && oldQueue?.playlistName == playingSmartQueueName
+            _smartShuffleSource.value == sourceId &&
+                (oldQueue?.playlistName == playingSmartQueueName || smartShuffleJob?.isActive == true)
         val modeBefore =
             if (sameActiveSource) _smartShuffleMode.value
             else if (sourceId == "LM" && oldQueue?.playlistId == "LM" &&
@@ -357,7 +358,7 @@ class SharedViewModel(
                 )
                 mediaPlayerHandler.loadMediaItem(ordered.first(), Config.PLAYLIST_CLICK, 0)
             } finally {
-                switchingSmartQueue = false
+                if (thisSession == enhancedSession) switchingSmartQueue = false
             }
         }
     }
