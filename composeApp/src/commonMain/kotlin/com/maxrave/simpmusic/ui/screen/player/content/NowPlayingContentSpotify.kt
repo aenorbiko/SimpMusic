@@ -29,6 +29,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1862,7 +1863,8 @@ internal fun NowPlayingTrackInfoRow(
         }
 
         Column(Modifier.weight(1f)) {
-            Text(
+            Box {
+                Text(
                 text = state.screenData.nowPlayingTitle,
                 style = typo().titleMedium,
                 maxLines = 1,
@@ -1875,7 +1877,11 @@ internal fun NowPlayingTrackInfoRow(
                             iterations = Int.MAX_VALUE,
                             animationMode = MarqueeAnimationMode.Immediately,
                         ).focusable(),
-            )
+                )
+                if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                    EnhancedRecommendationBadge(modifier = Modifier.align(Alignment.TopStart).offset(y = (-23).dp))
+                }
+            }
             Spacer(modifier = Modifier.height(3.dp))
             val artistRowState = rememberLazyListState()
             LazyRow(
@@ -1913,9 +1919,6 @@ internal fun NowPlayingTrackInfoRow(
                                 },
                     )
                 }
-            }
-            if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
-                EnhancedRecommendationBadge()
             }
         }
         if (state.isUserLoggedIn) {

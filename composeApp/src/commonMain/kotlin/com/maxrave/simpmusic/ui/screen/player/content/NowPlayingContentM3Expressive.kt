@@ -731,7 +731,8 @@ internal fun ExpressiveTrackInfoRow(
         }
 
         Column(Modifier.weight(1f)) {
-            Text(
+            Box {
+                Text(
                 text = state.screenData.nowPlayingTitle,
                 style = typo().titleMedium,
                 color = Color.White,
@@ -744,7 +745,11 @@ internal fun ExpressiveTrackInfoRow(
                             iterations = Int.MAX_VALUE,
                             animationMode = MarqueeAnimationMode.Immediately,
                         ).focusable(),
-            )
+                )
+                if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                    EnhancedRecommendationBadge(modifier = Modifier.align(Alignment.TopStart).offset(y = (-23).dp))
+                }
+            }
             Spacer(modifier = Modifier.height(3.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -775,9 +780,6 @@ internal fun ExpressiveTrackInfoRow(
                                 actions.onNavigateToArtist()
                             },
                 )
-            }
-            if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
-                EnhancedRecommendationBadge()
             }
         }
         if (state.isUserLoggedIn) {
