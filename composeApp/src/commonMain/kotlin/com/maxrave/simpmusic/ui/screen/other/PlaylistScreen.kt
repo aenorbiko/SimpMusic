@@ -137,6 +137,7 @@ import com.maxrave.simpmusic.viewModel.ListState
 import com.maxrave.simpmusic.viewModel.PlaylistUIEvent
 import com.maxrave.simpmusic.viewModel.PlaylistUIState
 import com.maxrave.simpmusic.viewModel.PlaylistViewModel
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
 import com.maxrave.simpmusic.viewModel.UIEvent
@@ -187,6 +188,8 @@ fun PlaylistScreen(
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
     val tracks by viewModel.tracks.collectAsStateWithLifecycle()
+    val smartShuffleMode by sharedViewModel.smartShuffleMode.collectAsStateWithLifecycle()
+    val smartShuffleSource by sharedViewModel.smartShuffleSource.collectAsStateWithLifecycle()
     val tracksListState by viewModel.tracksListState.collectAsStateWithLifecycle()
 
     var showSearchBar by rememberSaveable { mutableStateOf(false) }
@@ -656,11 +659,6 @@ fun PlaylistScreen(
                                                                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.Start),
                                                                 verticalAlignment = Alignment.CenterVertically,
                                                             ) {
-                                                                if (data.id == "LM") {
-                                                                    TextButton(onClick = { viewModel.enhancedShuffle() }) {
-                                                                        Text("Enhance")
-                                                                    }
-                                                                }
                                                                 if (!data.isRadio) {
                                                                     Box(
                                                                         modifier =
@@ -669,16 +667,23 @@ fun PlaylistScreen(
                                                                                 .clip(CircleShape)
                                                                                 .background(Color.White.copy(alpha = 0.12f))
                                                                                 .clickable {
-                                                                                    viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
+                                                                                    if (data.id == "LM") {
+                                                                                        sharedViewModel.cycleLikedShuffle(tracks, data.title, "LM")
+                                                                                    } else {
+                                                                                        viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
+                                                                                    }
                                                                                 },
                                                                         contentAlignment = Alignment.Center,
                                                                     ) {
                                                                         Icon(
                                                                             imageVector = SimpIcons.Shuffle,
                                                                             contentDescription = "Shuffle",
-                                                                            tint = Color.White,
+                                                                            tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                             modifier = Modifier.size(22.dp),
                                                                         )
+                                                                        if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) {
+                                                                            Text("✦", color = seed, style = typo().labelSmall, modifier = Modifier.align(Alignment.TopEnd))
+                                                                        }
                                                                     }
                                                                 }
                                                                 Box(
@@ -876,11 +881,6 @@ fun PlaylistScreen(
                                                         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                     ) {
-                                                        if (data.id == "LM") {
-                                                            TextButton(onClick = { viewModel.enhancedShuffle() }) {
-                                                                Text("Enhance")
-                                                            }
-                                                        }
                                                         if (!data.isRadio) {
                                                             Box(
                                                                 modifier =
@@ -889,16 +889,23 @@ fun PlaylistScreen(
                                                                         .clip(CircleShape)
                                                                         .background(Color.White.copy(alpha = 0.12f))
                                                                         .clickable {
-                                                                            viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
+                                                                            if (data.id == "LM") {
+                                                                                        sharedViewModel.cycleLikedShuffle(tracks, data.title, "LM")
+                                                                                    } else {
+                                                                                        viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
+                                                                                    }
                                                                         },
                                                                 contentAlignment = Alignment.Center,
                                                             ) {
                                                                 Icon(
                                                                     imageVector = SimpIcons.Shuffle,
                                                                     contentDescription = "Shuffle",
-                                                                    tint = Color.White,
+                                                                            tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                     modifier = Modifier.size(22.dp),
                                                                 )
+                                                                        if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) {
+                                                                            Text("✦", color = seed, style = typo().labelSmall, modifier = Modifier.align(Alignment.TopEnd))
+                                                                        }
                                                             }
                                                         }
                                                         Box(
