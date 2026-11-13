@@ -111,6 +111,7 @@ import com.maxrave.simpmusic.viewModel.LyricsProvider
 import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetUIEvent
 import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.UIEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -190,6 +191,8 @@ fun NowPlayingScreenContent(
 
     // ViewModel State
     val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
+    val smartShuffleMode by sharedViewModel.smartShuffleMode.collectAsStateWithLifecycle()
+    val recommendedTrackIds by sharedViewModel.recommendedTrackIds.collectAsStateWithLifecycle()
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
     val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
     // Audio-delay correction, read here and applied ONLY to the lyric line below. The seek bar and
@@ -637,6 +640,8 @@ fun NowPlayingScreenContent(
         NowPlayingContentState(
             screenData = screenDataState,
             controllerState = controllerState,
+            smartShuffleMode = smartShuffleMode,
+            recommendedTrackIds = recommendedTrackIds,
             timelineState = timelineState,
             timelineFlow = sharedViewModel.timeline,
             likeStatus = likeStatus == YouTubeLikeStatus.LIKE,

@@ -2174,7 +2174,8 @@ internal fun ColumnScope.SpotifyPlaybackControls(
     )
     // Control Button Layout
     PlayerControlLayout(
-        state.controllerState,
+        controllerState = state.controllerState,
+        smartShuffleMode = state.smartShuffleMode,
     ) {
         actions.onUIEvent(it)
     }

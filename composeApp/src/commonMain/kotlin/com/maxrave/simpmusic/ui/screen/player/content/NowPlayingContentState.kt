@@ -13,6 +13,7 @@ import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.streams.TimeLine
 import com.maxrave.domain.data.player.GenericCastState
 import com.maxrave.domain.mediaservice.handler.ControlState
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.extension.GradientOffset
 import com.maxrave.simpmusic.viewModel.LyricsProvider
 import com.maxrave.simpmusic.viewModel.NowPlayingScreenData
@@ -152,6 +153,8 @@ class NowPlayingContentState(
      * at startup is still being rebuilt: the same id the comments sheet uses.
      */
     val videoId: String? = null,
+    val smartShuffleMode: SmartShuffleMode = SmartShuffleMode.OFF,
+    val recommendedTrackIds: Set<String> = emptySet(),
 )
 
 /**
