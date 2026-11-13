@@ -30,6 +30,7 @@ import com.maxrave.simpmusic.ui.icon.PlayCircle
 import com.maxrave.simpmusic.ui.icon.Repeat
 import com.maxrave.simpmusic.ui.icon.RepeatOne
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.SkipNext
 import com.maxrave.simpmusic.ui.icon.SkipPrevious
@@ -83,30 +84,16 @@ fun PlayerControlLayout(
                         },
                 contentAlignment = Alignment.Center,
             ) {
-                Crossfade(targetState = controllerState.isShuffle || smartShuffleMode != SmartShuffleMode.OFF, label = "Shuffle Button") { isShuffle ->
-                    if (!isShuffle) {
-                        Icon(
-                            imageVector = SimpIcons.Shuffle,
-                            tint = contentColor,
-                            contentDescription = "",
-                            modifier = Modifier.size(smallIcon.first),
-                        )
-                    } else {
-                        Icon(
-                            imageVector = SimpIcons.Shuffle,
-                            tint = activeColor,
-                            contentDescription = "",
-                            modifier = Modifier.size(smallIcon.first),
-                        )
-                    }
-                }
-                if (smartShuffleMode == SmartShuffleMode.ENHANCED) {
-                    androidx.compose.material3.Text(
-                        "✦",
-                        color = activeColor,
-                        modifier = Modifier.align(Alignment.TopEnd),
-                    )
-                }
+                Icon(
+                    imageVector = if (smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                    tint = if (controllerState.isShuffle || smartShuffleMode != SmartShuffleMode.OFF) activeColor else contentColor,
+                    contentDescription = when (smartShuffleMode) {
+                        SmartShuffleMode.OFF -> "Shuffle off"
+                        SmartShuffleMode.SHUFFLE -> "Shuffle"
+                        SmartShuffleMode.ENHANCED -> "Enhanced shuffle"
+                    },
+                    modifier = Modifier.size(smallIcon.first),
+                )
             }
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {

@@ -127,6 +127,7 @@ import com.maxrave.simpmusic.ui.icon.Pause
 import com.maxrave.simpmusic.ui.icon.PlayArrow
 import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.theme.ArtworkShape
@@ -678,14 +679,11 @@ fun PlaylistScreen(
                                                                         contentAlignment = Alignment.Center,
                                                                     ) {
                                                                         Icon(
-                                                                            imageVector = SimpIcons.Shuffle,
+                                                                            imageVector = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
                                                                             contentDescription = "Shuffle",
                                                                             tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                             modifier = Modifier.size(22.dp),
                                                                         )
-                                                                        if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) {
-                                                                            Text("✦", color = seed, style = typo().labelSmall, modifier = Modifier.align(Alignment.TopEnd))
-                                                                        }
                                                                     }
                                                                 }
                                                                 Box(
@@ -907,9 +905,6 @@ fun PlaylistScreen(
                                                                             tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                     modifier = Modifier.size(22.dp),
                                                                 )
-                                                                        if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) {
-                                                                            Text("✦", color = seed, style = typo().labelSmall, modifier = Modifier.align(Alignment.TopEnd))
-                                                                        }
                                                             }
                                                         }
                                                         Box(

@@ -74,6 +74,7 @@ import com.maxrave.simpmusic.ui.icon.Delete
 import com.maxrave.simpmusic.ui.icon.PlayCircle
 import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.Star
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
@@ -658,7 +659,7 @@ fun LibraryDynamicPlaylistScreen(
                         }
                         RippleIconButton(
                             if (type == LibraryDynamicPlaylistType.Favorite && smartShuffleSource == "favorite" && smartShuffleMode == SmartShuffleMode.ENHANCED)
-                                SimpIcons.Star else SimpIcons.Shuffle,
+                                SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
                             Modifier.size(32.dp),
                             true,
                             tint = if (type == LibraryDynamicPlaylistType.Favorite && smartShuffleSource == "favorite" && smartShuffleMode != SmartShuffleMode.OFF)

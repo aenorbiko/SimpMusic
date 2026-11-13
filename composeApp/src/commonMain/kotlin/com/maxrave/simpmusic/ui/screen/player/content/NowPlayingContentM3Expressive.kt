@@ -114,6 +114,7 @@ import com.maxrave.simpmusic.ui.icon.QueueMusic
 import com.maxrave.simpmusic.ui.icon.Repeat
 import com.maxrave.simpmusic.ui.icon.RepeatOne
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.Star
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AudioOutputSheetHost
@@ -990,7 +991,7 @@ private fun ExpressiveConnectedGroup(
         ) {
             Crossfade(targetState = state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF, label = "expressiveShuffle") { isShuffle ->
                 Icon(
-                    imageVector = if (state.smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.Star else SimpIcons.Shuffle,
+                    imageVector = if (state.smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
                     contentDescription = "",
                     tint = if (isShuffle) colorScheme.onPrimaryContainer else colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp),

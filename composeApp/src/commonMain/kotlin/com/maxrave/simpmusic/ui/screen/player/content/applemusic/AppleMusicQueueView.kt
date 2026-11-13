@@ -67,6 +67,7 @@ import com.maxrave.simpmusic.ui.icon.PlaylistAdd
 import com.maxrave.simpmusic.ui.icon.Repeat
 import com.maxrave.simpmusic.ui.icon.RepeatOne
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentActions
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentState
@@ -349,13 +350,12 @@ private fun AppleMusicQueuePillsRow(
             modifier = Modifier.weight(1f),
         )
         AppleMusicQueuePill(
-            icon = SimpIcons.Shuffle,
+            icon = if (state.smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
             active = state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF,
             activeContainer = activePillContainer,
             activeContent = activePillContent,
             onClick = { actions.onUIEvent(UIEvent.Shuffle) },
             modifier = Modifier.weight(1f),
-            enhanced = state.smartShuffleMode == SmartShuffleMode.ENHANCED,
         )
         AppleMusicQueuePill(
             icon = if (repeatState is RepeatState.One) SimpIcons.RepeatOne else SimpIcons.Repeat,
@@ -376,7 +376,6 @@ private fun AppleMusicQueuePill(
     activeContent: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enhanced: Boolean = false,
 ) {
     Box(
         modifier =
@@ -396,9 +395,6 @@ private fun AppleMusicQueuePill(
             tint = if (active) activeContent else Color.White,
             modifier = Modifier.size(20.dp),
         )
-        if (enhanced) {
-            Text("✦", modifier = Modifier.align(Alignment.TopEnd), color = activeContent)
-        }
     }
 }
 
