@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
@@ -468,6 +469,9 @@ private fun NowPlayingSoundCloudLayout(
                         stripAlpha = stripAlpha,
                         onClick = actions.onNavigateToArtist,
                     )
+                    if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                        EnhancedRecommendationBadge()
+                    }
                     // Hidden until the track's info has arrived, then faded in. AnimatedContent, so
                     // the outgoing chip keeps its own count while it fades.
                     AnimatedContent(

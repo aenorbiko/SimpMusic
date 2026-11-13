@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
@@ -765,6 +766,9 @@ private fun AppleMusicMainView(
                                                 .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
                                                 .focusable(),
                                     )
+                                    if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                                        EnhancedRecommendationBadge()
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 AppleMusicHeaderActions(state = state, actions = actions)

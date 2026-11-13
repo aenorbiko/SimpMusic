@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.component
 
+import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -1246,14 +1247,6 @@ fun QueueBottomSheet(
                                     modifier = Modifier,
                                 ) { _ ->
                                     Column {
-                                        if (track.videoId in recommendedTrackIds) {
-                                            Text(
-                                                "✦ Recommended",
-                                                style = typo().labelSmall,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(start = 64.dp),
-                                            )
-                                        }
                                         SongFullWidthItems(
                                             track = track,
                                             isPlaying = track.videoId == songEntity?.videoId,
@@ -1266,6 +1259,9 @@ fun QueueBottomSheet(
                                             onMoreClickListener = { showQueueItemBottomSheet(index) },
                                             onAddToQueue = { sharedViewModel.addListToQueue(arrayListOf(track)) },
                                         )
+                                        if (track.videoId in recommendedTrackIds) {
+                                            EnhancedRecommendationBadge(modifier = Modifier.padding(start = 80.dp))
+                                        }
                                     }
                                 }
                             }

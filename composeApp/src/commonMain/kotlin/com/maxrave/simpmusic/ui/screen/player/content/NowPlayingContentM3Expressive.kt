@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
@@ -773,6 +774,9 @@ internal fun ExpressiveTrackInfoRow(
                                 actions.onNavigateToArtist()
                             },
                 )
+            }
+            if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                EnhancedRecommendationBadge()
             }
         }
         if (state.isUserLoggedIn) {

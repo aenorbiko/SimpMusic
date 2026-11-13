@@ -2,6 +2,7 @@
 
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -278,13 +279,6 @@ internal fun AppleMusicQueueView(
                         // row. Long-press-drag reorders (list-level gesture above); ⋯ opens the
                         // full song sheet with the queue's own rows, hosted by the player screen.
                         Column {
-                            if (track.videoId in state.recommendedTrackIds) {
-                                Text(
-                                    "✦ Recommended",
-                                    modifier = Modifier.padding(start = 58.dp),
-                                    color = activePillContent,
-                                )
-                            }
                             SongFullWidthItems(
                                 track = track,
                                 isPlaying = false,
@@ -296,6 +290,9 @@ internal fun AppleMusicQueueView(
                                     actions.onQueueItemMore(queueIndex, track)
                                 },
                             )
+                            if (track.videoId in state.recommendedTrackIds) {
+                                EnhancedRecommendationBadge(modifier = Modifier.padding(start = 68.dp))
+                            }
                         }
                     }
                 }
