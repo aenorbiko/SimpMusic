@@ -16,7 +16,6 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
-      - uses: android-actions/setup-android@v3
       - name: Generate library definitions
         run: ./gradlew exportLibraryDefinitions
       - name: Build debug APK (separate .dev package)
