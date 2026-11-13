@@ -74,6 +74,7 @@ import com.maxrave.simpmusic.ui.icon.Delete
 import com.maxrave.simpmusic.ui.icon.PlayCircle
 import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.Star
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
@@ -83,6 +84,7 @@ import com.maxrave.simpmusic.viewModel.AnalyticsUiState
 import com.maxrave.simpmusic.viewModel.AnalyticsViewModel
 import com.maxrave.simpmusic.viewModel.LibraryDynamicPlaylistViewModel
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.blur.hazeBlur
@@ -142,6 +144,8 @@ fun LibraryDynamicPlaylistScreen(
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
 
     val favorite by viewModel.listFavoriteSong.collectAsStateWithLifecycle()
+    val smartShuffleMode by sharedViewModel.smartShuffleMode.collectAsStateWithLifecycle()
+    val smartShuffleSource by sharedViewModel.smartShuffleSource.collectAsStateWithLifecycle()
     var tempFavorite by remember { mutableStateOf(emptyList<SongEntity>()) }
     val followed by viewModel.listFollowedArtist.collectAsStateWithLifecycle()
     var tempFollowed by remember { mutableStateOf(emptyList<ArtistEntity>()) }
@@ -652,18 +656,21 @@ fun LibraryDynamicPlaylistScreen(
                                 viewModel.playAll(type)
                             }
                         }
-                        if (type == LibraryDynamicPlaylistType.Favorite) {
-                            TextButton(onClick = { viewModel.enhancedShuffleFavorites() }) {
-                                Text("Enhance")
-                            }
-                        }
                         RippleIconButton(
-                            SimpIcons.Shuffle,
+                            if (type == LibraryDynamicPlaylistType.Favorite && smartShuffleSource == "favorite" && smartShuffleMode == SmartShuffleMode.ENHANCED)
+                                SimpIcons.Star else SimpIcons.Shuffle,
                             Modifier.size(32.dp),
                             true,
-                            tint = MaterialTheme.colorScheme.onBackground,
+                            tint = if (type == LibraryDynamicPlaylistType.Favorite && smartShuffleSource == "favorite" && smartShuffleMode != SmartShuffleMode.OFF)
+                                MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
                         ) {
-                            if (type is LibraryDynamicPlaylistType.TopTracks) {
+                            if (type == LibraryDynamicPlaylistType.Favorite) {
+                                sharedViewModel.cycleLikedShuffle(
+                                    favorite.map { it.toTrack() },
+                                    "Liked songs",
+                                    "favorite",
+                                )
+                            } else if (type is LibraryDynamicPlaylistType.TopTracks) {
                                 val data = analyticsUIState.topTracks.data
                                 if (!data.isNullOrEmpty()) {
                                     val shuffled = data.shuffled()
