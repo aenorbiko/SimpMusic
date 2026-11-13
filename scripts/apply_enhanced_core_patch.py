@@ -128,9 +128,51 @@ replace_range(service,
 
 """)
 
+# A user pressing Next means leave Repeat One and continue the playlist.
+# Natural end-of-track playback still repeats the current song.
+edit(service,
+"""            PlayerEvent.Next -> {
+                resetCrossfade()
+                player.seekToNext()
+            }""",
+"""            PlayerEvent.Next -> {
+                resetCrossfade()
+                if (player.repeatMode == PlayerConstants.REPEAT_MODE_ONE) {
+                    player.repeatMode = PlayerConstants.REPEAT_MODE_OFF
+                    _controlState.value = _controlState.value.copy(repeatState = RepeatState.None)
+                }
+                player.seekToNext()
+            }""")
+
 callback="media/media3/src/main/java/com/maxrave/media3/service/callback/SimpleMediaSessionCallback.kt"
 edit(callback,"import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\n",
      "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\nimport com.maxrave.domain.data.player.EnhancedMediaBridge\n")
+edit(callback,
+"""                COMMAND_SEEK_TO_NEXT -> {
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.Next)
+                }""",
+"""                COMMAND_SEEK_TO_NEXT -> {
+                    // Android notification, Bluetooth and other Media3 controllers
+                    // also cancel Repeat One on an explicit Next press.
+                    if (session.player.repeatMode == ExoPlayer.REPEAT_MODE_ONE) {
+                        session.player.repeatMode = ExoPlayer.REPEAT_MODE_OFF
+                    }
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.Next)
+                }""")
+edit(callback,
+"""            MEDIA_CUSTOM_COMMAND.REPEAT -> {
+                session.player.repeatMode =
+                    when (session.player.repeatMode) {
+                        ExoPlayer.REPEAT_MODE_OFF -> ExoPlayer.REPEAT_MODE_ONE
+                        ExoPlayer.REPEAT_MODE_ONE -> ExoPlayer.REPEAT_MODE_ALL
+                        ExoPlayer.REPEAT_MODE_ALL -> ExoPlayer.REPEAT_MODE_OFF
+                        else -> ExoPlayer.REPEAT_MODE_OFF
+                    }
+            }""",
+"""            MEDIA_CUSTOM_COMMAND.REPEAT -> {
+                // Share the Off -> All -> One -> Off order used by the full player.
+                scope.launch { mediaPlayerHandler.onPlayerEvent(PlayerEvent.Repeat) }
+            }""")
 edit(callback,
 """            MEDIA_CUSTOM_COMMAND.SHUFFLE -> {
                 scope.launch {
@@ -145,6 +187,21 @@ edit(callback,
             }""")
 
 icons="media/media3/src/main/java/com/maxrave/media3/extension/Media3Ext.kt"
+# On Android 13+, Repeat occupies the BACK slot. Next stays in FORWARD,
+# while Shuffle and Like remain the two overflow actions. Previous remains
+# available in the app, but is replaced by Repeat in the notification.
+edit(icons,
+"""fun GenericCommandButton.toCommandButton(context: Context): CommandButton =""",
+"""@androidx.annotation.OptIn(UnstableApi::class)
+fun GenericCommandButton.toCommandButton(context: Context): CommandButton =""")
+edit(icons,
+"""                        else -> CommandButton.ICON_REPEAT_OFF
+                    },
+                ).setDisplayName(""",
+"""                        else -> CommandButton.ICON_REPEAT_OFF
+                    },
+                ).setSlots(CommandButton.SLOT_BACK).setDisplayName(""")
+
 edit(icons,
 """                    if (this.isShuffled) {
                         R.drawable.baseline_shuffle_on_24
