@@ -2,6 +2,38 @@ package com.maxrave.simpmusic.viewModel
 
 /** Mix two liked tracks followed by one radio recommendation; never mutate the playlist. */
 internal object EnhancedShufflePlanner {
+    /**
+     * Take one distinct suggestion per radio station per pass.
+     * This avoids long runs of recommendations sourced from a single seed song.
+     */
+    fun <T> roundRobinRecommendations(
+        pools: List<List<T>>,
+        excludedIds: Set<String>,
+        limit: Int,
+        id: (T) -> String,
+    ): List<T> {
+        if (limit <= 0) return emptyList()
+        val iterators = pools.map { it.iterator() }
+        val seen = excludedIds.toMutableSet()
+        val result = ArrayList<T>(limit)
+        var found: Boolean
+        do {
+            found = false
+            for (iterator in iterators) {
+                while (iterator.hasNext()) {
+                    val candidate = iterator.next()
+                    if (seen.add(id(candidate))) {
+                        result.add(candidate)
+                        found = true
+                        break
+                    }
+                }
+                if (result.size == limit) return result
+            }
+        } while (found)
+        return result
+    }
+
     fun <T> mix(
         liked: List<T>,
         recommended: List<T>,
