@@ -23,6 +23,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -649,6 +650,11 @@ fun LibraryDynamicPlaylistScreen(
                                 }
                             } else {
                                 viewModel.playAll(type)
+                            }
+                        }
+                        if (type == LibraryDynamicPlaylistType.Favorite) {
+                            TextButton(onClick = { viewModel.enhancedShuffleFavorites() }) {
+                                Text("Enhance")
                             }
                         }
                         RippleIconButton(

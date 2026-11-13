@@ -1,0 +1,27 @@
+name: Enhanced Shuffle debug APK
+on:
+  push:
+    branches: [feature/enhanced-shuffle]
+  workflow_dispatch:
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Generate library definitions
+        run: ./gradlew exportLibraryDefinitions
+      - name: Build debug APK (separate .dev package)
+        run: ./gradlew :androidApp:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simpmusic-enhanced-debug
+          path: androidApp/build/outputs/apk/debug/*.apk

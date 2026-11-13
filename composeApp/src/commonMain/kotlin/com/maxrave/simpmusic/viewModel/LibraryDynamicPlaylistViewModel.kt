@@ -6,6 +6,7 @@ import com.maxrave.common.Config.REMOVED_SONG_DATE_TIME
 import com.maxrave.domain.data.entities.ArtistEntity
 import com.maxrave.domain.data.entities.DownloadState
 import com.maxrave.domain.data.entities.SongEntity
+import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.extension.now
 import com.maxrave.domain.mediaservice.handler.DownloadHandler
 import com.maxrave.domain.mediaservice.handler.PlaylistType
@@ -336,6 +337,33 @@ class LibraryDynamicPlaylistViewModel(
             Config.PLAYLIST_CLICK,
             0,
         )
+    }
+
+    /** Enhanced Shuffle for local favorites: never modifies liked songs. */
+    private var enhancedShuffleJob: Job? = null
+
+    fun enhancedShuffleFavorites() {
+        val liked = getSongList(LibraryDynamicPlaylistType.Favorite).map { it.toTrack() }
+        if (liked.isEmpty()) return
+        enhancedShuffleJob?.cancel()
+        enhancedShuffleJob = viewModelScope.launch {
+            val mix = buildEnhancedQueue(liked, songRepository)
+            val first = mix.firstOrNull() ?: return@launch
+            if (mix.size == liked.distinctBy { it.videoId }.size) {
+                makeToast("No recommendations found; playing your liked songs shuffled")
+            }
+            setQueueData(
+                QueueData.Data(
+                    listTracks = mix.toCollection(arrayListOf<Track>()),
+                    firstPlayedTrack = first,
+                    playlistId = null,
+                    playlistName = playlistName(LibraryDynamicPlaylistType.Favorite) + " · Enhanced 2+1",
+                    playlistType = PlaylistType.RADIO,
+                    continuation = null,
+                ),
+            )
+            loadMediaItem(first, Config.PLAYLIST_CLICK, 0)
+        }
     }
 
     fun shuffle(type: LibraryDynamicPlaylistType) {

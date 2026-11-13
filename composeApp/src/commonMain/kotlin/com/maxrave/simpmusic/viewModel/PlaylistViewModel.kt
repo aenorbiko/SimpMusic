@@ -431,6 +431,34 @@ class PlaylistViewModel(
         }
     }
 
+    /** Enhanced Shuffle for YouTube Music LM: a temporary queue, never a playlist edit. */
+    private var enhancedShuffleJob: Job? = null
+
+    fun enhancedShuffle() {
+        val data = uiState.value.data ?: return
+        val liked = tracks.value
+        if (liked.isEmpty()) return
+        enhancedShuffleJob?.cancel()
+        enhancedShuffleJob = viewModelScope.launch {
+            val mix = buildEnhancedQueue(liked, songRepository)
+            val first = mix.firstOrNull() ?: return@launch
+            if (mix.size == liked.distinctBy { it.videoId }.size) {
+                makeToast("No recommendations found; playing your liked songs shuffled")
+            }
+            setQueueData(
+                QueueData.Data(
+                    listTracks = mix.toCollection(arrayListOf<Track>()),
+                    firstPlayedTrack = first,
+                    playlistId = null,
+                    playlistName = "${data.title} · Enhanced 2+1",
+                    playlistType = PlaylistType.RADIO,
+                    continuation = null,
+                ),
+            )
+            loadMediaItem(first, Config.PLAYLIST_CLICK, 0)
+        }
+    }
+
     fun onUIEvent(event: PlaylistUIEvent) {
         val data = uiState.value.data ?: return
         when (event) {

@@ -656,6 +656,11 @@ fun PlaylistScreen(
                                                                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.Start),
                                                                 verticalAlignment = Alignment.CenterVertically,
                                                             ) {
+                                                                if (data.id == "LM") {
+                                                                    TextButton(onClick = { viewModel.enhancedShuffle() }) {
+                                                                        Text("Enhance")
+                                                                    }
+                                                                }
                                                                 if (!data.isRadio) {
                                                                     Box(
                                                                         modifier =
@@ -871,6 +876,11 @@ fun PlaylistScreen(
                                                         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                     ) {
+                                                        if (data.id == "LM") {
+                                                            TextButton(onClick = { viewModel.enhancedShuffle() }) {
+                                                                Text("Enhance")
+                                                            }
+                                                        }
                                                         if (!data.isRadio) {
                                                             Box(
                                                                 modifier =
