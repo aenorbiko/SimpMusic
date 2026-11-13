@@ -36,6 +36,11 @@ jobs:
           fi
       - name: Build debug APK (separate .dev package)
         run: ./gradlew :androidApp:assembleDebug
+      - name: Verify shuffle ordering and current-track preservation
+        run: |
+          ./gradlew :composeApp:jvmTest \
+            --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest"
       - uses: actions/upload-artifact@v4
         with:
           name: simpmusic-enhanced-debug
