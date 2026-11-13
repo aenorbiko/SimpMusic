@@ -218,6 +218,125 @@ class SharedViewModel(
     private var _nowPlayingState = MutableStateFlow<NowPlayingTrackState?>(null)
     val nowPlayingState: StateFlow<NowPlayingTrackState?> = _nowPlayingState
 
+
+    // One source of truth for the playlist button and every Now Playing style.
+    private val _smartShuffleMode = MutableStateFlow(SmartShuffleMode.OFF)
+    val smartShuffleMode: StateFlow<SmartShuffleMode> = _smartShuffleMode.asStateFlow()
+    private val _smartShuffleSource = MutableStateFlow<String?>(null)
+    val smartShuffleSource: StateFlow<String?> = _smartShuffleSource.asStateFlow()
+    private val _recommendedTrackIds = MutableStateFlow<Set<String>>(emptySet())
+    val recommendedTrackIds: StateFlow<Set<String>> = _recommendedTrackIds.asStateFlow()
+
+    private var likedSourceTracks: List<Track> = emptyList()
+    private var likedSourceName: String? = null
+    private var playingSmartQueueName: String? = null
+    private var smartShuffleJob: Job? = null
+    private var switchingSmartQueue = false
+
+    private fun forgetSmartShuffle() {
+        _smartShuffleMode.value = SmartShuffleMode.OFF
+        _recommendedTrackIds.value = emptySet()
+        _smartShuffleSource.value = null
+        likedSourceTracks = emptyList()
+        likedSourceName = null
+        playingSmartQueueName = null
+        smartShuffleJob?.cancel()
+    }
+
+    /**
+     * One button cycles Off -> Shuffle -> Enhanced (two liked, one recommendation) -> Off.
+     * Preordering the temporary queue prevents the native shuffle toggle from breaking 2+1.
+     */
+    fun cycleLikedShuffle(
+        liked: List<Track>,
+        name: String,
+        sourceId: String,
+    ) {
+        if (liked.isEmpty()) return
+        val oldQueue = mediaPlayerHandler.queueData.value?.data
+        val sameActiveSource =
+            _smartShuffleSource.value == sourceId && oldQueue?.playlistName == playingSmartQueueName
+        val modeBefore =
+            if (sameActiveSource) _smartShuffleMode.value
+            else if (sourceId == "LM" && oldQueue?.playlistId == "LM" &&
+                mediaPlayerHandler.controlState.value.isShuffle) SmartShuffleMode.SHUFFLE
+            else SmartShuffleMode.OFF
+        val requestedMode = modeBefore.next()
+        likedSourceTracks = liked.distinctBy { it.videoId }
+        likedSourceName = name
+        _smartShuffleSource.value = sourceId
+        _recommendedTrackIds.value = emptySet()
+        _smartShuffleMode.value = requestedMode
+
+        smartShuffleJob?.cancel()
+        smartShuffleJob = viewModelScope.launch {
+            switchingSmartQueue = true
+            try {
+                // Native shuffle and a preinterleaved 2+1 queue must never run simultaneously.
+                if (mediaPlayerHandler.controlState.value.isShuffle) {
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle)
+                }
+                val ordered = when (requestedMode) {
+                    SmartShuffleMode.OFF -> likedSourceTracks
+                    SmartShuffleMode.SHUFFLE -> likedSourceTracks.shuffled()
+                    SmartShuffleMode.ENHANCED -> buildEnhancedQueue(likedSourceTracks, songRepository)
+                }
+                if (ordered.isEmpty()) return@launch
+                val ownedIds = likedSourceTracks.mapTo(hashSetOf()) { it.videoId }
+                val extraIds =
+                    if (requestedMode == SmartShuffleMode.ENHANCED) {
+                        ordered.map { it.videoId }.filterNot { it in ownedIds }.toSet()
+                    } else emptySet()
+                val effectiveMode =
+                    if (requestedMode == SmartShuffleMode.ENHANCED && extraIds.isEmpty()) {
+                        makeToast("No recommendations found. Playing shuffled liked songs.")
+                        SmartShuffleMode.SHUFFLE
+                    } else requestedMode
+                val queue =
+                    if (requestedMode == SmartShuffleMode.ENHANCED && extraIds.isEmpty())
+                        likedSourceTracks.shuffled()
+                    else ordered
+                _smartShuffleMode.value = effectiveMode
+                _recommendedTrackIds.value = extraIds
+                val label = when (effectiveMode) {
+                    SmartShuffleMode.OFF -> name
+                    SmartShuffleMode.SHUFFLE -> "$name · Shuffle"
+                    SmartShuffleMode.ENHANCED -> "$name · Enhanced 2+1"
+                }
+                playingSmartQueueName = label
+                // Never modify the Liked Music playlist itself.
+                mediaPlayerHandler.reset()
+                mediaPlayerHandler.setQueueData(
+                    QueueData.Data(
+                        listTracks = queue,
+                        firstPlayedTrack = queue.first(),
+                        playlistId = null,
+                        playlistName = label,
+                        playlistType = PlaylistType.RADIO,
+                        continuation = null,
+                    ),
+                )
+                mediaPlayerHandler.loadMediaItem(queue.first(), Config.PLAYLIST_CLICK, 0)
+            } finally {
+                switchingSmartQueue = false
+            }
+        }
+    }
+
+    private fun cycleShuffleFromPlayer() {
+        val queue = mediaPlayerHandler.queueData.value?.data
+        if (playingSmartQueueName != null && queue?.playlistName == playingSmartQueueName &&
+            likedSourceTracks.isNotEmpty() && likedSourceName != null && _smartShuffleSource.value != null
+        ) {
+            cycleLikedShuffle(likedSourceTracks, likedSourceName!!, _smartShuffleSource.value!!)
+        } else if (queue?.playlistId == "LM" && queue.listTracks.size >= 2) {
+            cycleLikedShuffle(queue.listTracks, "Liked Music", "LM")
+        } else {
+            forgetSmartShuffle()
+            viewModelScope.launch { mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle) }
+        }
+    }
+
     fun getQueueDataState() = mediaPlayerHandler.queueData
 
     val castState: StateFlow<GenericCastState> get() = mediaPlayerHandler.castState
@@ -576,6 +695,12 @@ class SharedViewModel(
             val playlistNameJob =
                 launch {
                     mediaPlayerHandler.queueData.collectLatest { queue ->
+                        if (!switchingSmartQueue && playingSmartQueueName != null &&
+                            queue != null && queue.data.listTracks.isNotEmpty() &&
+                            queue.data.playlistName != playingSmartQueueName
+                        ) {
+                            forgetSmartShuffle()
+                        }
                         _nowPlayingScreenData.update {
                             it.copy(
                                 playlistName = queue?.data?.playlistName ?: "",
@@ -1094,7 +1219,7 @@ class SharedViewModel(
                 }
 
                 UIEvent.Shuffle -> {
-                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle)
+                    cycleShuffleFromPlayer()
                 }
 
                 UIEvent.ToggleLike -> {
