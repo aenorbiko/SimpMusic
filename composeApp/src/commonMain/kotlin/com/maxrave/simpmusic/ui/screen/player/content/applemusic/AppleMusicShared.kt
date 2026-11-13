@@ -365,109 +365,12 @@ internal fun AppleMusicHeaderActions(
             ) {
                 Crossfade(targetState = state.likeStatus, label = "appleMusicYtLiked") { liked ->
                     Icon(
-                        imageVector = if (liked) SimpIcons.CheckCircle else SimpIcons.AddCircleOutline,
+                        imageVector = if (liked) SimpIcons.Favorite else SimpIcons.FavoriteBorder,
                         contentDescription = "",
                         tint = Color.White,
                     )
                 }
             }
-        }
-        val likeBurst = rememberHeartBurstState()
-        Box(
-            modifier =
-                Modifier
-                    .appleMusicPressInflate()
-                    .size(32.dp)
-                    .heartBurst(likeBurst)
-                    .clip(CircleShape)
-                    .clickable {
-                        if (!state.controllerState.isLiked) likeBurst.fire()
-                        actions.onUIEvent(UIEvent.ToggleLike)
-                    },
-            contentAlignment = Alignment.Center,
-        ) {
-            Crossfade(targetState = state.controllerState.isLiked, label = "appleMusicFavorite") { liked ->
-                // 24dp like ⊕ and ⋮ beside it; the 32dp box stays, since the burst's reach scales with it.
-                Icon(
-                    imageVector = if (liked) SimpIcons.Star else SimpIcons.StarBorder,
-                    contentDescription = "",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
-        AppleMusicGlyphButton(icon = SimpIcons.MoreVert, onClick = { actions.onShowMoreSheet() })
-    }
-}
-
-/**
- * 56dp rounded thumbnail + title/artist column + [AppleMusicHeaderActions], used where the
- * artwork isn't on screen (LYRICS and QUEUE bodies).
- */
-@Composable
-internal fun AppleMusicCompactHeader(
-    state: NowPlayingContentState,
-    actions: NowPlayingContentActions,
-    typography: AppleMusicTypography,
-    modifier: Modifier = Modifier,
-    // A back button ahead of the artwork; only the SoundCloud style passes one, to leave its
-    // borrowed Lyrics page for its card.
-    onBack: (() -> Unit)? = null,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (onBack != null) {
-            // On the circle the page's floating buttons sit on.
-            AppleMusicFloatingCircleButton(icon = SimpIcons.ArrowBackIosNew, onClick = onBack)
-            Spacer(modifier = Modifier.width(12.dp))
-        }
-        AsyncImage(
-            model =
-                ImageRequest
-                    .Builder(LocalPlatformContext.current)
-                    .data(state.screenData.thumbnailURL)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .diskCacheKey(state.screenData.thumbnailURL)
-                    .crossfade(300)
-                    .build(),
-            placeholder = rememberHolderPainter(),
-            error = rememberHolderPainter(),
-            contentDescription = null,
-            modifier = Modifier.size(55.dp).clip(ArtworkShape),
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            // Ellipsis, not marquee: a marquee in this narrow header scrolls constantly and
-            // snapshots as garbage ("Vill Be Okay … Eve" in the first device screenshots).
-            Text(
-                text = state.screenData.nowPlayingTitle,
-                style = typography.compactTitle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.screenData.isExplicit) {
-                    ExplicitBadge(modifier = Modifier.size(20.dp).padding(end = 4.dp))
-                }
-                Text(
-                    text = state.screenData.artistName,
-                    style = typography.compactArtist,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable { actions.onNavigateToArtist() },
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        if (onBack != null) {
-            // The SoundCloud style keeps like and add-to-liked on its card, so only more stays here.
-            AppleMusicGlyphButton(icon = SimpIcons.MoreVert, onClick = { actions.onShowMoreSheet() })
-        } else {
-            AppleMusicHeaderActions(state = state, actions = actions)
         }
     }
 }

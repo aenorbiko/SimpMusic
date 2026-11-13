@@ -526,14 +526,6 @@ private fun NowPlayingSoundCloudLayout(
                     )
                     // The other styles' add-to-YouTube-Liked (signed in only, a tick once liked) and
                     // add-to-playlist, with the same actions.
-                    if (state.isUserLoggedIn) {
-                        CornerIconButton(
-                            backdrop = backdrop,
-                            icon = if (state.likeStatus) SimpIcons.CheckCircle else SimpIcons.AddCircleOutline,
-                            tint = colors.onSurface,
-                            onClick = actions.onAddToYouTubeLiked,
-                        )
-                    }
                     CornerIconButton(
                         backdrop = backdrop,
                         icon = SimpIcons.PlaylistAdd,
@@ -705,11 +697,13 @@ private fun NowPlayingSoundCloudLayout(
             ) {
                 // Like and comments, shuffle and repeat (how it plays), the queue, then more. No counts
                 // (owner's call): the like is the app's own, which has none.
-                RippleIconButton(
-                    imageVector = if (state.controllerState.isLiked) SimpIcons.Favorite else SimpIcons.FavoriteBorder,
-                    tint = if (state.controllerState.isLiked) colors.primary else colors.onSurface,
-                    onClick = { actions.onUIEvent(UIEvent.ToggleLike) },
-                )
+                if (state.isUserLoggedIn) {
+                    RippleIconButton(
+                        imageVector = if (state.likeStatus) SimpIcons.Favorite else SimpIcons.FavoriteBorder,
+                        tint = if (state.likeStatus) colors.primary else colors.onSurface,
+                        onClick = actions.onAddToYouTubeLiked,
+                    )
+                }
                 RippleIconButton(imageVector = SimpIcons.CommentOutline, tint = colors.onSurface, onClick = actions.onShowComments)
                 RippleIconButton(
                     imageVector = if (state.smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.Star else SimpIcons.Shuffle,

@@ -103,6 +103,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.navigation.NavController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.maxrave.domain.utils.YouTubeLikeStatus
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -170,6 +171,7 @@ fun MiniPlayer(
 ) {
     val isLiquidGlassEnabled by sharedViewModel.getEnableLiquidGlass().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
+    val youtubeLikeStatus by sharedViewModel.likeStatus.collectAsStateWithLifecycle()
     val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
     // The Desktop capsule's quality line between its timestamps — see toAudioQualityLabel.
     val formatState by sharedViewModel.format.collectAsStateWithLifecycle(initialValue = null)
@@ -244,7 +246,6 @@ fun MiniPlayer(
         val job2 =
             launch {
                 sharedViewModel.controllerState.collectLatest { state ->
-                    setLiked(state.isLiked)
                     setIsPlaying(state.isPlaying)
                     setIsCrossfading(state.isCrossfading)
                 }
@@ -265,6 +266,10 @@ fun MiniPlayer(
         job1.join()
         job2.join()
         job4.join()
+    }
+
+    androidx.compose.runtime.LaunchedEffect(youtubeLikeStatus) {
+        setLiked(youtubeLikeStatus == YouTubeLikeStatus.LIKE)
     }
 
     if (getPlatform() == Platform.Android) {
@@ -529,7 +534,7 @@ fun MiniPlayer(
                         contentAlignment = Alignment.Center,
                     ) {
                         HeartCheckBox(checked = liked, size = 30, tint = textColor) {
-                            sharedViewModel.onUIEvent(UIEvent.ToggleLike)
+                            sharedViewModel.addToYouTubeLiked()
                         }
                     }
                     Spacer(modifier = Modifier.width(if (isFlat) 8.dp else 15.dp))
@@ -974,7 +979,7 @@ fun MiniPlayer(
                     // glyph the neighbouring icons draw at — 26 left an 18dp heart that read
                     // as extra padding around a smaller icon.
                     Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                        HeartCheckBox(checked = controllerState.isLiked, size = 32) {
+                        HeartCheckBox(checked = youtubeLikeStatus == YouTubeLikeStatus.LIKE, size = 32) {
                             sharedViewModel.onUIEvent(UIEvent.ToggleLike)
                         }
                     }

@@ -1746,8 +1746,10 @@ fun NowPlayingContentSpotify(
                             }
                         }
                         Spacer(modifier = Modifier.width(15.dp))
-                        HeartCheckBox(checked = state.controllerState.isLiked, size = 30) {
-                            actions.onUIEvent(UIEvent.ToggleLike)
+                        if (state.isUserLoggedIn) {
+                            HeartCheckBox(checked = state.likeStatus, size = 30) {
+                                actions.onAddToYouTubeLiked()
+                            }
                         }
                         Spacer(modifier = Modifier.width(15.dp))
                         Crossfade(targetState = state.timelineState.loading, label = "") {
@@ -1917,50 +1919,10 @@ internal fun NowPlayingTrackInfoRow(
             }
         }
         if (state.isUserLoggedIn) {
-            Spacer(modifier = Modifier.size(16.dp))
-            Crossfade(
-                targetState = state.likeStatus,
-            ) {
-                if (it) {
-                    IconButton(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .aspectRatio(1f)
-                                .clip(
-                                    CircleShape,
-                                ),
-                        onClick = {
-                            actions.onAddToYouTubeLiked()
-                        },
-                    ) {
-                        Icon(imageVector = SimpIcons.CheckCircle, tint = Color.White, contentDescription = "")
-                    }
-                } else {
-                    IconButton(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .aspectRatio(1f)
-                                .clip(
-                                    CircleShape,
-                                ),
-                        onClick = {
-                            actions.onAddToYouTubeLiked()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = SimpIcons.AddCircleOutline,
-                            tint = Color.White,
-                            contentDescription = "",
-                        )
-                    }
-                }
+            Spacer(modifier = Modifier.size(12.dp))
+            HeartCheckBox(checked = state.likeStatus, size = 32) {
+                actions.onAddToYouTubeLiked()
             }
-        }
-        Spacer(modifier = Modifier.size(12.dp))
-        HeartCheckBox(checked = state.controllerState.isLiked, size = 32) {
-            actions.onUIEvent(UIEvent.ToggleLike)
         }
     }
 }

@@ -781,50 +781,28 @@ internal fun ExpressiveTrackInfoRow(
         }
         if (state.isUserLoggedIn) {
             Spacer(modifier = Modifier.size(12.dp))
-            IconButton(
-                onClick = { actions.onAddToYouTubeLiked() },
+            val likeBurst = rememberHeartBurstState()
+            FilledIconToggleButton(
+                checked = state.likeStatus,
+                onCheckedChange = {
+                    if (!state.likeStatus) likeBurst.fire()
+                    actions.onAddToYouTubeLiked()
+                },
                 shape = CircleShape,
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = colorScheme.surfaceContainerHigh,
-                        contentColor = colorScheme.onSurface,
-                    ),
-                modifier = Modifier.size(48.dp),
-            ) {
-                Crossfade(targetState = state.likeStatus) { liked ->
-                    Icon(
-                        imageVector = if (liked) SimpIcons.CheckCircle else SimpIcons.AddCircleOutline,
-                        contentDescription = "",
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.size(8.dp))
-        val likeBurst = rememberHeartBurstState()
-        FilledIconToggleButton(
-            checked = state.controllerState.isLiked,
-            onCheckedChange = {
-                // Fire on the TAP that likes, never on the state — see HeartBurstState's doc.
-                if (!state.controllerState.isLiked) likeBurst.fire()
-                actions.onUIEvent(UIEvent.ToggleLike)
-            },
-            shape = CircleShape,
-            colors =
-                IconButtonDefaults.filledIconToggleButtonColors(
+                colors = IconButtonDefaults.filledIconToggleButtonColors(
                     containerColor = colorScheme.surfaceContainerHigh,
                     contentColor = colorScheme.onSurfaceVariant,
                     checkedContainerColor = colorScheme.primaryContainer,
                     checkedContentColor = colorScheme.onPrimaryContainer,
                 ),
-            // The burst draws outside the 48dp bounds; the button's own shape clip is internal
-            // (on its Surface), so sparks fired from this outer modifier are not trimmed.
-            modifier = Modifier.size(48.dp).heartBurst(likeBurst),
-        ) {
-            Crossfade(targetState = state.controllerState.isLiked) { liked ->
-                Icon(
-                    imageVector = if (liked) SimpIcons.Favorite else SimpIcons.FavoriteBorder,
-                    contentDescription = "",
-                )
+                modifier = Modifier.size(48.dp).heartBurst(likeBurst),
+            ) {
+                Crossfade(targetState = state.likeStatus) { liked ->
+                    Icon(
+                        imageVector = if (liked) SimpIcons.Favorite else SimpIcons.FavoriteBorder,
+                        contentDescription = if (liked) "Unlike on YouTube Music" else "Like on YouTube Music",
+                    )
+                }
             }
         }
     }
