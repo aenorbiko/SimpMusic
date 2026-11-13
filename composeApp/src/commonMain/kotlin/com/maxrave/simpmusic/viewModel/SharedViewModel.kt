@@ -33,6 +33,7 @@ import com.maxrave.domain.data.model.streams.TimeLine
 import com.maxrave.domain.data.model.update.UpdateData
 import com.maxrave.domain.data.player.GenericCastState
 import com.maxrave.domain.data.player.LiveStreamRegistry
+import com.maxrave.domain.data.player.EnhancedMediaBridge
 import com.maxrave.domain.extension.decodeHtmlEntities
 import com.maxrave.domain.extension.isSong
 import com.maxrave.domain.extension.isVideo
@@ -599,6 +600,24 @@ class SharedViewModel(
     val shareSavedLyrics: StateFlow<Boolean> get() = _shareSavedLyrics
 
     init {
+        // Same shuffle action for media notification and all in-app controls.
+        EnhancedMediaBridge.onShuffleClick = { cycleShuffleFromPlayer() }
+        viewModelScope.launch {
+            _smartShuffleMode.collectLatest { state ->
+                EnhancedMediaBridge.shuffleMode.value = when (state) {
+                    SmartShuffleMode.OFF -> 0
+                    SmartShuffleMode.SHUFFLE -> 1
+                    SmartShuffleMode.ENHANCED -> 2
+                }
+            }
+        }
+        viewModelScope.launch {
+            EnhancedMediaBridge.youtubeLiked.collectLatest { liked ->
+                if (liked != null) {
+                    _likeStatus.value = if (liked) YouTubeLikeStatus.LIKE else YouTubeLikeStatus.INDIFFERENT
+                }
+            }
+        }
         viewModelScope.launch {
             log("SharedViewModel init")
             if (dataStoreManager.appVersion.first() != VersionManager.getVersionName()) {
@@ -993,11 +1012,17 @@ class SharedViewModel(
         likeStatusJob?.cancel()
         likeStatusJob =
             viewModelScope.launch {
-                if (videoId != null) {
+                val id = videoId?.removePrefix("Video")
+                if (!id.isNullOrBlank()) {
                     _likeStatus.value = YouTubeLikeStatus.INDIFFERENT
-                    songRepository.getLikeStatus(videoId).collectLatest { status ->
+                    EnhancedMediaBridge.youtubeLiked.value = null
+                    songRepository.getLikeStatus(id).collectLatest { status ->
                         _likeStatus.value = status
+                        EnhancedMediaBridge.youtubeLiked.value = status == YouTubeLikeStatus.LIKE
                     }
+                } else {
+                    _likeStatus.value = YouTubeLikeStatus.INDIFFERENT
+                    EnhancedMediaBridge.youtubeLiked.value = null
                 }
             }
     }
@@ -1440,7 +1465,9 @@ class SharedViewModel(
         }
 
     override fun onCleared() {
+        EnhancedMediaBridge.onShuffleClick = null
         Logger.w("Check onCleared", "onCleared")
+        super.onCleared()
     }
 
     fun getLocation() {
@@ -2353,37 +2380,9 @@ class SharedViewModel(
     }
 
     fun addToYouTubeLiked() {
-        viewModelScope.launch {
-            val videoId = mediaPlayerHandler.nowPlaying.first()?.mediaId
-            if (videoId != null) {
-                val like = likeStatus.value == YouTubeLikeStatus.LIKE
-                if (!like) {
-                    songRepository
-                        .addToYouTubeLiked(
-                            mediaPlayerHandler.nowPlaying.first()?.mediaId,
-                        ).collect { response ->
-                            if (response == 200) {
-                                makeToast(getString(Res.string.added_to_youtube_liked))
-                                getLikeStatus(videoId)
-                            } else {
-                                makeToast(getString(Res.string.error))
-                            }
-                        }
-                } else {
-                    songRepository
-                        .removeFromYouTubeLiked(
-                            mediaPlayerHandler.nowPlaying.first()?.mediaId,
-                        ).collect {
-                            if (it == 200) {
-                                makeToast(getString(Res.string.removed_from_youtube_liked))
-                                getLikeStatus(videoId)
-                            } else {
-                                makeToast(getString(Res.string.error))
-                            }
-                        }
-                }
-            }
-        }
+        // The notification heart, mini-player and full player all call the same
+        // server-verified YouTube like action. No local favourite is modified.
+        mediaPlayerHandler.toggleLike()
     }
 
     /**
