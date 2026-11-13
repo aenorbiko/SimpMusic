@@ -129,6 +129,7 @@ import com.maxrave.simpmusic.ui.icon.Repeat
 import com.maxrave.simpmusic.ui.icon.RepeatOne
 import com.maxrave.simpmusic.ui.icon.Replay5
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.Star
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.SkipNext
 import com.maxrave.simpmusic.ui.icon.SkipPrevious
@@ -707,7 +708,7 @@ private fun NowPlayingSoundCloudLayout(
                 )
                 RippleIconButton(imageVector = SimpIcons.CommentOutline, tint = colors.onSurface, onClick = actions.onShowComments)
                 RippleIconButton(
-                    imageVector = SimpIcons.Shuffle,
+                    imageVector = if (state.smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.Star else SimpIcons.Shuffle,
                     tint = if (state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF) colors.primary else colors.onSurface,
                     onClick = { actions.onUIEvent(UIEvent.Shuffle) },
                 )
