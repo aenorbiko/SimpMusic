@@ -668,7 +668,9 @@ fun PlaylistScreen(
                                                                                 .background(Color.White.copy(alpha = 0.12f))
                                                                                 .clickable {
                                                                                     if (data.id == "LM") {
-                                                                                        sharedViewModel.cycleLikedShuffle(tracks, data.title, "LM")
+                                                                                        viewModel.getFullTracks { allLiked ->
+                                                                                            sharedViewModel.cycleLikedShuffle(allLiked, data.title, "LM")
+                                                                                        }
                                                                                     } else {
                                                                                         viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
                                                                                     }
@@ -890,7 +892,9 @@ fun PlaylistScreen(
                                                                         .background(Color.White.copy(alpha = 0.12f))
                                                                         .clickable {
                                                                             if (data.id == "LM") {
-                                                                                        sharedViewModel.cycleLikedShuffle(tracks, data.title, "LM")
+                                                                                        viewModel.getFullTracks { allLiked ->
+                                                                                            sharedViewModel.cycleLikedShuffle(allLiked, data.title, "LM")
+                                                                                        }
                                                                                     } else {
                                                                                         viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
                                                                                     }
