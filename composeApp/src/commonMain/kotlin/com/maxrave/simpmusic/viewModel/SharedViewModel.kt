@@ -231,21 +231,39 @@ class SharedViewModel(
     private var likedSourceName: String? = null
     private var playingSmartQueueName: String? = null
     private var smartShuffleJob: Job? = null
+    private var enhancedPrefetchJob: Job? = null
     private var switchingSmartQueue = false
 
+    // Enhanced uses the entire shuffled liked list as its source, but only adds
+    // 14 liked tracks plus their pair-specific recommendations to the player at a time.
+    private var enhancedLikedOrder: List<Track> = emptyList()
+    private var nextEnhancedLikedIndex = 0
+    private var enhancedSession = 0L
+    private var enhancedOwnedIds: Set<String> = emptySet()
+    private val enhancedUsedRecommendations = mutableSetOf<String>()
+
     private fun forgetSmartShuffle() {
+        enhancedSession++
+        smartShuffleJob?.cancel()
+        enhancedPrefetchJob?.cancel()
         _smartShuffleMode.value = SmartShuffleMode.OFF
         _recommendedTrackIds.value = emptySet()
         _smartShuffleSource.value = null
         likedSourceTracks = emptyList()
         likedSourceName = null
         playingSmartQueueName = null
-        smartShuffleJob?.cancel()
+        enhancedLikedOrder = emptyList()
+        nextEnhancedLikedIndex = 0
+        enhancedOwnedIds = emptySet()
+        enhancedUsedRecommendations.clear()
     }
 
     /**
-     * One button cycles Off -> Shuffle -> Enhanced (two liked, one recommendation) -> Off.
-     * Preordering the temporary queue prevents the native shuffle toggle from breaking 2+1.
+     * A single button cycles Off -> Shuffle -> Enhanced (2 liked + 1 suggestion).
+     *
+     * Enhanced only builds the first block of 14 liked songs before playback.
+     * Further blocks are appended to the existing player without replacing the
+     * current track, when eight or fewer tracks remain in the queue.
      */
     fun cycleLikedShuffle(
         liked: List<Track>,
@@ -262,63 +280,133 @@ class SharedViewModel(
                 mediaPlayerHandler.controlState.value.isShuffle) SmartShuffleMode.SHUFFLE
             else SmartShuffleMode.OFF
         val requestedMode = modeBefore.next()
-        likedSourceTracks = liked.distinctBy { it.videoId }
+        val sourceTracks = liked.distinctBy { it.videoId }
+
+        // Invalidate earlier network requests and prefetches before changing modes.
+        enhancedSession++
+        val thisSession = enhancedSession
+        smartShuffleJob?.cancel()
+        enhancedPrefetchJob?.cancel()
+        enhancedLikedOrder = emptyList()
+        nextEnhancedLikedIndex = 0
+        enhancedOwnedIds = sourceTracks.mapTo(hashSetOf()) { it.videoId }
+        enhancedUsedRecommendations.clear()
+        likedSourceTracks = sourceTracks
         likedSourceName = name
         _smartShuffleSource.value = sourceId
         _recommendedTrackIds.value = emptySet()
         _smartShuffleMode.value = requestedMode
 
-        smartShuffleJob?.cancel()
         smartShuffleJob = viewModelScope.launch {
             switchingSmartQueue = true
             try {
-                // Native shuffle and a preinterleaved 2+1 queue must never run simultaneously.
+                // We manage the ordering ourselves. Native shuffle would scramble 2+1.
                 if (mediaPlayerHandler.controlState.value.isShuffle) {
                     mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle)
                 }
-                val ordered = when (requestedMode) {
-                    SmartShuffleMode.OFF -> likedSourceTracks
-                    SmartShuffleMode.SHUFFLE -> likedSourceTracks.shuffled()
-                    SmartShuffleMode.ENHANCED -> buildEnhancedQueue(likedSourceTracks, songRepository)
+
+                val ordered: List<Track>
+                val initialRecommendations: Set<String>
+                when (requestedMode) {
+                    SmartShuffleMode.OFF -> {
+                        ordered = sourceTracks
+                        initialRecommendations = emptySet()
+                    }
+                    SmartShuffleMode.SHUFFLE -> {
+                        ordered = sourceTracks.shuffled()
+                        initialRecommendations = emptySet()
+                    }
+                    SmartShuffleMode.ENHANCED -> {
+                        val shuffled = sourceTracks.shuffled()
+                        val firstLiked = shuffled.take(ENHANCED_LIKED_BATCH_SIZE)
+                        val firstBatch = buildEnhancedBatch(
+                            likedBatch = firstLiked,
+                            songRepository = songRepository,
+                            excludedIds = enhancedOwnedIds,
+                        )
+                        ordered = firstBatch.tracks
+                        initialRecommendations = firstBatch.recommendedIds
+                        if (thisSession != enhancedSession) return@launch
+                        enhancedLikedOrder = shuffled
+                        nextEnhancedLikedIndex = firstLiked.size
+                        enhancedUsedRecommendations.addAll(initialRecommendations)
+                        if (initialRecommendations.isEmpty()) {
+                            makeToast("No radio suggestions in this block; continuing with liked songs")
+                        }
+                    }
                 }
-                if (ordered.isEmpty()) return@launch
-                val ownedIds = likedSourceTracks.mapTo(hashSetOf()) { it.videoId }
-                val extraIds =
-                    if (requestedMode == SmartShuffleMode.ENHANCED) {
-                        ordered.map { it.videoId }.filterNot { it in ownedIds }.toSet()
-                    } else emptySet()
-                val effectiveMode =
-                    if (requestedMode == SmartShuffleMode.ENHANCED && extraIds.isEmpty()) {
-                        makeToast("No recommendations found. Playing shuffled liked songs.")
-                        SmartShuffleMode.SHUFFLE
-                    } else requestedMode
-                val queue =
-                    if (requestedMode == SmartShuffleMode.ENHANCED && extraIds.isEmpty())
-                        likedSourceTracks.shuffled()
-                    else ordered
-                _smartShuffleMode.value = effectiveMode
-                _recommendedTrackIds.value = extraIds
-                val label = when (effectiveMode) {
+                if (thisSession != enhancedSession || ordered.isEmpty()) return@launch
+
+                _recommendedTrackIds.value = initialRecommendations
+                val label = when (requestedMode) {
                     SmartShuffleMode.OFF -> name
                     SmartShuffleMode.SHUFFLE -> "$name · Shuffle"
                     SmartShuffleMode.ENHANCED -> "$name · Enhanced 2+1"
                 }
                 playingSmartQueueName = label
-                // Never modify the Liked Music playlist itself.
                 mediaPlayerHandler.reset()
                 mediaPlayerHandler.setQueueData(
                     QueueData.Data(
-                        listTracks = queue,
-                        firstPlayedTrack = queue.first(),
+                        listTracks = ordered,
+                        firstPlayedTrack = ordered.first(),
                         playlistId = null,
                         playlistName = label,
                         playlistType = PlaylistType.RADIO,
                         continuation = null,
                     ),
                 )
-                mediaPlayerHandler.loadMediaItem(queue.first(), Config.PLAYLIST_CLICK, 0)
+                mediaPlayerHandler.loadMediaItem(ordered.first(), Config.PLAYLIST_CLICK, 0)
             } finally {
                 switchingSmartQueue = false
+            }
+        }
+    }
+
+    /** Called on track transitions and queue growth; never resets ongoing playback. */
+    private fun maybePrefetchEnhanced() {
+        if (_smartShuffleMode.value != SmartShuffleMode.ENHANCED) return
+        if (enhancedPrefetchJob?.isActive == true || smartShuffleJob?.isActive == true) return
+        if (nextEnhancedLikedIndex >= enhancedLikedOrder.size) return
+        val queue = mediaPlayerHandler.queueData.value ?: return
+        if (queue.data.playlistName != playingSmartQueueName) return
+        if (queue.queueState == QueueData.StateSource.STATE_INITIALIZING) return
+        val position = mediaPlayerHandler.currentOrderIndex()
+        if (position < 0) return
+        val remaining = queue.data.listTracks.size - position - 1
+        if (remaining > ENHANCED_PREFETCH_REMAINING) return
+
+        val start = nextEnhancedLikedIndex
+        val nextLiked = enhancedLikedOrder.drop(start).take(ENHANCED_LIKED_BATCH_SIZE)
+        if (nextLiked.isEmpty()) return
+        val session = enhancedSession
+        val excluded = enhancedOwnedIds + enhancedUsedRecommendations
+        enhancedPrefetchJob = viewModelScope.launch {
+            try {
+                val nextBatch = buildEnhancedBatch(
+                    likedBatch = nextLiked,
+                    songRepository = songRepository,
+                    excludedIds = excluded,
+                )
+                if (session != enhancedSession ||
+                    _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||
+                    mediaPlayerHandler.queueData.value?.data?.playlistName != playingSmartQueueName
+                ) return@launch
+                if (nextBatch.tracks.isEmpty()) return@launch
+
+                // Core MediaPlayerHandler.loadMoreCatalog appends to player and queueData.
+                // No setQueueData, reset, seek or replay is used during prefetch.
+                mediaPlayerHandler.loadMoreCatalog(
+                    nextBatch.tracks.toCollection(arrayListOf<Track>()),
+                    isAddToQueue = false,
+                )
+                if (session != enhancedSession) return@launch
+                nextEnhancedLikedIndex = start + nextLiked.size
+                enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
+                _recommendedTrackIds.value = _recommendedTrackIds.value + nextBatch.recommendedIds
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log("Enhanced prefetch failed: ${e.message}", LogLevel.WARN)
             }
         }
     }
@@ -692,6 +780,12 @@ class SharedViewModel(
                         _sleepTimerState.value = it
                     }
                 }
+            // A fresh liked block is fetched only as the listener nears the current end.
+            launch {
+                mediaPlayerHandler.currentSongIndex.collectLatest {
+                    maybePrefetchEnhanced()
+                }
+            }
             val playlistNameJob =
                 launch {
                     mediaPlayerHandler.queueData.collectLatest { queue ->
@@ -701,6 +795,7 @@ class SharedViewModel(
                         ) {
                             forgetSmartShuffle()
                         }
+                        maybePrefetchEnhanced()
                         _nowPlayingScreenData.update {
                             it.copy(
                                 playlistName = queue?.data?.playlistName ?: "",
