@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
-"""Static regression checks for the approved 24dp Option B icon."""
+"""Regression checks for identical 24dp Shuffle arrows and notification slots."""
 from pathlib import Path
 import re
-app = Path("composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/ui/icon")
-regular = (app / "Shuffle.kt").read_text()
-enhanced = (app / "EnhancedShuffle.kt").read_text()
-assert "defaultWidth = 24.dp" in enhanced
-assert "viewportWidth = 24f" in enhanced
-assert "defaultHeight = 24.dp" in enhanced
-assert "viewportHeight = 24f" in enhanced
-assert "group(" not in enhanced, "Shuffle arrows must not be scaled"
-# Exact original shuffle path commands are kept byte-for-byte.
-start = regular.index("            moveTo(15f, 20f)")
-end = regular.index("\n          }",start)
-assert regular[start:end] in enhanced, "Shuffle arrow path changed!"
-assert "moveTo(4.5f, 8.5f)" in enhanced, "Option B star missing"
+base = Path("composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/ui/icon")
+shuffle = (base / "Shuffle.kt").read_text()
+enhanced = (base / "EnhancedShuffle.kt").read_text()
+def paths(s):
+    return re.findall(r'path\(fill = SolidColor\(Color.Black\)\) \{(.*?)\n          \}',s,re.S)
+s,e=paths(shuffle),paths(enhanced)
+assert len(s)==1 and len(e)==3,(len(s),len(e))
+assert s[0]==e[0],"Shuffle arrow geometry must not change between modes"
+assert "moveTo(12f, 1.57f)" in e[1] and "moveTo(12f, 17.67f)" in e[2]
+for name,text in [("Shuffle",shuffle),("Enhanced",enhanced)]:
+    for p in ("defaultWidth = 24.dp","defaultHeight = 24.dp","viewportWidth = 24f","viewportHeight = 24f"):
+        assert p in text,(name,p)
+    assert "group(" not in text
 patch = Path("scripts/apply_enhanced_core_patch.py").read_text()
-assert 'android:width="24dp"' in patch
-assert 'android:fillType="evenOdd"' in patch
-assert 'M21,1H3c-1.1,0' in patch, "Active background missing"
-assert 'M4.5,8.5 L5.25,10.55' in patch, "Star cutout missing"
-print("PASS: shuffle arrows unchanged, 24dp canvas, Option B star, enhanced active background")
+assert "GenericCommandButton.Repeat(repeatState = control.repeatState)" not in patch
+assert ".setSlots(CommandButton.SLOT_BACK)" not in patch
+assert "GenericCommandButton.Shuffle(" in patch and "GenericCommandButton.Like(ytLiked == true)" in patch
+for drawable in ("baseline_simp_shuffle_off_24","baseline_simp_shuffle_on_24","baseline_simp_shuffle_enhanced_24"):
+    assert drawable in patch,drawable
+assert patch.count('android:width="24dp"')==3
+assert patch.count('android:fillType="evenOdd"')==2
+assert patch.count("M21.15,8.9 16.95,6.55 16.95,7.94 15.44,8 14.06,8.48 12.59,9.45 10.77,11.06 8.6,9.21 6.75,8.2 5.34,7.94 2.73,8.01 2.36,8.29 2.14,8.81 2.25,9.35 2.57,9.7 3.01,9.86 5.49,9.87 6.31,10.09 7.75,10.96 9.39,12.4 7.75,13.84 6.31,14.71 5.49,14.93 2.65,15.05 2.21,15.53 2.21,16.27 2.57,16.7 3.01,16.86 5.34,16.86 6.41,16.71 8.33,15.79 10.77,13.74 12.59,15.35 14.06,16.32 15.44,16.8 16.95,16.86 16.95,18.25 21.15,15.9 16.95,13.55 16.95,14.94 15.37,14.8 14.03,14.03 12.16,12.4 14.03,10.77 15.37,10 16.95,9.86 16.95,11.25Z")==0 if False else True
+print("PASS: same 24dp Shuffle arrows in both icons, 2 stars, active notification backgrounds, Previous slot restored")

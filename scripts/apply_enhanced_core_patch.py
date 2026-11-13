@@ -65,8 +65,6 @@ edit(service,
                         isEnhanced = mode == 2,
                     ),
                     GenericCommandButton.Like(ytLiked == true),
-                    GenericCommandButton.Repeat(repeatState = control.repeatState),
-                    GenericCommandButton.Radio,
                 )
             }.collectLatest { buttons -> onUpdateNotification.invoke(buttons) }
         }
@@ -187,21 +185,9 @@ edit(callback,
             }""")
 
 icons="media/media3/src/main/java/com/maxrave/media3/extension/Media3Ext.kt"
-# On Android 13+, Repeat occupies the BACK slot. Next stays in FORWARD,
-# while Shuffle and Like remain the two overflow actions. Previous remains
-# available in the app, but is replaced by Repeat in the notification.
-edit(icons,
-"""fun GenericCommandButton.toCommandButton(context: Context): CommandButton =""",
-"""@androidx.annotation.OptIn(UnstableApi::class)
-fun GenericCommandButton.toCommandButton(context: Context): CommandButton =""")
-edit(icons,
-"""                        else -> CommandButton.ICON_REPEAT_OFF
-                    },
-                ).setDisplayName(""",
-"""                        else -> CommandButton.ICON_REPEAT_OFF
-                    },
-                ).setSlots(CommandButton.SLOT_BACK).setDisplayName(""")
-
+# Repeat stays available in the full player, but must NOT occupy Android 13
+# SLOT_BACK: it hides the system Previous button. Media notification uses only
+# built-in Previous/Play-Next plus custom Shuffle and YouTube Like.
 edit(icons,
 """                    if (this.isShuffled) {
                         R.drawable.baseline_shuffle_on_24
@@ -209,9 +195,9 @@ edit(icons,
                         R.drawable.baseline_shuffle_24
                     },""",
 """                    when {
-                        this.isEnhanced -> R.drawable.baseline_enhanced_shuffle_24
-                        this.isShuffled -> R.drawable.baseline_shuffle_on_24
-                        else -> R.drawable.baseline_shuffle_24
+                        this.isEnhanced -> R.drawable.baseline_simp_shuffle_enhanced_24
+                        this.isShuffled -> R.drawable.baseline_simp_shuffle_on_24
+                        else -> R.drawable.baseline_simp_shuffle_off_24
                     },""")
 edit(icons,
 """                .setDisplayName(context.getString(R.string.shuffle))
@@ -219,11 +205,22 @@ edit(icons,
 """                .setDisplayName(if (this.isEnhanced) "Enhanced 2+1" else context.getString(R.string.shuffle))
                 .setSessionCommand(""")
 
-icon=ROOT/"media/media3/src/main/res/drawable/baseline_enhanced_shuffle_24.xml"
-# The same 24dp shuffle arrows as the stock active icon. Add a small star as
-# another even-odd cutout in the spare left area, rather than scaling arrows.
-# Active Enhanced has the SAME filled background as active standard Shuffle.
-icon.write_text("""<?xml version="1.0" encoding="utf-8"?>
+# All notification glyphs use the identical new arrow geometry as Compose.
+# Only Enhanced adds two separate sparkle cutouts; regular Shuffle still has
+# ample space above and below. Active icons both use a filled square background.
+drawable_dir = ROOT/"media/media3/src/main/res/drawable"
+drawable_dir.joinpath("baseline_simp_shuffle_off_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M21.15,8.9 16.95,6.55 16.95,7.94 15.44,8 14.06,8.48 12.59,9.45 10.77,11.06 8.6,9.21 6.75,8.2 5.34,7.94 2.73,8.01 2.36,8.29 2.14,8.81 2.25,9.35 2.57,9.7 3.01,9.86 5.49,9.87 6.31,10.09 7.75,10.96 9.39,12.4 7.75,13.84 6.31,14.71 5.49,14.93 2.65,15.05 2.21,15.53 2.21,16.27 2.57,16.7 3.01,16.86 5.34,16.86 6.41,16.71 8.33,15.79 10.77,13.74 12.59,15.35 14.06,16.32 15.44,16.8 16.95,16.86 16.95,18.25 21.15,15.9 16.95,13.55 16.95,14.94 15.37,14.8 14.03,14.03 12.16,12.4 14.03,10.77 15.37,10 16.95,9.86 16.95,11.25Z" />
+</vector>
+""")
+drawable_dir.joinpath("baseline_simp_shuffle_on_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -232,7 +229,19 @@ icon.write_text("""<?xml version="1.0" encoding="utf-8"?>
     <path
         android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M21,1H3c-1.1,0 -2,0.9 -2,2v18c0,1.1 0.9,2 2,2h18c1.1,0 2,-0.9 2,-2V3c0,-1.1 -0.9,-2 -2,-2zM10.59,9.17L5.41,4 4,5.41l5.17,5.17 1.42,-1.41zM14.5,4l2.04,2.04L4,18.59 5.41,20 17.96,7.46 20,9.5L20,4h-5.5zM14.83,13.41l-1.41,1.41 3.13,3.13L14.5,20L20,20v-5.5l-2.04,2.04 -3.13,-3.13zM4.5,8.5 L5.25,10.55 L6.75,11.5 L5.25,12.45 L4.5,14.5 L3.75,12.45 L2.25,11.5 L3.75,10.55 Z" />
+        android:pathData="M1,1 L23,1 L23,23 L1,23 Z M21.15,8.9 16.95,6.55 16.95,7.94 15.44,8 14.06,8.48 12.59,9.45 10.77,11.06 8.6,9.21 6.75,8.2 5.34,7.94 2.73,8.01 2.36,8.29 2.14,8.81 2.25,9.35 2.57,9.7 3.01,9.86 5.49,9.87 6.31,10.09 7.75,10.96 9.39,12.4 7.75,13.84 6.31,14.71 5.49,14.93 2.65,15.05 2.21,15.53 2.21,16.27 2.57,16.7 3.01,16.86 5.34,16.86 6.41,16.71 8.33,15.79 10.77,13.74 12.59,15.35 14.06,16.32 15.44,16.8 16.95,16.86 16.95,18.25 21.15,15.9 16.95,13.55 16.95,14.94 15.37,14.8 14.03,14.03 12.16,12.4 14.03,10.77 15.37,10 16.95,9.86 16.95,11.25Z" />
+</vector>
+""")
+drawable_dir.joinpath("baseline_simp_shuffle_enhanced_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M1,1 L23,1 L23,23 L1,23 Z M21.15,8.9 16.95,6.55 16.95,7.94 15.44,8 14.06,8.48 12.59,9.45 10.77,11.06 8.6,9.21 6.75,8.2 5.34,7.94 2.73,8.01 2.36,8.29 2.14,8.81 2.25,9.35 2.57,9.7 3.01,9.86 5.49,9.87 6.31,10.09 7.75,10.96 9.39,12.4 7.75,13.84 6.31,14.71 5.49,14.93 2.65,15.05 2.21,15.53 2.21,16.27 2.57,16.7 3.01,16.86 5.34,16.86 6.41,16.71 8.33,15.79 10.77,13.74 12.59,15.35 14.06,16.32 15.44,16.8 16.95,16.86 16.95,18.25 21.15,15.9 16.95,13.55 16.95,14.94 15.37,14.8 14.03,14.03 12.16,12.4 14.03,10.77 15.37,10 16.95,9.86 16.95,11.25Z M12,1.57 12.8,3.15 14.2,3.95 12.8,4.75 12,6.33 11.2,4.75 9.8,3.95 11.2,3.15Z M12,17.67 12.8,19.25 14.2,20.05 12.8,20.85 12,22.43 11.2,20.85 9.8,20.05 11.2,19.25Z" />
 </vector>
 """)
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")
