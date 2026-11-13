@@ -14,7 +14,11 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal const val ENHANCED_LIKED_BATCH_SIZE = 14
-internal const val ENHANCED_PREFETCH_REMAINING = 8
+internal const val ENHANCED_PREFETCH_REMAINING = 14
+
+/** Called on actual track transitions, not on rarely-updated index state. */
+internal fun shouldPrefetchEnhanced(remainingTracks: Int): Boolean =
+    remainingTracks in 0..ENHANCED_PREFETCH_REMAINING
 
 internal data class EnhancedBatch(
     val tracks: List<Track>,

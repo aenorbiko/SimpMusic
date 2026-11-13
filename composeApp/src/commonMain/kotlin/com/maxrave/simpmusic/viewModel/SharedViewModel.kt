@@ -475,7 +475,7 @@ class SharedViewModel(
         val position = mediaPlayerHandler.currentOrderIndex()
         if (position < 0) return
         val remaining = queue.data.listTracks.size - position - 1
-        if (remaining > ENHANCED_PREFETCH_REMAINING) return
+        if (!shouldPrefetchEnhanced(remaining)) return
 
         val start = nextEnhancedLikedIndex
         val nextLiked = enhancedLikedOrder.drop(start).take(ENHANCED_LIKED_BATCH_SIZE)
@@ -882,11 +882,16 @@ class SharedViewModel(
                         _sleepTimerState.value = it
                     }
                 }
-            // A fresh liked block is fetched only as the listener nears the current end.
+            // currentSongIndex is NOT emitted on normal automatic transitions.
+            // Observe the actual media item id instead, including when the app is in
+            // the background, to reliably append the next Enhanced block.
             launch {
-                mediaPlayerHandler.currentSongIndex.collectLatest {
-                    maybePrefetchEnhanced()
-                }
+                mediaPlayerHandler.nowPlaying
+                    .map { it?.mediaId }
+                    .distinctUntilChanged()
+                    .collectLatest { mediaId ->
+                        if (mediaId != null) maybePrefetchEnhanced()
+                    }
             }
             val playlistNameJob =
                 launch {

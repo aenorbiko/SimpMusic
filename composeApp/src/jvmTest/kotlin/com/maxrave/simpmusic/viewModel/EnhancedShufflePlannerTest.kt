@@ -5,6 +5,14 @@ import kotlin.test.assertEquals
 
 class EnhancedShufflePlannerTest {
     @Test
+    fun prefetchStartsBeforeTheEndOfTheFirstBlock() {
+        assertEquals(false, shouldPrefetchEnhanced(15))
+        assertEquals(true, shouldPrefetchEnhanced(14))
+        assertEquals(true, shouldPrefetchEnhanced(8))
+        assertEquals(true, shouldPrefetchEnhanced(0))
+    }
+
+    @Test
     fun roundRobinDoesNotClusterOneRadio() {
         val result = EnhancedShufflePlanner.roundRobinRecommendations(
             pools = listOf(listOf("A1", "A2", "A3"), listOf("B1", "B2", "B3")),
