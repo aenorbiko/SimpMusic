@@ -1246,11 +1246,16 @@ fun QueueBottomSheet(
                                     index = index,
                                     modifier = Modifier,
                                 ) { _ ->
-                                    Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.width(22.dp), contentAlignment = Alignment.Center) {
+                                            if (track.videoId in recommendedTrackIds) {
+                                                Text("✦", color = MaterialTheme.colorScheme.primary, style = typo().titleMedium)
+                                            }
+                                        }
                                         SongFullWidthItems(
                                             track = track,
                                             isPlaying = track.videoId == songEntity?.videoId,
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.weight(1f),
                                             onClickListener = { videoId ->
                                                 if (videoId == track.videoId) {
                                                     musicServiceHandler.playMediaItemInMediaSource(index)
@@ -1259,9 +1264,6 @@ fun QueueBottomSheet(
                                             onMoreClickListener = { showQueueItemBottomSheet(index) },
                                             onAddToQueue = { sharedViewModel.addListToQueue(arrayListOf(track)) },
                                         )
-                                        if (track.videoId in recommendedTrackIds) {
-                                            EnhancedRecommendationBadge(modifier = Modifier.padding(start = 80.dp))
-                                        }
                                     }
                                 }
                             }

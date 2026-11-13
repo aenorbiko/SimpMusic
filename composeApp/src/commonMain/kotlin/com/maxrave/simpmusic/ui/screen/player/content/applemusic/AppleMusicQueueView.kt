@@ -279,11 +279,16 @@ internal fun AppleMusicQueueView(
                         // Owner's call: the OLD queue sheet's row component, verbatim — no bespoke
                         // row. Long-press-drag reorders (list-level gesture above); ⋯ opens the
                         // full song sheet with the queue's own rows, hosted by the player screen.
-                        Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(22.dp), contentAlignment = Alignment.Center) {
+                                if (track.videoId in state.recommendedTrackIds) {
+                                    Text("✦", color = activePillContent)
+                                }
+                            }
                             SongFullWidthItems(
                                 track = track,
                                 isPlaying = false,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.weight(1f),
                                 onClickListener = { videoId ->
                                     if (videoId == track.videoId) actions.onSeekToQueueIndex(queueIndex)
                                 },
@@ -291,9 +296,6 @@ internal fun AppleMusicQueueView(
                                     actions.onQueueItemMore(queueIndex, track)
                                 },
                             )
-                            if (track.videoId in state.recommendedTrackIds) {
-                                EnhancedRecommendationBadge(modifier = Modifier.padding(start = 68.dp))
-                            }
                         }
                     }
                 }
