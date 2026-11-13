@@ -339,33 +339,6 @@ class LibraryDynamicPlaylistViewModel(
         )
     }
 
-    /** Enhanced Shuffle for local favorites: never modifies liked songs. */
-    private var enhancedShuffleJob: Job? = null
-
-    fun enhancedShuffleFavorites() {
-        val liked = getSongList(LibraryDynamicPlaylistType.Favorite).map { it.toTrack() }
-        if (liked.isEmpty()) return
-        enhancedShuffleJob?.cancel()
-        enhancedShuffleJob = viewModelScope.launch {
-            val mix = buildEnhancedQueue(liked, songRepository)
-            val first = mix.firstOrNull() ?: return@launch
-            if (mix.size == liked.distinctBy { it.videoId }.size) {
-                makeToast("No recommendations found; playing your liked songs shuffled")
-            }
-            setQueueData(
-                QueueData.Data(
-                    listTracks = mix.toCollection(arrayListOf<Track>()),
-                    firstPlayedTrack = first,
-                    playlistId = null,
-                    playlistName = playlistName(LibraryDynamicPlaylistType.Favorite) + " · Enhanced 2+1",
-                    playlistType = PlaylistType.RADIO,
-                    continuation = null,
-                ),
-            )
-            loadMediaItem(first, Config.PLAYLIST_CLICK, 0)
-        }
-    }
-
     fun shuffle(type: LibraryDynamicPlaylistType) {
         val targetList = getSongList(type)
         if (targetList.isEmpty()) return
