@@ -40,21 +40,49 @@ jobs:
       - name: Verify APK uses the permanent signing certificate
         shell: bash
         run: |
-          test -n "${SIMP_SIGNING_DIR:-}"
+          set -euo pipefail
+          if [ -z "${SIMP_SIGNING_DIR:-}" ]; then
+            echo "::error::Permanent signing directory is missing."
+            exit 1
+          fi
           APK="androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk"
-          test -s "$APK"
+          if [ ! -s "$APK" ]; then
+            echo "::error::ARM64 APK not found. Available APKs:"
+            find androidApp/build/outputs -name '*.apk' -print || true
+            exit 1
+          fi
+          echo "ARM64 APK exists."
           SIGNING_PROPS="$SIMP_SIGNING_DIR/signing.properties"
           STORE_PASS="$(sed -n 's/^storePassword=//p' "$SIGNING_PROPS" | tr -d '\r')"
           KEY_ALIAS="$(sed -n 's/^keyAlias=//p' "$SIGNING_PROPS" | tr -d '\r')"
-          test -n "$STORE_PASS"
-          test -n "$KEY_ALIAS"
-          EXPECTED="$(keytool -exportcert -keystore "$SIMP_SIGNING_DIR/simpmusic-enhanced.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" 2>/dev/null | sha256sum | cut -d' ' -f1)"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$APKSIGNER"
-          ACTUAL="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':')"
-          test -n "$ACTUAL"
+          if [ -z "$STORE_PASS" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Signing configuration fields missing."
+            exit 1
+          fi
+          CERT="$RUNNER_TEMP/simpmusic-signing-cert.der"
+          if ! keytool -exportcert -keystore "$SIMP_SIGNING_DIR/simpmusic-enhanced.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" -file "$CERT" >/dev/null 2>&1; then
+            echo "::error::Cannot extract signing certificate from keystore."
+            exit 1
+          fi
+          EXPECTED="$(sha256sum "$CERT" | cut -d' ' -f1)"
+          echo "Expected signing certificate exported successfully."
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+            echo "::error::Android SDK apksigner not found."
+            exit 1
+          fi
+          echo "Android SDK apksigner found."
+          if ! CERT_INFO="$("$APKSIGNER" verify --print-certs "$APK")"; then
+            echo "::error::APK did not pass Android signature verification."
+            exit 1
+          fi
+          ACTUAL="$(printf '%s\n' "$CERT_INFO" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':\r')"
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::APK signature verification returned no certificate SHA-256."
+            exit 1
+          fi
           if [ "$EXPECTED" != "$ACTUAL" ]; then
-            echo "::error::APK signature does not match permanent signing key."
+            echo "::error::APK signature does not match the permanent signing key."
             exit 1
           fi
           echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
