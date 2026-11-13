@@ -24,7 +24,8 @@ jobs:
           SIGNING_BUNDLE: ${{ secrets.SIMP_SIGNING_BUNDLE }}
         run: |
           if [ -z "$SIGNING_BUNDLE" ]; then
-            echo "::warning::No permanent signing secret configured. This APK uses a temporary GitHub runner debug key."
+            echo "::error::Missing SIMP_SIGNING_BUNDLE. Refusing to create an APK with an ephemeral debug key."
+            exit 1
           else
             SIGNING_DIR="$RUNNER_TEMP/simpmusic-signing"
             install -d -m 700 "$SIGNING_DIR"
@@ -36,6 +37,27 @@ jobs:
           fi
       - name: Build debug APK (separate .dev package)
         run: ./gradlew :androidApp:assembleDebug
+      - name: Verify APK uses the permanent signing certificate
+        shell: bash
+        run: |
+          test -n "${SIMP_SIGNING_DIR:-}"
+          APK="androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk"
+          test -s "$APK"
+          SIGNING_PROPS="$SIMP_SIGNING_DIR/signing.properties"
+          STORE_PASS="$(sed -n 's/^storePassword=//p' "$SIGNING_PROPS" | tr -d '\r')"
+          KEY_ALIAS="$(sed -n 's/^keyAlias=//p' "$SIGNING_PROPS" | tr -d '\r')"
+          test -n "$STORE_PASS"
+          test -n "$KEY_ALIAS"
+          EXPECTED="$(keytool -exportcert -keystore "$SIMP_SIGNING_DIR/simpmusic-enhanced.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          ACTUAL="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':')"
+          test -n "$ACTUAL"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::APK signature does not match permanent signing key."
+            exit 1
+          fi
+          echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
       - name: Verify shuffle ordering and current-track preservation
         run: |
           ./gradlew :composeApp:jvmTest \
