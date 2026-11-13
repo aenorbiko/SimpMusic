@@ -18,6 +18,22 @@ jobs:
           cache: gradle
       - name: Generate library definitions
         run: ./gradlew exportLibraryDefinitions
+      - name: Load permanent signing key, if configured
+        shell: bash
+        env:
+          SIGNING_BUNDLE: ${{ secrets.SIMP_SIGNING_BUNDLE }}
+        run: |
+          if [ -z "$SIGNING_BUNDLE" ]; then
+            echo "::warning::No permanent signing secret configured. This APK uses a temporary GitHub runner debug key."
+          else
+            SIGNING_DIR="$RUNNER_TEMP/simpmusic-signing"
+            install -d -m 700 "$SIGNING_DIR"
+            printf '%s' "$SIGNING_BUNDLE" | base64 --decode | tar -xz -C "$SIGNING_DIR"
+            test -s "$SIGNING_DIR/simpmusic-enhanced.jks"
+            test -s "$SIGNING_DIR/signing.properties"
+            echo "SIMP_SIGNING_DIR=$SIGNING_DIR" >> "$GITHUB_ENV"
+            echo "Permanent signing credentials restored from GitHub secret."
+          fi
       - name: Build debug APK (separate .dev package)
         run: ./gradlew :androidApp:assembleDebug
       - uses: actions/upload-artifact@v4
