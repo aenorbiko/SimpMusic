@@ -987,6 +987,7 @@ fun QueueBottomSheet(
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
     val songEntity by sharedViewModel.nowPlayingState.map { it?.songEntity }.collectAsState(null)
     val queueData by musicServiceHandler.queueData.collectAsStateWithLifecycle()
+    val recommendedTrackIds by sharedViewModel.recommendedTrackIds.collectAsStateWithLifecycle()
     val queue by remember {
         derivedStateOf {
             queueData?.data?.listTracks ?: emptyList()
@@ -1244,26 +1245,28 @@ fun QueueBottomSheet(
                                     index = index,
                                     modifier = Modifier,
                                 ) { _ ->
-                                    SongFullWidthItems(
-                                        track = track,
-                                        isPlaying = track.videoId == songEntity?.videoId,
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth(),
-                                        onClickListener = { videoId ->
-                                            if (videoId == track.videoId) {
-                                                musicServiceHandler.playMediaItemInMediaSource(index)
-                                            }
-                                        },
-                                        onMoreClickListener = {
-                                            showQueueItemBottomSheet(index)
-                                        },
-                                        onAddToQueue = {
-                                            sharedViewModel.addListToQueue(
-                                                arrayListOf(track),
+                                    Column {
+                                        if (track.videoId in recommendedTrackIds) {
+                                            Text(
+                                                "✦ Recommended",
+                                                style = typo().labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(start = 64.dp),
                                             )
-                                        },
-                                    )
+                                        }
+                                        SongFullWidthItems(
+                                            track = track,
+                                            isPlaying = track.videoId == songEntity?.videoId,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onClickListener = { videoId ->
+                                                if (videoId == track.videoId) {
+                                                    musicServiceHandler.playMediaItemInMediaSource(index)
+                                                }
+                                            },
+                                            onMoreClickListener = { showQueueItemBottomSheet(index) },
+                                            onAddToQueue = { sharedViewModel.addListToQueue(arrayListOf(track)) },
+                                        )
+                                    }
                                 }
                             }
                         }
