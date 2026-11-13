@@ -40,6 +40,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 object EnhancedMediaBridge {
     val shuffleMode = MutableStateFlow(0)
     val youtubeLiked = MutableStateFlow<Boolean?>(null)
+    // Keep a confirmed remote like stable while older status requests finish.
+    val youtubeLikeVideoId = MutableStateFlow<String?>(null)
+    val likeMutationRevision = MutableStateFlow(0L)
     var onShuffleClick: (() -> Unit)? = null
 }
 """)
@@ -72,14 +75,22 @@ replace_range(service,
 "                val liked =\n                    songRepository\n                        .getSongById(id)",
 "            }\n    }\n\n",
 """                // Do not infer the YouTube like from the offline local favourite.
-                EnhancedMediaBridge.youtubeLiked.value = null
-                val liked = try {
-                    if (id.isBlank()) null
-                    else songRepository.getLikeStatus(id).first() == YouTubeLikeStatus.LIKE
-                } catch (_: Exception) { null }
-                if ((player.currentMediaItem?.mediaId ?: "").removePrefix("Video") == id) {
-                    EnhancedMediaBridge.youtubeLiked.value = liked
-                    _controlState.value = _controlState.value.copy(isLiked = liked == true)
+                if (EnhancedMediaBridge.youtubeLikeVideoId.value != id) {
+                    EnhancedMediaBridge.youtubeLikeVideoId.value = id
+                    EnhancedMediaBridge.youtubeLiked.value = null
+                }
+                val revisionAtStart = EnhancedMediaBridge.likeMutationRevision.value
+                if (EnhancedMediaBridge.youtubeLiked.value == null) {
+                    val liked = try {
+                        if (id.isBlank()) null
+                        else songRepository.getLikeStatus(id).first() == YouTubeLikeStatus.LIKE
+                    } catch (_: Exception) { null }
+                    if ((player.currentMediaItem?.mediaId ?: "").removePrefix("Video") == id &&
+                        EnhancedMediaBridge.likeMutationRevision.value == revisionAtStart
+                    ) {
+                        EnhancedMediaBridge.youtubeLiked.value = liked
+                        _controlState.value = _controlState.value.copy(isLiked = liked == true)
+                    }
                 }
 """)
 replace_range(service,
@@ -100,7 +111,12 @@ replace_range(service,
                     songRepository.addToYouTubeLiked(id).first()
                 }
                 if (result == 200) {
-                    if ((player.currentMediaItem?.mediaId ?: "").removePrefix("Video") == id) updateNotification()
+                    if ((player.currentMediaItem?.mediaId ?: "").removePrefix("Video") == id) {
+                        EnhancedMediaBridge.likeMutationRevision.value++
+                        EnhancedMediaBridge.youtubeLikeVideoId.value = id
+                        EnhancedMediaBridge.youtubeLiked.value = !previouslyLiked
+                        _controlState.value = _controlState.value.copy(isLiked = !previouslyLiked)
+                    }
                 } else Logger.e(TAG, "YouTube Music like request failed: " + result)
             } catch (e: CancellationException) {
                 throw e
