@@ -441,20 +441,22 @@ class SharedViewModel(
                     SmartShuffleMode.ENHANCED -> "$name · Enhanced 2+1"
                 }
                 // Protect a currently playing item; a fresh queue still starts normally.
-                if (ordered.isNotEmpty() && applySmartQueueKeepingCurrent(
-                        ordered = ordered,
-                        sourceTracks = sourceTracks,
-                        requestedMode = requestedMode,
-                        label = label,
-                        recommendationIds = initialRecommendations,
-                    )
-                ) {
-                    playingSmartQueueName = label
-                } else if (ordered.isEmpty()) {
-                    // The current/played track is the only remaining liked song.
-                    _smartShuffleMode.value = SmartShuffleMode.OFF
+                if (ordered.isNotEmpty() || mediaPlayerHandler.getCurrentMediaItem() != null) {
+                    if (applySmartQueueKeepingCurrent(
+                            ordered = ordered,
+                            sourceTracks = sourceTracks,
+                            requestedMode = requestedMode,
+                            label = label,
+                            recommendationIds = initialRecommendations,
+                        )
+                    ) {
+                        playingSmartQueueName = label
+                    } else {
+                        _smartShuffleMode.value = modeBefore
+                    }
                 } else {
-                    _smartShuffleMode.value = modeBefore
+                    // No playing item and no remaining liked music.
+                    _smartShuffleMode.value = SmartShuffleMode.OFF
                 }
             } finally {
                 if (thisSession == enhancedSession) switchingSmartQueue = false
