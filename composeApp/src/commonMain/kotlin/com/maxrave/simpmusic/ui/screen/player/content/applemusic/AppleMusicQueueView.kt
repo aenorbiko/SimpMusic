@@ -69,6 +69,7 @@ import com.maxrave.simpmusic.ui.icon.Shuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentActions
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentState
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.UIEvent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.map
@@ -276,17 +277,26 @@ internal fun AppleMusicQueueView(
                         // Owner's call: the OLD queue sheet's row component, verbatim — no bespoke
                         // row. Long-press-drag reorders (list-level gesture above); ⋯ opens the
                         // full song sheet with the queue's own rows, hosted by the player screen.
-                        SongFullWidthItems(
-                            track = track,
-                            isPlaying = false,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClickListener = { videoId ->
-                                if (videoId == track.videoId) actions.onSeekToQueueIndex(queueIndex)
-                            },
-                            onMoreClickListener = {
-                                actions.onQueueItemMore(queueIndex, track)
-                            },
-                        )
+                        Column {
+                            if (track.videoId in state.recommendedTrackIds) {
+                                Text(
+                                    "✦ Recommended",
+                                    modifier = Modifier.padding(start = 58.dp),
+                                    color = activePillContent,
+                                )
+                            }
+                            SongFullWidthItems(
+                                track = track,
+                                isPlaying = false,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClickListener = { videoId ->
+                                    if (videoId == track.videoId) actions.onSeekToQueueIndex(queueIndex)
+                                },
+                                onMoreClickListener = {
+                                    actions.onQueueItemMore(queueIndex, track)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -343,11 +353,12 @@ private fun AppleMusicQueuePillsRow(
         )
         AppleMusicQueuePill(
             icon = SimpIcons.Shuffle,
-            active = state.controllerState.isShuffle,
+            active = state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF,
             activeContainer = activePillContainer,
             activeContent = activePillContent,
             onClick = { actions.onUIEvent(UIEvent.Shuffle) },
             modifier = Modifier.weight(1f),
+            enhanced = state.smartShuffleMode == SmartShuffleMode.ENHANCED,
         )
         AppleMusicQueuePill(
             icon = if (repeatState is RepeatState.One) SimpIcons.RepeatOne else SimpIcons.Repeat,
@@ -368,6 +379,7 @@ private fun AppleMusicQueuePill(
     activeContent: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enhanced: Boolean = false,
 ) {
     Box(
         modifier =
@@ -387,6 +399,9 @@ private fun AppleMusicQueuePill(
             tint = if (active) activeContent else Color.White,
             modifier = Modifier.size(20.dp),
         )
+        if (enhanced) {
+            Text("✦", modifier = Modifier.align(Alignment.TopEnd), color = activeContent)
+        }
     }
 }
 

@@ -145,6 +145,7 @@ import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.SoundCloudPlayerViewModel
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.UIEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -707,7 +708,7 @@ private fun NowPlayingSoundCloudLayout(
                 RippleIconButton(imageVector = SimpIcons.CommentOutline, tint = colors.onSurface, onClick = actions.onShowComments)
                 RippleIconButton(
                     imageVector = SimpIcons.Shuffle,
-                    tint = if (state.controllerState.isShuffle) colors.primary else colors.onSurface,
+                    tint = if (state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF) colors.primary else colors.onSurface,
                     onClick = { actions.onUIEvent(UIEvent.Shuffle) },
                 )
                 val repeatState = state.controllerState.repeatState

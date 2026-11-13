@@ -120,6 +120,7 @@ import com.maxrave.simpmusic.ui.screen.player.content.expressive.WavySeekBar
 import com.maxrave.simpmusic.ui.theme.ArtworkShape
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.UIEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -1001,10 +1002,10 @@ private fun ExpressiveConnectedGroup(
         }
         ExpressiveConnectedSlot(
             shape = middle,
-            active = state.controllerState.isShuffle,
+            active = state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF,
             onClick = { actions.onUIEvent(UIEvent.Shuffle) },
         ) {
-            Crossfade(targetState = state.controllerState.isShuffle, label = "expressiveShuffle") { isShuffle ->
+            Crossfade(targetState = state.controllerState.isShuffle || state.smartShuffleMode != SmartShuffleMode.OFF, label = "expressiveShuffle") { isShuffle ->
                 Icon(
                     imageVector = SimpIcons.Shuffle,
                     contentDescription = "",
