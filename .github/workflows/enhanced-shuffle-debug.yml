@@ -16,6 +16,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
+      - name: Verify approved Enhanced icon keeps 24dp shuffle geometry
+        run: python3 scripts/test_enhanced_shuffle_icons.py
       - name: Apply enhanced controls to pinned core submodule
         run: python3 scripts/apply_enhanced_core_patch.py
       - name: Generate library definitions
