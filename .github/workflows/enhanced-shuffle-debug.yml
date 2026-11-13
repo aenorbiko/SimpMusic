@@ -16,6 +16,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
+      - name: Apply enhanced controls to pinned core submodule
+        run: python3 scripts/apply_enhanced_core_patch.py
       - name: Generate library definitions
         run: ./gradlew exportLibraryDefinitions
       - name: Load permanent signing key, if configured
