@@ -34,6 +34,28 @@ internal object EnhancedShufflePlanner {
         return result
     }
 
+    /**
+     * Prefer tracks recommended by BOTH preceding liked songs, then fall back to
+     * either individual radio. This is a proxy, not a true two-song similarity score.
+     */
+    fun <T> selectForPair(
+        firstRadio: List<T>,
+        secondRadio: List<T>,
+        usedIds: Set<String>,
+        id: (T) -> String,
+        preferSecondOnFallback: Boolean = false,
+    ): T? {
+        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val secondIds = b.mapTo(hashSetOf(), id)
+        val intersection = a.filter { id(it) in secondIds }
+        if (intersection.isNotEmpty()) return intersection.first()
+
+        val preferred = if (preferSecondOnFallback) b else a
+        val alternative = if (preferSecondOnFallback) a else b
+        return preferred.firstOrNull() ?: alternative.firstOrNull()
+    }
+
     fun <T> mix(
         liked: List<T>,
         recommended: List<T>,

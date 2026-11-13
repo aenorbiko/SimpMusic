@@ -4,62 +4,91 @@ import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.streams.YouTubeWatchEndpoint
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.Resource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 
+internal const val ENHANCED_LIKED_BATCH_SIZE = 14
+internal const val ENHANCED_PREFETCH_REMAINING = 8
+
+internal data class EnhancedBatch(
+    val tracks: List<Track>,
+    val recommendedIds: Set<String>,
+)
+
 /**
- * Creates a finite 2-liked + 1-recommended queue without modifying favorites.
+ * One temporary queue block: 14 liked songs, up to 7 new recommendations.
  *
- * The seeds come from pairs spread across the *whole shuffled liked list*, rather
- * than the first few playing songs. Radio results are consumed round-robin instead
- * of in long blocks from a single station. This improves source diversity but does
- * NOT guarantee that every suggestion matches its immediately preceding liked pair.
- *
- * At most 12 YouTube Music radio requests are made, not one per liked pair.
+ * For every pair we query radio for both songs, preferring overlap between the
+ * two radios. Calls run at most 4 concurrently; failed radios do not interrupt
+ * already playing music. Do not treat this as a YouTube Music two-song API.
  */
-internal suspend fun buildEnhancedQueue(
-    liked: List<Track>,
+internal suspend fun buildEnhancedBatch(
+    likedBatch: List<Track>,
     songRepository: SongRepository,
-): List<Track> {
-    val owned = liked.distinctBy { it.videoId }.shuffled()
-    val pairCount = owned.size / 2
-    if (pairCount == 0) return owned
+    excludedIds: Set<String>,
+): EnhancedBatch {
+    if (likedBatch.isEmpty()) return EnhancedBatch(emptyList(), emptySet())
+    val pairs = likedBatch.chunked(2)
+    val radioSemaphore = Semaphore(4)
 
-    val requested = pairCount
-    val seedCount = minOf(12, pairCount)
-    val pairs = owned.chunked(2)
-    val seeds = (0 until seedCount).map { seedIndex ->
-        val pairIndex = seedIndex * pairCount / seedCount
-        // Pick one member of each well-spaced pair as a radio seed.
-        pairs[pairIndex].random()
-    }
-    val ownedIds = owned.mapTo(hashSetOf()) { it.videoId }
-    val pools = ArrayList<List<Track>>(seedCount)
-
-    for (seed in seeds) {
-        val response = withTimeoutOrNull(8_000L) {
-            songRepository.getRadioFromEndpoint(
-                YouTubeWatchEndpoint(
-                    videoId = seed.videoId,
-                    playlistId = "RDAMVM${seed.videoId}",
-                ),
-            ).firstOrNull { it is Resource.Success }
+    suspend fun fetchRadio(song: Track): List<Track> =
+        radioSemaphore.withPermit {
+            try {
+                withTimeoutOrNull(8_000L) {
+                    songRepository.getRadioFromEndpoint(
+                        YouTubeWatchEndpoint(
+                            videoId = song.videoId,
+                            playlistId = "RDAMVM${song.videoId}",
+                        ),
+                    ).firstOrNull { it is Resource.Success }?.data?.first.orEmpty()
+                }.orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                emptyList()
+            }
         }
-        // Each station can contain a seed song or tracks already liked.
-        val candidates = response?.data?.first.orEmpty()
-            .asSequence()
-            .filter { it.videoId !in ownedIds }
-            .distinctBy { it.videoId }
-            .toList()
-            .shuffled()
-        if (candidates.isNotEmpty()) pools.add(candidates)
+
+    val radioPairs = coroutineScope {
+        pairs.map { pair ->
+            async {
+                if (pair.size != 2) {
+                    emptyList<Track>() to emptyList<Track>()
+                } else {
+                    coroutineScope {
+                        val first = async { fetchRadio(pair[0]) }
+                        val second = async { fetchRadio(pair[1]) }
+                        first.await() to second.await()
+                    }
+                }
+            }
+        }.awaitAll()
     }
 
-    val recommended = EnhancedShufflePlanner.roundRobinRecommendations(
-        pools = pools,
-        excludedIds = ownedIds,
-        limit = requested,
-        id = { it.videoId },
-    )
-    return EnhancedShufflePlanner.mix(owned, recommended) { it.videoId }
+    val used = excludedIds.toMutableSet()
+    val recommendations = hashSetOf<String>()
+    val result = ArrayList<Track>(likedBatch.size + pairs.size)
+    for ((index, pair) in pairs.withIndex()) {
+        result.addAll(pair)
+        if (pair.size != 2) continue
+        val (firstRadio, secondRadio) = radioPairs[index]
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = firstRadio,
+            secondRadio = secondRadio,
+            usedIds = used,
+            id = { it.videoId },
+            preferSecondOnFallback = index % 2 == 1,
+        )
+        if (pick != null && used.add(pick.videoId)) {
+            result.add(pick)
+            recommendations.add(pick.videoId)
+        }
+    }
+    return EnhancedBatch(result, recommendations)
 }

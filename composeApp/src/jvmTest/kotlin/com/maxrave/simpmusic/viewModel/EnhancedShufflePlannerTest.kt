@@ -37,6 +37,40 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
+    fun choosesCommonRecommendationWhenBothRadiosAgree() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = listOf("SeedA", "OnlyA", "Common"),
+            secondRadio = listOf("SeedB", "Common", "OnlyB"),
+            usedIds = setOf("SeedA", "SeedB"),
+            id = { it },
+        )
+        assertEquals("Common", pick)
+    }
+
+    @Test
+    fun fallbackCanPreferSecondRadio() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = listOf("OnlyA"),
+            secondRadio = listOf("OnlyB"),
+            usedIds = emptySet(),
+            id = { it },
+            preferSecondOnFallback = true,
+        )
+        assertEquals("OnlyB", pick)
+    }
+
+    @Test
+    fun excludesPreviouslyRecommendedAndAllLiked() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = listOf("Liked1", "Used", "Fresh"),
+            secondRadio = listOf("Liked2", "Fresh"),
+            usedIds = setOf("Liked1", "Liked2", "Used"),
+            id = { it },
+        )
+        assertEquals("Fresh", pick)
+    }
+
+    @Test
     fun noRadioReturnsAllLikedTracks() {
         val result = EnhancedShufflePlanner.mix(listOf("L1", "L2", "L3"), emptyList()) { it }
         assertEquals(listOf("L1", "L2", "L3"), result)
