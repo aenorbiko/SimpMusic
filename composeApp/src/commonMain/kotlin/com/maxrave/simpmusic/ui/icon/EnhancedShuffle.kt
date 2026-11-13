@@ -92,7 +92,6 @@ val SimpIcons.EnhancedShuffle: ImageVector
             lineTo(4.28f, 5.7f)
             close()
           }
-        }
 
           // Option B: same 24x24 viewport and unchanged shuffle arrows.
           // The filled four-point sparkle occupies unused space at the left.
@@ -110,6 +109,7 @@ val SimpIcons.EnhancedShuffle: ImageVector
             lineTo(3.75f, 10.55f)
             close()
           }
+        }
         .buildSimpIcon()
     return _EnhancedShuffle!!
   }
