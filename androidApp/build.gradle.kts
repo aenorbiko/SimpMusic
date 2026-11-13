@@ -99,6 +99,7 @@ android {
         if (enhancedSigningDir != null && enhancedSigningProperties != null) {
             create("simpmusicEnhanced") {
                 storeFile = File(enhancedSigningDir, "simpmusic-enhanced.jks")
+                storeType = "PKCS12"
                 storePassword = enhancedSigningProperties.getProperty("storePassword")
                 keyAlias = enhancedSigningProperties.getProperty("keyAlias")
                 keyPassword = enhancedSigningProperties.getProperty("keyPassword")
