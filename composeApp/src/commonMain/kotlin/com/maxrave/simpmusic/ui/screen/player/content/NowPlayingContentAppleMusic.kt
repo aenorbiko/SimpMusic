@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -745,6 +746,7 @@ private fun AppleMusicMainView(
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
+                                    Box {
                                     Text(
                                         text = state.screenData.nowPlayingTitle,
                                         style = typography.compactTitle,
@@ -755,6 +757,10 @@ private fun AppleMusicMainView(
                                                 .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
                                                 .focusable(),
                                     )
+                                        if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                                            EnhancedRecommendationBadge(modifier = Modifier.align(Alignment.TopStart).offset(y = (-23).dp))
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
                                         text = state.screenData.artistName,
@@ -766,9 +772,6 @@ private fun AppleMusicMainView(
                                                 .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
                                                 .focusable(),
                                     )
-                                    if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
-                                        EnhancedRecommendationBadge()
-                                    }
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 AppleMusicHeaderActions(state = state, actions = actions)

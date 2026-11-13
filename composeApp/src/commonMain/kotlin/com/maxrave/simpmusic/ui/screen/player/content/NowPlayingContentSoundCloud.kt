@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -455,6 +456,7 @@ private fun NowPlayingSoundCloudLayout(
                         .fillMaxWidth(LABELS_WIDTH_FRACTION),
             ) {
                 Column(horizontalAlignment = Alignment.Start) {
+                    Box {
                     SoundCloudLabel(
                         text = state.screenData.nowPlayingTitle,
                         textStyle = typo().titleMedium.copy(fontSize = 16.sp),
@@ -462,6 +464,10 @@ private fun NowPlayingSoundCloudLayout(
                         maxLines = TITLE_MAX_LINES,
                         stripAlpha = stripAlpha,
                     )
+                        if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
+                            EnhancedRecommendationBadge(modifier = Modifier.align(Alignment.TopStart).offset(y = (-23).dp))
+                        }
+                    }
                     SoundCloudLabel(
                         text = state.screenData.artistName,
                         textStyle = typo().bodyMedium.copy(fontSize = 14.sp),
@@ -470,9 +476,6 @@ private fun NowPlayingSoundCloudLayout(
                         stripAlpha = stripAlpha,
                         onClick = actions.onNavigateToArtist,
                     )
-                    if (state.videoId != null && state.videoId in state.recommendedTrackIds) {
-                        EnhancedRecommendationBadge()
-                    }
                     // Hidden until the track's info has arrived, then faded in. AnimatedContent, so
                     // the outgoing chip keeps its own count while it fades.
                     AnimatedContent(
