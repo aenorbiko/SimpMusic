@@ -900,8 +900,8 @@ fun PlaylistScreen(
                                                                 contentAlignment = Alignment.Center,
                                                             ) {
                                                                 Icon(
-                                                                    imageVector = SimpIcons.Shuffle,
-                                                                    contentDescription = "Shuffle",
+                                                                    imageVector = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                                    contentDescription = "Shuffle: " + (if (data.id == "LM" && smartShuffleSource == "LM") smartShuffleMode.name else "OFF"),
                                                                             tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                     modifier = Modifier.size(22.dp),
                                                                 )
