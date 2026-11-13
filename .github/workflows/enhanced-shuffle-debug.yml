@@ -76,9 +76,12 @@ jobs:
             echo "::error::APK did not pass Android signature verification."
             exit 1
           fi
-          ACTUAL="$(printf '%s\n' "$CERT_INFO" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':\r')"
+          # apksigner formatting varies between SDK versions; parse the digest
+          # from any certificate SHA-256 line, not a hardcoded full-line prefix.
+          ACTUAL="$(printf '%s\n' "$CERT_INFO" | tr -d '\r' | grep -i 'certificate.*SHA-256' | head -n 1 | grep -Eo '[0-9a-fA-F]{64}' | head -n 1 | tr '[:upper:]' '[:lower:]' || true)"
           if [ -z "$ACTUAL" ]; then
-            echo "::error::APK signature verification returned no certificate SHA-256."
+            echo "::error::Could not parse certificate SHA-256 from apksigner output."
+            printf '%s\n' "$CERT_INFO" | head -n 15
             exit 1
           fi
           if [ "$EXPECTED" != "$ACTUAL" ]; then
