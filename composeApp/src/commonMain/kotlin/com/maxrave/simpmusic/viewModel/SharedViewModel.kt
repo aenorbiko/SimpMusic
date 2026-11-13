@@ -1014,14 +1014,27 @@ class SharedViewModel(
             viewModelScope.launch {
                 val id = videoId?.removePrefix("Video")
                 if (!id.isNullOrBlank()) {
-                    _likeStatus.value = YouTubeLikeStatus.INDIFFERENT
-                    EnhancedMediaBridge.youtubeLiked.value = null
+                    // Preserve the last verified status for the SAME track. Clearing
+                    // it on a refresh caused a visible heart flicker in the Android shade.
+                    if (EnhancedMediaBridge.youtubeLikeVideoId.value != id) {
+                        EnhancedMediaBridge.youtubeLikeVideoId.value = id
+                        EnhancedMediaBridge.youtubeLiked.value = null
+                        _likeStatus.value = YouTubeLikeStatus.INDIFFERENT
+                    }
+                    val revisionAtStart = EnhancedMediaBridge.likeMutationRevision.value
                     songRepository.getLikeStatus(id).collectLatest { status ->
-                        _likeStatus.value = status
-                        EnhancedMediaBridge.youtubeLiked.value = status == YouTubeLikeStatus.LIKE
+                        // A remote LIKE/UNLIKE can complete before this older read.
+                        // Never let an old response undo the just-confirmed status.
+                        if (EnhancedMediaBridge.youtubeLikeVideoId.value == id &&
+                            EnhancedMediaBridge.likeMutationRevision.value == revisionAtStart
+                        ) {
+                            _likeStatus.value = status
+                            EnhancedMediaBridge.youtubeLiked.value = status == YouTubeLikeStatus.LIKE
+                        }
                     }
                 } else {
                     _likeStatus.value = YouTubeLikeStatus.INDIFFERENT
+                    EnhancedMediaBridge.youtubeLikeVideoId.value = null
                     EnhancedMediaBridge.youtubeLiked.value = null
                 }
             }
