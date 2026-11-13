@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
@@ -19,14 +18,12 @@ val SimpIcons.EnhancedShuffle: ImageVector
     _EnhancedShuffle =
       ImageVector.Builder(
           name = "EnhancedShuffle",
-          defaultWidth = 32.dp,
+          defaultWidth = 24.dp,
           defaultHeight = 24.dp,
-          viewportWidth = 32f,
+          viewportWidth = 24f,
           viewportHeight = 24f,
         )
         .apply {
-          // Shuffle occupies the left 19dp; the sparkle has its own right-hand area.
-          group(scaleX = 0.76f, scaleY = 0.76f, translationY = 2.9f) {
           path(
             fill = SolidColor(Color.Black),
             fillAlpha = 1f,
@@ -95,22 +92,24 @@ val SimpIcons.EnhancedShuffle: ImageVector
             lineTo(4.28f, 5.7f)
             close()
           }
-          }
+        }
+
+          // Option B: same 24x24 viewport and unchanged shuffle arrows.
+          // The filled four-point sparkle occupies unused space at the left.
           path(
             fill = SolidColor(Color.Black),
             fillAlpha = 1f,
           ) {
-            moveTo(27f, 1f)
-            lineTo(28.2f, 4.5f)
-            lineTo(31.5f, 6f)
-            lineTo(28.2f, 7.5f)
-            lineTo(27f, 11f)
-            lineTo(25.8f, 7.5f)
-            lineTo(22.5f, 6f)
-            lineTo(25.8f, 4.5f)
+            moveTo(4.5f, 8.5f)
+            lineTo(5.25f, 10.55f)
+            lineTo(6.75f, 11.5f)
+            lineTo(5.25f, 12.45f)
+            lineTo(4.5f, 14.5f)
+            lineTo(3.75f, 12.45f)
+            lineTo(2.25f, 11.5f)
+            lineTo(3.75f, 10.55f)
             close()
           }
-        }
         .buildSimpIcon()
     return _EnhancedShuffle!!
   }

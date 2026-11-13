@@ -147,17 +147,19 @@ edit(icons,
                 .setSessionCommand(""")
 
 icon=ROOT/"media/media3/src/main/res/drawable/baseline_enhanced_shuffle_24.xml"
+# The same 24dp shuffle arrows as the stock active icon. Add a small star as
+# another even-odd cutout in the spare left area, rather than scaling arrows.
+# Active Enhanced has the SAME filled background as active standard Shuffle.
 icon.write_text("""<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp"
-    android:viewportWidth="24" android:viewportHeight="24">
-    <group android:scaleX="0.7" android:scaleY="0.7"
-        android:translateX="0.5" android:translateY="4">
-        <path android:fillColor="#FFFFFFFF"
-            android:pathData="M17,3h4v4h-2V5h-2c-1.1,0 -2.1,0.5 -2.8,1.4L6.8,17.6C5.8,19.1 4.3,20 2.5,20H2v-2h0.5c1.1,0 2.1,-0.5 2.8,-1.4L12.7,5.4C13.7,3.9 15.2,3 17,3zM21,17v4h-4v-2h2v-2h2zM2,4h0.5c1.8,0 3.3,0.9 4.3,2.4l2.1,3.1 -1.2,1.8 -2.4,-3.7C4.6,6.5 3.6,6 2.5,6H2V4zM13.2,15.2l1.1,-1.7 0.1,0.1C15.1,14.5 16.1,15 17.2,15H19v-2h2v4h-4c-1.8,0 -3.3,-0.9 -3.8,-1.8z"/>
-    </group>
-    <path android:fillColor="#FFFFFFFF"
-        android:pathData="M19,0.6 L20.5,4.3 L23.7,5.7 L20.5,7.1 L19,10.8 L17.5,7.1 L14.3,5.7 L17.5,4.3 Z"/>
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M21,1H3c-1.1,0 -2,0.9 -2,2v18c0,1.1 0.9,2 2,2h18c1.1,0 2,-0.9 2,-2V3c0,-1.1 -0.9,-2 -2,-2zM10.59,9.17L5.41,4 4,5.41l5.17,5.17 1.42,-1.41zM14.5,4l2.04,2.04L4,18.59 5.41,20 17.96,7.46 20,9.5L20,4h-5.5zM14.83,13.41l-1.41,1.41 3.13,3.13L14.5,20L20,20v-5.5l-2.04,2.04 -3.13,-3.13zM4.5,8.5 L5.25,10.55 L6.75,11.5 L5.25,12.45 L4.5,14.5 L3.75,12.45 L2.25,11.5 L3.75,10.55 Z" />
 </vector>
 """)
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")
