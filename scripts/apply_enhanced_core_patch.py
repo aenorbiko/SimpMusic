@@ -252,7 +252,8 @@ edit(icons,
                 .setSessionCommand(""")
 
 # Native icons match full-size original SimpMusic arrows (no squeezing).
-# Enhanced adds one small four-point star above-left and a dot below.
+# The notification-only Enhanced icon reduces its arrows to 92% while enlarging the top sparkle.
+# The Compose player icons and standard native Shuffle glyph are unchanged.
 drawable_dir = ROOT/"media/media3/src/main/res/drawable"
 drawable_dir.joinpath("baseline_simp_shuffle_off_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -272,7 +273,7 @@ drawable_dir.joinpath("baseline_simp_shuffle_enhanced_24.xml").write_text("""<?x
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M0,0 L24,0 L24,24 L0,24 Z M15,20 q-0.42,0,-0.71,-0.29 Q14,19.43,14,19 t0.29,-0.71 T15,18 h1.6 L14.13,15.53 q-0.3,-0.3,-0.29,-0.71 T14.15,14.1 t0.71,-0.3 t0.71,0.3 L18,16.55 V15 q0,-0.43,0.29,-0.71 T19,14 t0.71,0.29 T20,15 v4 q0,0.43,-0.29,0.71 T19,20 H15 Z M4.3,19.7 Q4.03,19.43,4.03,19 T4.3,18.3 L16.6,6 H15 Q14.58,6,14.29,5.71 Q14,5.43,14,5 T14.29,4.29 T15,4 h4 q0.43,0,0.71,0.29 T20,5 V9 q0,0.42,-0.29,0.71 T19,10 T18.29,9.71 T18,9 V7.4 L5.7,19.7 Q5.43,19.98,5,19.98 q-0.42,0,-0.7,-0.28 Z M4.28,5.7 Q4,5.43,4,5 T4.28,4.3 T4.96,4.02 T5.68,4.3 l4.2,4.18 q0.28,0.28,0.29,0.69 T9.88,9.88 Q9.6,10.15,9.18,10.15 T8.48,9.88 L4.28,5.7 Z M9.5,0.45 L10.32,2.25 L12.1,3.05 L10.32,3.85 L9.5,5.65 L8.68,3.85 L6.9,3.05 L8.68,2.25 Z M9.45,21.05 Q10.25,21.05,10.25,21.85 Q10.25,22.65,9.45,22.65 Q8.65,22.65,8.65,21.85 Q8.65,21.05,9.45,21.05 Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M0,0 L24,0 L24,24 L0,24 Z M14.76,19.36 Q14.374,19.36,14.107,19.093 Q13.84,18.836,13.84,18.44 Q13.84,18.044,14.107,17.787 Q14.374,17.529,14.76,17.52 L16.232,17.52 L13.96,15.248 Q13.684,14.972,13.693,14.594 Q13.702,14.217,13.978,13.932 Q14.254,13.647,14.631,13.656 Q15.008,13.665,15.284,13.932 L17.52,16.186 L17.52,14.76 Q17.52,14.364,17.787,14.107 Q18.054,13.849,18.44,13.84 Q18.826,13.831,19.093,14.107 Q19.36,14.383,19.36,14.76 L19.36,18.44 Q19.36,18.836,19.093,19.093 Q18.826,19.351,18.44,19.36 L14.76,19.36 Z M4.916,19.084 Q4.668,18.836,4.668,18.44 Q4.668,18.044,4.916,17.796 L16.232,6.48 L14.76,6.48 Q14.374,6.48,14.107,6.213 Q13.84,5.956,13.84,5.56 Q13.84,5.164,14.107,4.907 Q14.374,4.649,14.76,4.64 L18.44,4.64 Q18.836,4.64,19.093,4.907 Q19.351,5.174,19.36,5.56 L19.36,9.24 Q19.36,9.626,19.093,9.893 Q18.826,10.16,18.44,10.16 Q18.054,10.16,17.787,9.893 Q17.52,9.626,17.52,9.24 L17.52,7.768 L6.204,19.084 Q5.956,19.342,5.56,19.342 Q5.174,19.342,4.916,19.084 Z M4.898,6.204 Q4.64,5.956,4.64,5.56 Q4.64,5.164,4.898,4.916 Q5.155,4.668,5.523,4.658 Q5.891,4.649,6.186,4.916 L10.05,8.762 Q10.307,9.019,10.316,9.396 Q10.326,9.774,10.05,10.05 Q9.792,10.298,9.406,10.298 Q9.019,10.298,8.762,10.05 L4.898,6.204 Z M9.6,0.2 L11.05,2.15 L13.2,3.35 L11.05,4.55 L9.6,6.5 L8.15,4.55 L6,3.35 L8.15,2.15 Z M9.45,21.05 Q10.25,21.05,10.25,21.85 Q10.25,22.65,9.45,22.65 Q8.65,22.65,8.65,21.85 Q8.65,21.05,9.45,21.05 Z" />
 </vector>
 """)
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")
