@@ -228,6 +228,14 @@ class SharedViewModel(
     private val _recommendedTrackIds = MutableStateFlow<Set<String>>(emptySet())
     val recommendedTrackIds: StateFlow<Set<String>> = _recommendedTrackIds.asStateFlow()
 
+    // Share exact recommendation membership with the Android Media3 notification.
+    // Update synchronously BEFORE the new batch becomes a media timeline item,
+    // avoiding a race between StateFlow collection and media item creation.
+    private fun setRecommendedTrackIds(ids: Set<String>) {
+        _recommendedTrackIds.value = ids
+        EnhancedMediaBridge.recommendedTrackIds.value = ids
+    }
+
     private var likedSourceTracks: List<Track> = emptyList()
     private var likedSourceName: String? = null
     private var playingSmartQueueName: String? = null
@@ -248,7 +256,7 @@ class SharedViewModel(
         smartShuffleJob?.cancel()
         enhancedPrefetchJob?.cancel()
         _smartShuffleMode.value = SmartShuffleMode.OFF
-        _recommendedTrackIds.value = emptySet()
+        setRecommendedTrackIds(emptySet())
         _smartShuffleSource.value = null
         likedSourceTracks = emptyList()
         likedSourceName = null
@@ -287,7 +295,7 @@ class SharedViewModel(
                     continuation = null,
                 ),
             )
-            _recommendedTrackIds.value = recommendationIds
+            setRecommendedTrackIds(recommendationIds)
             mediaPlayerHandler.loadMediaItem(ordered.first(), Config.PLAYLIST_CLICK, 0)
             return true
         }
@@ -334,9 +342,9 @@ class SharedViewModel(
                 continuation = null,
             ),
         )
-        _recommendedTrackIds.value = recommendationIds.intersect(
+        setRecommendedTrackIds(recommendationIds.intersect(
             plan.upcoming.mapTo(hashSetOf()) { it.videoId },
-        )
+        ))
         if (plan.upcoming.isNotEmpty()) {
             mediaPlayerHandler.loadMoreCatalog(
                 plan.upcoming.toCollection(arrayListOf<Track>()),
@@ -381,7 +389,7 @@ class SharedViewModel(
         likedSourceTracks = sourceTracks
         likedSourceName = name
         _smartShuffleSource.value = sourceId
-        _recommendedTrackIds.value = emptySet()
+        setRecommendedTrackIds(emptySet())
         _smartShuffleMode.value = requestedMode
 
         switchingSmartQueue = true
@@ -496,6 +504,9 @@ class SharedViewModel(
                 ) return@launch
                 if (nextBatch.tracks.isEmpty()) return@launch
 
+                // The Android Media3 conversion reads membership at insertion time,
+                // so publish it BEFORE appending the recommendation media items.
+                setRecommendedTrackIds(_recommendedTrackIds.value + nextBatch.recommendedIds)
                 // Core MediaPlayerHandler.loadMoreCatalog appends to player and queueData.
                 // No setQueueData, reset, seek or replay is used during prefetch.
                 mediaPlayerHandler.loadMoreCatalog(
@@ -505,7 +516,6 @@ class SharedViewModel(
                 if (session != enhancedSession) return@launch
                 nextEnhancedLikedIndex = start + nextLiked.size
                 enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
-                _recommendedTrackIds.value = _recommendedTrackIds.value + nextBatch.recommendedIds
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
