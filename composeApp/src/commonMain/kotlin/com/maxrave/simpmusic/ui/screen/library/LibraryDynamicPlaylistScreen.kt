@@ -626,6 +626,20 @@ fun LibraryDynamicPlaylistScreen(
                 },
                 actions = {
                     if (isSongType) {
+                        val enhancedSourceKey =
+                            if (type == LibraryDynamicPlaylistType.Favorite) "favorite" else "dynamic:$type"
+                        val enhancedTitle = type.title()
+                        val enhancedTracks = when (type) {
+                            LibraryDynamicPlaylistType.Favorite -> favorite.map { it.toTrack() }
+                            LibraryDynamicPlaylistType.MostPlayed -> mostPlayed.map { it.toTrack() }
+                            LibraryDynamicPlaylistType.Downloaded -> downloaded.map { it.toTrack() }
+                            LibraryDynamicPlaylistType.Cached -> cached.map { it.toTrack() }
+                            is LibraryDynamicPlaylistType.MonthlyRecap -> monthlyRecap.map { it.toTrack() }
+                            is LibraryDynamicPlaylistType.ArtistLiked -> artistLiked.map { it.toTrack() }
+                            is LibraryDynamicPlaylistType.TopTracks ->
+                                analyticsUIState.topTracks.data.orEmpty().map { it.second.toTrack() }
+                            else -> emptyList()
+                        }
                         RippleIconButton(
                             SimpIcons.PlayCircle,
                             Modifier
@@ -658,43 +672,21 @@ fun LibraryDynamicPlaylistScreen(
                             }
                         }
                         RippleIconButton(
-                            if (type == LibraryDynamicPlaylistType.Favorite && smartShuffleSource == "favorite" && smartShuffleMode == SmartShuffleMode.ENHANCED)
+                            if (smartShuffleSource == enhancedSourceKey && smartShuffleMode == SmartShuffleMode.ENHANCED)
                                 SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
                             Modifier.size(32.dp),
                             true,
-                            tint = if (type == LibraryDynamicPlaylistType.Favorite && smartShuffleSource == "favorite" && smartShuffleMode != SmartShuffleMode.OFF)
+                            tint = if (smartShuffleSource == enhancedSourceKey && smartShuffleMode != SmartShuffleMode.OFF)
                                 MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
                         ) {
-                            if (type == LibraryDynamicPlaylistType.Favorite) {
-                                sharedViewModel.cycleLikedShuffle(
-                                    favorite.map { it.toTrack() },
-                                    "Liked songs",
-                                    "favorite",
-                                )
-                            } else if (type is LibraryDynamicPlaylistType.TopTracks) {
-                                val data = analyticsUIState.topTracks.data
-                                if (!data.isNullOrEmpty()) {
-                                    val shuffled = data.shuffled()
-                                    val first = shuffled.first().second
-                                    sharedViewModel.setQueueData(
-                                        QueueData.Data(
-                                            listTracks = shuffled.map { it.second }.toArrayListTrack(),
-                                            firstPlayedTrack = first.toTrack(),
-                                            playlistId = null,
-                                            playlistName = getStringBlocking(Res.string.your_top_tracks),
-                                            playlistType = PlaylistType.RADIO,
-                                            continuation = null,
-                                        ),
-                                    )
-                                    sharedViewModel.loadMediaItem(
-                                        first.toTrack(),
-                                        Config.PLAYLIST_CLICK,
-                                        0,
-                                    )
-                                }
-                            } else {
-                                viewModel.shuffle(type)
-                            }
+                            // Preserve the full, unfiltered collection as radio seeds.
+                            // Liked remains backward-compatible; every other song list
+                            // uses its own stable dynamic source identifier.
+                            sharedViewModel.cycleSourceShuffle(
+                                enhancedTracks,
+                                enhancedTitle,
+                                enhancedSourceKey,
+                            )
                         }
                     }
                     Box(Modifier.padding(horizontal = 5.dp)) {
