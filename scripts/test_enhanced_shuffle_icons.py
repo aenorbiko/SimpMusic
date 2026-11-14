@@ -21,7 +21,6 @@ for icon in (normal, enhanced):
     assert "group(scaleX = 0.92f, scaleY = 0.92f, pivotX = 12f, pivotY = 12f)" in icon, "Both icons must scale arrow geometry equally"
 patch = Path("scripts/apply_enhanced_core_patch.py").read_text()
 assert patch.count("M14.76,19.36") == 3, "All native Shuffle states must use identical 92%-scale arrow paths"
-assert patch.count("M14.76,19.36") == 1, "Enhanced notification arrows should be scaled to 92 percent"
 assert patch.count("M9.6,0.2 L11.05,2.15") == 1, "One prominent sparkle in native Enhanced"
 assert patch.count("M12,20.15 Q12.65,20.15") == 1, "One centered near-crossing dot in native Enhanced"
 assert "moveTo(12f, 20.15f)" in enhanced, "One centered near-crossing dot in player Enhanced"
@@ -41,4 +40,4 @@ assert "EnhancedShufflePlanner.firstBlock(" in shared, "Current song must seed f
 assert "firstBatch.tracks.drop(1)" in shared, "Current track must never be played twice"
 planner = Path("composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/viewModel/EnhancedShufflePlanner.kt").read_text()
 assert "currentLiked: T?" in planner and "upcomingLikedCount" in planner
-print("PASS: original 24dp Shuffle arrows unchanged; Enhanced star and dot; native icons match")
+print("PASS: matching 92%-scale Shuffle arrows, enlarged star, centered dot and recommendation label")
