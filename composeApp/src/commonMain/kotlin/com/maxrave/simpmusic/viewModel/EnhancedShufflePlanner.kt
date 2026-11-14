@@ -3,6 +3,36 @@ package com.maxrave.simpmusic.viewModel
 /** Mix two liked tracks followed by one radio recommendation; never mutate the playlist. */
 internal object EnhancedShufflePlanner {
     /**
+     * When Enhanced is enabled mid-song, the playing liked song is the FIRST
+     * member of the opening 2+1 pair. It is a radio seed, not a new queue item.
+     * Keep the total number of liked seeds per block at [batchSize], so later
+     * batches continue on complete two-song boundaries.
+     */
+    data class FirstBlock<T>(
+        val radioSeeds: List<T>,
+        val upcomingLikedCount: Int,
+        val hasCurrentSeed: Boolean,
+    )
+
+    fun <T> firstBlock(
+        currentLiked: T?,
+        shuffledUpcoming: List<T>,
+        batchSize: Int,
+        id: (T) -> String,
+    ): FirstBlock<T> {
+        require(batchSize > 0)
+        val upcoming = if (currentLiked == null) shuffledUpcoming
+            else shuffledUpcoming.filterNot { id(it) == id(currentLiked) }
+        val count = (batchSize - if (currentLiked != null) 1 else 0).coerceAtLeast(0)
+        val firstUpcoming = upcoming.take(count)
+        return FirstBlock(
+            radioSeeds = if (currentLiked == null) firstUpcoming else listOf(currentLiked) + firstUpcoming,
+            upcomingLikedCount = firstUpcoming.size,
+            hasCurrentSeed = currentLiked != null,
+        )
+    }
+
+    /**
      * Take one distinct suggestion per radio station per pass.
      * This avoids long runs of recommendations sourced from a single seed song.
      */
