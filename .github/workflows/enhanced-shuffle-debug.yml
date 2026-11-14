@@ -4,6 +4,9 @@ on:
     branches: [feature/enhanced-shuffle]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-debug:
     timeout-minutes: 40
@@ -99,7 +102,20 @@ jobs:
           ./gradlew :composeApp:jvmTest \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: simpmusic-enhanced-debug
-          path: androidApp/build/outputs/apk/debug/*.apk
+      - name: Publish one ARM64 APK for direct download (no ZIP)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk
+          test -s "$APK"
+          cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk"
+          if gh release view enhanced-latest >/dev/null 2>&1; then
+            gh release upload enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk" --clobber
+            gh release edit enhanced-latest --notes "Current signed ARM64 APK: ${GITHUB_SHA}"
+          else
+            gh release create enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced (latest)" --notes "Direct-download signed ARM64 debug APK for Motorola Android." --prerelease
+          fi
+          gh release view enhanced-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-arm64.apk'
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk"
