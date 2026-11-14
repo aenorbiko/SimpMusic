@@ -984,6 +984,14 @@ class LocalPlaylistViewModel(
         }
     }
 
+    /** Load every song in a local playlist, not only the currently visible page. */
+    fun getFullTracksForEnhanced(callback: (List<Track>) -> Unit) {
+        viewModelScope.launch {
+            val sourceId = uiState.value.id
+            callback(localPlaylistRepository.getFullPlaylistTracks(id = sourceId).map { it.toTrack() })
+        }
+    }
+
     fun downloadFullPlaylist() {
         viewModelScope.launch {
             val fullTracks = localPlaylistRepository.getFullPlaylistTracks(id = uiState.value.id)
