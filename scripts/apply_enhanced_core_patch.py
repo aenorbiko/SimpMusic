@@ -226,7 +226,7 @@ edit(adapter,
         metadata = mediaMetadata.toGenericMediaMetadata().let { meta ->
             if (mediaId.removePrefix("Video") in EnhancedMediaBridge.recommendedTrackIds.value &&
                 meta.title?.startsWith("✦ ") == true
-            ) meta.copy(title = meta.title.removePrefix("✦ ")) else meta
+            ) meta.copy(title = meta.title?.removePrefix("✦ ")) else meta
         },
         customCacheKey = localConfiguration?.customCacheKey,""")
 
