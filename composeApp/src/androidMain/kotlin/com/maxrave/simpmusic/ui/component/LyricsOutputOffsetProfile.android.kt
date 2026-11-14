@@ -101,6 +101,17 @@ actual fun rememberLyricsOutputOffsetProfile(
             } else globalOffsetMs,
         )
     }
+    // All lyric layouts have their own composable observer. Keep them in sync:
+    // a tap in the player also updates the full-screen lyric view immediately.
+    DisposableEffect(preferences, key, globalOffsetMs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, changed ->
+            if (key != null && changed == key) {
+                activeOffset = prefs.getInt(key, globalOffsetMs)
+            }
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     return LyricsOutputOffsetProfile(
         offsetMs = activeOffset,
         deviceName = output?.name,
