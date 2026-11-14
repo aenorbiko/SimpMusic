@@ -5,6 +5,51 @@ import kotlin.test.assertEquals
 
 class EnhancedShufflePlannerTest {
     @Test
+    fun enablingEnhancedDuringAStartsWithBThenRecommendationOfAAndB() {
+        val upcoming = ('B'..'Z').map(Char::toString)
+        val first = EnhancedShufflePlanner.firstBlock(
+            currentLiked = "A",
+            shuffledUpcoming = upcoming,
+            batchSize = 14,
+            id = { it },
+        )
+        assertEquals(listOf("A") + upcoming.take(13), first.radioSeeds)
+        assertEquals(13, first.upcomingLikedCount)
+        assertEquals(true, first.hasCurrentSeed)
+        // The recommended song for pair(A, B) must follow B, not C/D.
+        val fullBlock = EnhancedShufflePlanner.mix(first.radioSeeds, listOf("R_AB"), id = { it })
+        val queuedAfterCurrent = fullBlock.drop(1)
+        assertEquals(listOf("B", "R_AB", "C"), queuedAfterCurrent.take(3))
+        assertEquals("O", upcoming[first.upcomingLikedCount])
+    }
+
+    @Test
+    fun enablingEnhancedWithoutCurrentSongUsesFourteenUpcomingLikedSongs() {
+        val upcoming = (1..20).map { "L$it" }
+        val first = EnhancedShufflePlanner.firstBlock(
+            currentLiked = null,
+            shuffledUpcoming = upcoming,
+            batchSize = 14,
+            id = { it },
+        )
+        assertEquals(upcoming.take(14), first.radioSeeds)
+        assertEquals(14, first.upcomingLikedCount)
+        assertEquals(false, first.hasCurrentSeed)
+    }
+
+    @Test
+    fun repeatedCurrentInUpcomingIsNotQueuedTwice() {
+        val first = EnhancedShufflePlanner.firstBlock(
+            currentLiked = "A",
+            shuffledUpcoming = listOf("A", "B", "C"),
+            batchSize = 4,
+            id = { it },
+        )
+        assertEquals(listOf("A", "B", "C"), first.radioSeeds)
+        assertEquals(2, first.upcomingLikedCount)
+    }
+
+    @Test
     fun prefetchStartsBeforeTheEndOfTheFirstBlock() {
         assertEquals(false, shouldPrefetchEnhanced(15))
         assertEquals(true, shouldPrefetchEnhanced(14))
