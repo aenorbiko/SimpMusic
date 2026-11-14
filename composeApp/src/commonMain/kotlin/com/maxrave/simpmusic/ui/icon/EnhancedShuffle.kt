@@ -108,14 +108,14 @@ val SimpIcons.EnhancedShuffle: ImageVector
             lineTo(8.15f, 2.15f)
             close()
           }
-          // Center the small dot at x=12 directly below the crossing,
-          // with a 0.8dp gap from the bottom of the scaled arrows.
+          // Dot centered at (11,17.8) on the exact user-marked red spot:
+          // slightly left and above its old position, between the lower arrows.
           path(fill = SolidColor(Color.Black)) {
-            moveTo(12f, 20.15f)
-            quadTo(12.65f, 20.15f, 12.65f, 20.8f)
-            quadTo(12.65f, 21.45f, 12f, 21.45f)
-            quadTo(11.35f, 21.45f, 11.35f, 20.8f)
-            quadTo(11.35f, 20.15f, 12f, 20.15f)
+            moveTo(11f, 17.15f)
+            quadTo(11.65f, 17.15f, 11.65f, 17.8f)
+            quadTo(11.65f, 18.45f, 11f, 18.45f)
+            quadTo(10.35f, 18.45f, 10.35f, 17.8f)
+            quadTo(10.35f, 17.15f, 11f, 17.15f)
             close()
           }
         }
