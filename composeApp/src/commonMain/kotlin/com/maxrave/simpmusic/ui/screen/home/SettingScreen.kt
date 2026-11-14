@@ -2797,6 +2797,15 @@ fun SettingScreen(
                         navController.navigate(CreditDestination)
                     },
                 )
+                // Make it clear which fork this experimental APK comes from.
+                // Keep the original SimpMusic author and GPL credits below.
+                SettingItem(
+                    title = "Enhanced Lab · experimental build",
+                    subtitle = "Independent test version by aenorbiko · open source (GPL-3.0)",
+                    onClick = {
+                        uriHandler.openUri("https://github.com/aenorbiko/SimpMusic/tree/feature/enhanced-optimisation")
+                    },
+                )
                 SettingItem(
                     title = stringResource(Res.string.auto_check_for_update),
                     subtitle = stringResource(Res.string.auto_check_for_update_description),
