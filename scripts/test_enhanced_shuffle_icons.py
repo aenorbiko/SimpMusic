@@ -10,9 +10,9 @@ def stock_arrow(s):
     end = s.index("\n          }", start)
     return s[start:end]
 assert stock_arrow(normal) == stock_arrow(enhanced), "Arrow shapes differ between modes"
-assert "moveTo(9.5f, 0.45f)" in enhanced, "Top-left sparkle missing"
+assert "moveTo(9.6f, 0.2f)" in enhanced, "Larger top-left sparkle missing"
 assert "moveTo(9.45f, 21.05f)" in enhanced, "Bottom dot missing"
-assert "moveTo(9.5f, 0.45f)" not in normal, "Normal shuffle must not have a star"
+assert "moveTo(9.6f, 0.2f)" not in normal, "Normal shuffle must not have a star"
 for icon in (normal, enhanced):
     assert "defaultWidth = 24.dp" in icon
     assert "defaultHeight = 24.dp" in icon
