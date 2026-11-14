@@ -425,17 +425,28 @@ class SharedViewModel(
                     }
                     SmartShuffleMode.ENHANCED -> {
                         val shuffled = notYetPlayedLiked.shuffled()
-                        val firstLiked = shuffled.take(ENHANCED_LIKED_BATCH_SIZE)
+                        // A song already playing from Liked is the first seed:
+                        // A (current) -> B (next liked) -> recommendation(A,B).
+                        // Neither restart A nor insert it twice in the player.
+                        val currentLiked = sourceTracks.firstOrNull {
+                            activeMediaId == it.videoId || activeMediaId?.endsWith(it.videoId) == true
+                        }
+                        val opening = EnhancedShufflePlanner.firstBlock(
+                            currentLiked = currentLiked,
+                            shuffledUpcoming = shuffled,
+                            batchSize = ENHANCED_LIKED_BATCH_SIZE,
+                            id = { it.videoId },
+                        )
                         val firstBatch = buildEnhancedBatch(
-                            likedBatch = firstLiked,
+                            likedBatch = opening.radioSeeds,
                             songRepository = songRepository,
                             excludedIds = enhancedOwnedIds,
                         )
                         if (thisSession != enhancedSession) return@launch
-                        ordered = firstBatch.tracks
+                        ordered = if (opening.hasCurrentSeed) firstBatch.tracks.drop(1) else firstBatch.tracks
                         initialRecommendations = firstBatch.recommendedIds
                         enhancedLikedOrder = shuffled
-                        nextEnhancedLikedIndex = firstLiked.size
+                        nextEnhancedLikedIndex = opening.upcomingLikedCount
                         enhancedUsedRecommendations.addAll(initialRecommendations)
                         if (initialRecommendations.isEmpty()) {
                             makeToast("No radio suggestions in this block; continuing with liked songs")
