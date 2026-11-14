@@ -567,7 +567,7 @@ class SharedViewModel(
                 PlaylistType.LOCAL_PLAYLIST -> "local:${queue.playlistId}"
                 else -> "playlist:${queue.playlistId}"
             }
-            cycleSourceShuffle(queue.listTracks, queue.playlistName, sourceId)
+            cycleSourceShuffle(queue.listTracks, queue.playlistName ?: "Playlist", sourceId)
         } else {
             forgetSmartShuffle()
             viewModelScope.launch { mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle) }
