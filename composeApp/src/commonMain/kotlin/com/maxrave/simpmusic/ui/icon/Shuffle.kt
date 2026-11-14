@@ -6,10 +6,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-// Original full-size SimpMusic shuffle geometry, never scaled.
+// Original SimpMusic shuffle geometry scaled uniformly to 92% to match Enhanced.
 @Suppress("CheckReturnValue")
 val SimpIcons.Shuffle: ImageVector
   get() {
@@ -25,6 +26,7 @@ val SimpIcons.Shuffle: ImageVector
           viewportHeight = 24f,
         )
         .apply {
+          group(scaleX = 0.92f, scaleY = 0.92f, pivotX = 12f, pivotY = 12f) {
           path(
             fill = SolidColor(Color.Black),
             fillAlpha = 1f,
@@ -92,6 +94,7 @@ val SimpIcons.Shuffle: ImageVector
             reflectiveQuadTo(8.48f, 9.88f)
             lineTo(4.28f, 5.7f)
             close()
+          }
           }
         }
         .buildSimpIcon()
