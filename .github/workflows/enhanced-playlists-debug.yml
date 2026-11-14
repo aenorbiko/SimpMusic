@@ -1,0 +1,129 @@
+name: SimpMusic Enhanced Playlists Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-all-playlists]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# When several commits land close together, build only the newest version.
+concurrency:
+  group: simpmusic-playlists-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug:
+    timeout-minutes: 40
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Verify playlist and album Enhanced source wiring
+        run: python3 scripts/test_enhanced_all_playlists.py
+      - name: Verify approved Enhanced icon keeps 24dp shuffle geometry
+        run: python3 scripts/test_enhanced_shuffle_icons.py
+      - name: Apply enhanced controls to pinned core submodule
+        run: python3 scripts/apply_enhanced_core_patch.py
+      - name: Generate library definitions
+        run: ./gradlew exportLibraryDefinitions
+      - name: Load permanent signing key, if configured
+        shell: bash
+        env:
+          SIGNING_BUNDLE: ${{ secrets.SIMP_SIGNING_BUNDLE }}
+        run: |
+          if [ -z "$SIGNING_BUNDLE" ]; then
+            echo "::error::Missing SIMP_SIGNING_BUNDLE. Refusing to create an APK with an ephemeral debug key."
+            exit 1
+          else
+            SIGNING_DIR="$RUNNER_TEMP/simpmusic-signing"
+            install -d -m 700 "$SIGNING_DIR"
+            printf '%s' "$SIGNING_BUNDLE" | base64 --decode | tar -xz -C "$SIGNING_DIR"
+            test -s "$SIGNING_DIR/simpmusic-enhanced.jks"
+            test -s "$SIGNING_DIR/signing.properties"
+            echo "SIMP_SIGNING_DIR=$SIGNING_DIR" >> "$GITHUB_ENV"
+            echo "Permanent signing credentials restored from GitHub secret."
+          fi
+      - name: Build debug APK (separate .dev package)
+        run: ./gradlew :androidApp:assembleDebug -PsimpmusicPlaylistsExperimental=true
+      - name: Verify APK uses the permanent signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SIMP_SIGNING_DIR:-}" ]; then
+            echo "::error::Permanent signing directory is missing."
+            exit 1
+          fi
+          APK="androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk"
+          if [ ! -s "$APK" ]; then
+            echo "::error::ARM64 APK not found. Available APKs:"
+            find androidApp/build/outputs -name '*.apk' -print || true
+            exit 1
+          fi
+          echo "ARM64 APK exists."
+          SIGNING_PROPS="$SIMP_SIGNING_DIR/signing.properties"
+          STORE_PASS="$(sed -n 's/^storePassword=//p' "$SIGNING_PROPS" | tr -d '\r')"
+          KEY_ALIAS="$(sed -n 's/^keyAlias=//p' "$SIGNING_PROPS" | tr -d '\r')"
+          if [ -z "$STORE_PASS" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Signing configuration fields missing."
+            exit 1
+          fi
+          CERT="$RUNNER_TEMP/simpmusic-signing-cert.der"
+          if ! keytool -exportcert -keystore "$SIMP_SIGNING_DIR/simpmusic-enhanced.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" -file "$CERT" >/dev/null 2>&1; then
+            echo "::error::Cannot extract signing certificate from keystore."
+            exit 1
+          fi
+          EXPECTED="$(sha256sum "$CERT" | cut -d' ' -f1)"
+          echo "Expected signing certificate exported successfully."
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+            echo "::error::Android SDK apksigner not found."
+            exit 1
+          fi
+          echo "Android SDK apksigner found."
+          if ! CERT_INFO="$("$APKSIGNER" verify --print-certs "$APK")"; then
+            echo "::error::APK did not pass Android signature verification."
+            exit 1
+          fi
+          # apksigner formatting varies between SDK versions; parse the digest
+          # from any certificate SHA-256 line, not a hardcoded full-line prefix.
+          ACTUAL="$(printf '%s\n' "$CERT_INFO" | tr -d '\r' | grep -i 'certificate.*SHA-256' | head -n 1 | grep -Eo '[0-9a-fA-F]{64}' | head -n 1 | tr '[:upper:]' '[:lower:]' || true)"
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::Could not parse certificate SHA-256 from apksigner output."
+            printf '%s\n' "$CERT_INFO" | head -n 15
+            exit 1
+          fi
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::APK signature does not match the permanent signing key."
+            exit 1
+          fi
+          echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
+      - name: Verify shuffle ordering and current-track preservation
+        run: |
+          ./gradlew :composeApp:jvmTest \
+            --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest"
+      - name: Publish one ARM64 APK for direct download (no ZIP)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk
+          test -s "$APK"
+          cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Playlists-arm64.apk"
+          if gh release view enhanced-playlists-latest >/dev/null 2>&1; then
+            gh release upload enhanced-playlists-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Playlists-arm64.apk" --clobber
+            gh release edit enhanced-playlists-latest --notes "Enhanced for every playlist and album ONLY · experimental signed ARM64 APK: ${GITHUB_SHA} · source feature/enhanced-all-playlists"
+          else
+            gh release create enhanced-playlists-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Playlists-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Playlists Lab (experimental)" --notes "Enhanced for every playlist and album ONLY. Signed ARM64 APK, separate from stable SimpMusic Dev. Source: feature/enhanced-all-playlists." --prerelease
+          fi
+          gh release view enhanced-playlists-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Playlists-arm64.apk'
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-playlists-latest/SimpMusic-Enhanced-Playlists-arm64.apk"
