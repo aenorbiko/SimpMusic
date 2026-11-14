@@ -127,6 +127,14 @@ actual suspend fun restoreNative(
                             }
                     }
 
+                    entry.name == "lyrics_output_offsets_v1.xml" -> {
+                        // Keep Bluetooth-specific offsets in the ordinary app backup.
+                        // Importing an older backup without this entry remains supported.
+                        val preferencesFile = File(application.applicationInfo.dataDir, "shared_prefs/lyrics_output_offsets_v1.xml")
+                        preferencesFile.parentFile?.mkdirs()
+                        preferencesFile.outputStream().use { output -> inputStream.copyTo(output) }
+                    }
+
                     entry.name == DB_NAME -> {
                         runBlocking(Dispatchers.IO) {
                             commonRepository.databaseDaoCheckpoint()
@@ -255,7 +263,13 @@ private fun restoreFolder(
 
     // Extract relative path from entry name
     val relativePath = entryName.removePrefix("$baseFolderName/")
-    val targetFile = application.filesDir / baseFolderName / relativePath
+    // A backup from another source may contain '../' path traversal or
+    // symlinks. Refuse paths outside our own download directory.
+    val allowedRoot = (application.filesDir / baseFolderName).canonicalFile
+    val targetFile = File(allowedRoot, relativePath).canonicalFile
+    require(relativePath.isNotBlank() && targetFile.path.startsWith(allowedRoot.path + File.separator)) {
+        "Unsafe backup entry outside the downloads folder"
+    }
 
     Logger.d("BackupRestore", "Target file path: ${targetFile.absolutePath}")
     Logger.d("BackupRestore", "Relative path: $relativePath")
@@ -299,6 +313,13 @@ actual suspend fun backupNative(
                     outputStream.putNextEntry(ZipEntry("$SETTINGS_FILENAME.preferences_pb"))
                     inputStream.copyTo(outputStream)
                 }
+            // SharedPreferences are not otherwise included in the custom ZIP.
+            val deviceOffsetsFile = File(application.applicationInfo.dataDir, "shared_prefs/lyrics_output_offsets_v1.xml")
+            if (deviceOffsetsFile.isFile) {
+                outputStream.putNextEntry(ZipEntry("lyrics_output_offsets_v1.xml"))
+                deviceOffsetsFile.inputStream().use { it.copyTo(outputStream) }
+                outputStream.closeEntry()
+            }
             runBlocking(Dispatchers.IO) {
                 commonRepository.databaseDaoCheckpoint()
             }
