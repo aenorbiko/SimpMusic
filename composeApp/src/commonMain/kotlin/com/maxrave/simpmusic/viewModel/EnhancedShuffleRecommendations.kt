@@ -16,6 +16,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 internal const val ENHANCED_LIKED_BATCH_SIZE = 14
 internal const val ENHANCED_PREFETCH_REMAINING = 14
 
+// Reuse a radio's results within a short session, not cached audio.
+// Store at most 40 tracks per radio and 64 radios; no disk writes.
+private val enhancedRadioCache = EnhancedRadioCache<Track>()
+
+
 /** Called on actual track transitions, not on rarely-updated index state. */
 internal fun shouldPrefetchEnhanced(remainingTracks: Int): Boolean =
     remainingTracks in 0..ENHANCED_PREFETCH_REMAINING
@@ -43,7 +48,9 @@ internal suspend fun buildEnhancedBatch(
 
     suspend fun fetchRadio(song: Track): List<Track> =
         radioSemaphore.withPermit {
-            try {
+            val cached = enhancedRadioCache.get(song.videoId)
+            if (cached != null) return@withPermit cached
+            val tracks = try {
                 withTimeoutOrNull(8_000L) {
                     songRepository.getRadioFromEndpoint(
                         YouTubeWatchEndpoint(
@@ -57,6 +64,8 @@ internal suspend fun buildEnhancedBatch(
             } catch (_: Exception) {
                 emptyList()
             }
+            if (tracks.isNotEmpty()) enhancedRadioCache.put(song.videoId, tracks.take(40))
+            tracks
         }
 
     val radioPairs = coroutineScope {

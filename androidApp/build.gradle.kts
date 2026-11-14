@@ -1,5 +1,8 @@
 import java.util.Properties
 
+// Only test builds on feature/enhanced-radio-cache use their own Android app ID.
+val isOptimizationExperiment = providers.gradleProperty("simpmusicExperimental").orNull == "true"
+
 val isFullBuild: Boolean =
     try {
         extra["isFullBuild"] == "true"
@@ -83,9 +86,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.add("x86_64")
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
+            // The experimental APK is ARM64-only; the public build retains all ABIs.
+            if (isOptimizationExperiment) {
+                abiFilters.add("arm64-v8a")
+            } else {
+                abiFilters.add("x86_64")
+                abiFilters.add("armeabi-v7a")
+                abiFilters.add("arm64-v8a")
+            }
         }
     }
 
@@ -126,8 +134,8 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".dev"
-            versionNameSuffix = "-dev"
+            applicationIdSuffix = if (isOptimizationExperiment) ".dev.lab" else ".dev"
+            versionNameSuffix = if (isOptimizationExperiment) "-lab" else "-dev"
             // Stable key allows updates over earlier versions signed with it.
             if (enhancedSigningProperties != null) {
                 signingConfig = signingConfigs.getByName("simpmusicEnhanced")
