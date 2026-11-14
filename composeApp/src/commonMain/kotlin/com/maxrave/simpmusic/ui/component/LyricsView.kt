@@ -453,7 +453,11 @@ fun LyricsView(
     // earlier moment is the one the sheet must light up for. Early in a track this can go negative,
     // which the `now <= 0L` guard below already reads as "no line yet" — correct, since in heard
     // time the song has not reached its first line.
-    val lyricsOffsetMs by dataStoreManager.lyricsOffsetMs.collectAsStateWithLifecycle(0)
+    val globalLyricsOffsetMs by dataStoreManager.lyricsOffsetMs.collectAsStateWithLifecycle(0)
+    val lyricsOffsetMs = rememberLyricsOutputOffsetProfile(
+        globalOffsetMs = globalLyricsOffsetMs,
+        updateGlobalOffset = {},
+    ).offsetMs
 
     // Read here rather than taken as a parameter: all four call sites (the fullscreen sheet and
     // the three player styles) want the user's one choice, so making them each thread it through

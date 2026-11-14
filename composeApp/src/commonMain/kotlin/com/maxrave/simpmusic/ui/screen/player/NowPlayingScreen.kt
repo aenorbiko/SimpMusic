@@ -79,6 +79,7 @@ import com.maxrave.simpmusic.extension.parseTimestampToMilliseconds
 import com.maxrave.simpmusic.extension.rememberIsInPipMode
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.AddLyricsSheet
+import com.maxrave.simpmusic.ui.component.rememberLyricsOutputOffsetProfile
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.FullscreenLyricsContent
 import com.maxrave.simpmusic.ui.component.FullscreenLyricsSheet
@@ -198,7 +199,9 @@ fun NowPlayingScreenContent(
     // Audio-delay correction, read here and applied ONLY to the lyric line below. The seek bar and
     // the elapsed-time readout keep the raw position: they report where the player is, while a
     // lyric reports what the ear is hearing, and those two are what the offset separates.
-    val lyricsOffsetMs by sharedViewModel.getLyricsOffsetMs().collectAsStateWithLifecycle(0)
+    val globalLyricsOffsetMs by sharedViewModel.getLyricsOffsetMs().collectAsStateWithLifecycle(0)
+    val lyricsOutput = rememberLyricsOutputOffsetProfile(globalLyricsOffsetMs, sharedViewModel::setLyricsOffsetMs)
+    val lyricsOffsetMs = lyricsOutput.offsetMs
     val likeStatus by sharedViewModel.likeStatus.collectAsStateWithLifecycle()
     val isDislikePending by sharedViewModel.isDislikePending.collectAsStateWithLifecycle()
     val castState by sharedViewModel.castState.collectAsStateWithLifecycle()
@@ -725,7 +728,7 @@ fun NowPlayingScreenContent(
             },
             onShowFullscreenLyrics = { showFullscreenLyrics = true },
             onShowVoteDialog = { showVoteDialog = true },
-            onLyricsOffsetChange = { sharedViewModel.setLyricsOffsetMs(it) },
+            onLyricsOffsetChange = lyricsOutput.updateOffset,
             onEnterFullscreenVideo = {
                 onDismiss()
                 navController.navigate(FullscreenDestination)
