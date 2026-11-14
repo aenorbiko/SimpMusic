@@ -11,7 +11,7 @@ def stock_arrow(s):
     return s[start:end]
 assert stock_arrow(normal) == stock_arrow(enhanced), "Arrow shapes differ between modes"
 assert "moveTo(9.6f, 0.2f)" in enhanced, "Larger top-left sparkle missing"
-assert "moveTo(12f, 20.15f)" in enhanced, "Centered bottom dot missing"
+assert "moveTo(11f, 17.15f)" in enhanced, "User-positioned dot missing"
 assert "moveTo(9.6f, 0.2f)" not in normal, "Normal shuffle must not have a star"
 for icon in (normal, enhanced):
     assert "defaultWidth = 24.dp" in icon
@@ -22,8 +22,8 @@ for icon in (normal, enhanced):
 patch = Path("scripts/apply_enhanced_core_patch.py").read_text()
 assert patch.count("M14.76,19.36") == 3, "All native Shuffle states must use identical 92%-scale arrow paths"
 assert patch.count("M9.6,0.2 L11.05,2.15") == 1, "One prominent sparkle in native Enhanced"
-assert patch.count("M12,20.15 Q12.65,20.15") == 1, "One centered near-crossing dot in native Enhanced"
-assert "moveTo(12f, 20.15f)" in enhanced, "One centered near-crossing dot in player Enhanced"
+assert patch.count("M11,17.15 Q11.65,17.15") == 1, "One user-positioned dot in native Enhanced"
+assert "moveTo(11f, 17.15f)" in enhanced, "One user-positioned dot in player Enhanced"
 assert patch.count('android:width="24dp"') == 3
 assert patch.count('android:fillType="evenOdd"') == 2
 assert patch.count(' H15 Q') == 0 and patch.count(' H15 Z') == 0, 'Scaled native icons use explicit line segments rather than the unscaled H geometry'
