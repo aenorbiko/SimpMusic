@@ -11,7 +11,7 @@ def stock_arrow(s):
     return s[start:end]
 assert stock_arrow(normal) == stock_arrow(enhanced), "Arrow shapes differ between modes"
 assert "moveTo(9.6f, 0.2f)" in enhanced, "Larger top-left sparkle missing"
-assert "moveTo(11f, 17.15f)" in enhanced, "User-positioned dot missing"
+assert "moveTo(11f, 16.48f)" in enhanced, "Small lower sparkle missing"
 assert "moveTo(9.6f, 0.2f)" not in normal, "Normal shuffle must not have a star"
 for icon in (normal, enhanced):
     assert "defaultWidth = 24.dp" in icon
@@ -22,8 +22,9 @@ for icon in (normal, enhanced):
 patch = Path("scripts/apply_enhanced_core_patch.py").read_text()
 assert patch.count("M14.76,19.36") == 3, "All native Shuffle states must use identical 92%-scale arrow paths"
 assert patch.count("M9.6,0.2 L11.05,2.15") == 1, "One prominent sparkle in native Enhanced"
-assert patch.count("M11,17.15 Q11.65,17.15") == 1, "One user-positioned dot in native Enhanced"
-assert "moveTo(11f, 17.15f)" in enhanced, "One user-positioned dot in player Enhanced"
+assert patch.count("M11,16.48 L11.61,17.3") == 1, "Small lower sparkle missing in native Enhanced"
+assert "lineTo(12.51f, 17.8f)" in enhanced and "lineTo(9.49f, 17.8f)" in enhanced, "Lower sparkle centre must stay at (11,17.8)"
+assert "moveTo(11f, 17.15f)" not in enhanced and "M11,17.15" not in patch, "Old lower dot must be removed"
 assert patch.count('android:width="24dp"') == 3
 assert patch.count('android:fillType="evenOdd"') == 2
 assert patch.count(' H15 Q') == 0 and patch.count(' H15 Z') == 0, 'Scaled native icons use explicit line segments rather than the unscaled H geometry'
@@ -40,4 +41,4 @@ assert "EnhancedShufflePlanner.firstBlock(" in shared, "Current song must seed f
 assert "firstBatch.tracks.drop(1)" in shared, "Current track must never be played twice"
 planner = Path("composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/viewModel/EnhancedShufflePlanner.kt").read_text()
 assert "currentLiked: T?" in planner and "upcomingLikedCount" in planner
-print("PASS: matching 92%-scale Shuffle arrows, enlarged star, centered dot and recommendation label")
+print("PASS: matching Shuffle arrows, small lower star exactly centred at previous dot (11,17.8), labels unchanged")

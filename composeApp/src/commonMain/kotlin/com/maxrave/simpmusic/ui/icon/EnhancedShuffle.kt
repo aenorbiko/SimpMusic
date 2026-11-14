@@ -108,14 +108,17 @@ val SimpIcons.EnhancedShuffle: ImageVector
             lineTo(8.15f, 2.15f)
             close()
           }
-          // Dot centered at (11,17.8) on the exact user-marked red spot:
-          // slightly left and above its old position, between the lower arrows.
+          // Small four-point sparkle; its centre stays EXACTLY at the
+          // previous dot centre (11f, 17.8f) in the 24dp viewport.
           path(fill = SolidColor(Color.Black)) {
-            moveTo(11f, 17.15f)
-            quadTo(11.65f, 17.15f, 11.65f, 17.8f)
-            quadTo(11.65f, 18.45f, 11f, 18.45f)
-            quadTo(10.35f, 18.45f, 10.35f, 17.8f)
-            quadTo(10.35f, 17.15f, 11f, 17.15f)
+            moveTo(11f, 16.48f)
+            lineTo(11.61f, 17.3f)
+            lineTo(12.51f, 17.8f)
+            lineTo(11.61f, 18.3f)
+            lineTo(11f, 19.12f)
+            lineTo(10.39f, 18.3f)
+            lineTo(9.49f, 17.8f)
+            lineTo(10.39f, 17.3f)
             close()
           }
         }
