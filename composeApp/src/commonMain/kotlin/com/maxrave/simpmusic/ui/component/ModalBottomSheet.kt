@@ -1262,7 +1262,10 @@ fun QueueBottomSheet(
                                                 }
                                             },
                                             onMoreClickListener = { showQueueItemBottomSheet(index) },
-                                            onAddToQueue = { sharedViewModel.addListToQueue(arrayListOf(track)) },
+                                            // Queue already contains this track. Disable horizontal
+                                            // swipe-to-add/play-next so accidental swipes never mutate
+                                            // Enhanced ordering. Tap, long-press reorder and ⋮ stay available.
+                                            onAddToQueue = null,
                                         )
                                     }
                                 }
