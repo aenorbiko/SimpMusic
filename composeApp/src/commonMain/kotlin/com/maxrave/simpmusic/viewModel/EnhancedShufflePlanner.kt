@@ -86,6 +86,48 @@ internal object EnhancedShufflePlanner {
         return preferred.firstOrNull() ?: alternative.firstOrNull()
     }
 
+    /**
+     * Do not silently skip a 2+1 slot when both radios for that pair are empty
+     * (or only contain already-liked tracks). Prefer the pair's own radio;
+     * otherwise borrow an UNUSED recommendation from the nearest subsequent
+     * pair's radio. This preserves the 2+1 cadence whenever any candidate exists.
+     *
+     * If every fetched radio is empty, no candidate can safely be invented.
+     */
+    fun <T> selectForAllPairs(
+        radioPairs: List<Pair<List<T>, List<T>>>,
+        excludedIds: Set<String>,
+        id: (T) -> String,
+    ): List<T?> {
+        val used = excludedIds.toMutableSet()
+        return radioPairs.mapIndexed { index, (first, second) ->
+            var candidate = selectForPair(
+                firstRadio = first,
+                secondRadio = second,
+                usedIds = used,
+                id = id,
+                preferSecondOnFallback = index % 2 == 1,
+            )
+            if (candidate == null) {
+                val neighbours = radioPairs.indices
+                    .filter { it != index }
+                    .sortedWith(compareBy<Int> { kotlin.math.abs(it - index) }.thenBy { it })
+                for (nearby in neighbours) {
+                    val (otherFirst, otherSecond) = radioPairs[nearby]
+                    candidate = selectForPair(
+                        firstRadio = otherFirst,
+                        secondRadio = otherSecond,
+                        usedIds = used,
+                        id = id,
+                        preferSecondOnFallback = index % 2 == 1,
+                    )
+                    if (candidate != null) break
+                }
+            }
+            candidate?.also { used.add(id(it)) }
+        }
+    }
+
     fun <T> mix(
         liked: List<T>,
         recommended: List<T>,
