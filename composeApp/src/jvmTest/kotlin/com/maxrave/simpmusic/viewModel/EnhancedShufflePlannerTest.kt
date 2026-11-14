@@ -50,6 +50,62 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
+    fun firstPairWithEmptyRadioStillGetsThirdTrackFromNearbyRadio() {
+        val selected = EnhancedShufflePlanner.selectForAllPairs(
+            radioPairs = listOf(
+                emptyList<String>() to emptyList(),
+                listOf("R1", "R2") to emptyList(),
+                listOf("R3") to emptyList(),
+            ),
+            excludedIds = setOf("A", "B", "C", "D", "E", "F"),
+            id = { it },
+        )
+        assertEquals(listOf("R1", "R2", "R3"), selected)
+        val mixed = listOf("A", "B", selected[0], "C", "D", selected[1], "E", "F", selected[2])
+        assertEquals(listOf("A", "B", "R1", "C", "D", "R2", "E", "F", "R3"), mixed)
+    }
+
+    @Test
+    fun recommendationPriorityIsAlwaysThePairsOwnRadioWhenPresent() {
+        val selected = EnhancedShufflePlanner.selectForAllPairs(
+            radioPairs = listOf(
+                listOf("OwnAB") to listOf("OwnAB", "OtherAB"),
+                listOf("OwnCD") to listOf("OwnCD"),
+            ),
+            excludedIds = emptySet(),
+            id = { it },
+        )
+        assertEquals(listOf("OwnAB", "OwnCD"), selected)
+    }
+
+    @Test
+    fun fallbackDoesNotRepeatLikedOrPreviouslyRecommendedTracks() {
+        val selected = EnhancedShufflePlanner.selectForAllPairs(
+            radioPairs = listOf(
+                emptyList<String>() to emptyList(),
+                listOf("Liked", "Candidate") to listOf("Candidate", "SecondCandidate"),
+                emptyList<String>() to emptyList(),
+            ),
+            excludedIds = setOf("Liked"),
+            id = { it },
+        )
+        assertEquals(listOf("Candidate", "SecondCandidate", null), selected)
+    }
+
+    @Test
+    fun emptyRadiosDoNotInventRecommendations() {
+        val selected = EnhancedShufflePlanner.selectForAllPairs(
+            radioPairs = listOf(
+                emptyList<String>() to emptyList(),
+                emptyList<String>() to emptyList(),
+            ),
+            excludedIds = emptySet(),
+            id = { it },
+        )
+        assertEquals(listOf(null, null), selected)
+    }
+
+    @Test
     fun prefetchStartsBeforeTheEndOfTheFirstBlock() {
         assertEquals(false, shouldPrefetchEnhanced(15))
         assertEquals(true, shouldPrefetchEnhanced(14))
