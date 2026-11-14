@@ -25,5 +25,7 @@ assert patch.count("M9.5,0.45 L10.32,2.25") == 1, "One sparkle in Enhanced"
 assert patch.count("M9.45,21.05 Q10.25,21.05") == 1, "One dot in Enhanced"
 assert patch.count('android:width="24dp"') == 3
 assert patch.count('android:fillType="evenOdd"') == 2
+assert patch.count(' H15 Q') == 3 and patch.count(' H15 Z') == 3, 'Each native icon must use valid horizontal commands'
+assert ' L15 Q' not in patch and ' L15 Z' not in patch, 'No malformed single-argument L path commands'
 assert "GenericCommandButton.Repeat(repeatState = control.repeatState)" not in patch, "Preserve Previous in notification"
 print("PASS: original 24dp Shuffle arrows unchanged; Enhanced star and dot; native icons match")
