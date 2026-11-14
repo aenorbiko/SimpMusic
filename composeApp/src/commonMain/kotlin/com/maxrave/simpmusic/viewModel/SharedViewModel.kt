@@ -280,9 +280,10 @@ class SharedViewModel(
         requestedMode: SmartShuffleMode,
         label: String,
         recommendationIds: Set<String>,
+        forceNewQueue: Boolean = false,
     ): Boolean {
         val currentItem = mediaPlayerHandler.getCurrentMediaItem()
-        if (currentItem == null || currentItem.mediaId.isBlank()) {
+        if (currentItem == null || currentItem.mediaId.isBlank() || forceNewQueue) {
             // Nothing to preserve: first playback of a fresh queue.
             mediaPlayerHandler.reset()
             mediaPlayerHandler.setQueueData(
@@ -355,12 +356,12 @@ class SharedViewModel(
     }
 
     /**
-     * One button: Off -> Shuffle -> Enhanced (2 liked + 1 suggestion) -> Off.
-     * The full Liked list is shuffled once; Enhanced fetches only 14 liked
-     * tracks (7 pairs) at a time and appends another batch when needed.
-     * Switching modes replaces only UP NEXT while the current track continues.
+     * Three-state shuffle for a collection of source tracks, not just Liked.
+     * Each block is 14 source songs plus up to 7 recommendations.
+     * Preserve current playback when changing modes within the same collection.
+     * If another collection's header is pressed, start playback from that source.
      */
-    fun cycleLikedShuffle(
+    fun cycleSourceShuffle(
         liked: List<Track>,
         name: String,
         sourceId: String,
@@ -370,6 +371,13 @@ class SharedViewModel(
         val sameActiveSource =
             _smartShuffleSource.value == sourceId &&
                 (oldQueue?.playlistName == playingSmartQueueName || smartShuffleJob?.isActive == true)
+        val originalQueueIsSource = smartShuffleMatchesOriginalQueue(sourceId, oldQueue?.playlistId)
+        val switchingCollection =
+            (sourceId.startsWith("playlist:") ||
+                sourceId.startsWith("album:") ||
+                sourceId.startsWith("local:") ||
+                sourceId.startsWith("dynamic:")) &&
+                !sameActiveSource && !originalQueueIsSource
         val modeBefore =
             if (sameActiveSource) _smartShuffleMode.value
             else if (sourceId == "LM" && oldQueue?.playlistId == "LM" &&
@@ -407,7 +415,7 @@ class SharedViewModel(
                             activeMediaId?.endsWith(oldData[it].videoId) == true
                         )
                     } ?: oldData.indexOfLast { it.videoId == activeMediaId || activeMediaId?.endsWith(it.videoId) == true }
-                val alreadyHeard = if (activeIndex in oldData.indices)
+                val alreadyHeard = if (!switchingCollection && activeIndex in oldData.indices)
                     oldData.take(activeIndex + 1).mapTo(hashSetOf()) { it.videoId }
                 else emptySet<String>()
                 val notYetPlayedLiked = sourceTracks.filterNot { it.videoId in alreadyHeard }
@@ -428,7 +436,7 @@ class SharedViewModel(
                         // A song already playing from Liked is the first seed:
                         // A (current) -> B (next liked) -> recommendation(A,B).
                         // Neither restart A nor insert it twice in the player.
-                        val currentLiked = sourceTracks.firstOrNull {
+                        val currentLiked = if (switchingCollection) null else sourceTracks.firstOrNull {
                             activeMediaId == it.videoId || activeMediaId?.endsWith(it.videoId) == true
                         }
                         val opening = EnhancedShufflePlanner.firstBlock(
@@ -468,6 +476,7 @@ class SharedViewModel(
                             requestedMode = requestedMode,
                             label = label,
                             recommendationIds = initialRecommendations,
+                            forceNewQueue = switchingCollection,
                         )
                     ) {
                         playingSmartQueueName = label
@@ -483,6 +492,10 @@ class SharedViewModel(
             }
         }
     }
+
+    /** Original Liked Songs UI still calls this stable entrypoint. */
+    fun cycleLikedShuffle(liked: List<Track>, name: String, sourceId: String) =
+        cycleSourceShuffle(liked, name, sourceId)
 
     /** Called on track transitions and queue growth; never resets ongoing playback. */
     private fun maybePrefetchEnhanced() {
@@ -540,9 +553,21 @@ class SharedViewModel(
         if (playingSmartQueueName != null && queue?.playlistName == playingSmartQueueName &&
             likedSourceTracks.isNotEmpty() && likedSourceName != null && _smartShuffleSource.value != null
         ) {
-            cycleLikedShuffle(likedSourceTracks, likedSourceName!!, _smartShuffleSource.value!!)
-        } else if (queue?.playlistId == "LM" && queue.listTracks.size >= 2) {
+            cycleSourceShuffle(likedSourceTracks, likedSourceName!!, _smartShuffleSource.value!!)
+        } else if (queue != null && queue.listTracks.size >= 2 && queue.playlistId == "LM") {
             cycleLikedShuffle(queue.listTracks, "Liked Music", "LM")
+        } else if (queue != null && queue.listTracks.size >= 2 &&
+            queue.playlistId != null &&
+            queue.playlistType in listOf(PlaylistType.PLAYLIST, PlaylistType.ALBUM, PlaylistType.LOCAL_PLAYLIST)
+        ) {
+            // Enabling from notification on a normal playlist/album must enter
+            // the same 3-state mode as the header button.
+            val sourceId = when (queue.playlistType) {
+                PlaylistType.ALBUM -> "album:${queue.playlistId}"
+                PlaylistType.LOCAL_PLAYLIST -> "local:${queue.playlistId}"
+                else -> "playlist:${queue.playlistId}"
+            }
+            cycleSourceShuffle(queue.listTracks, queue.playlistName, sourceId)
         } else {
             forgetSmartShuffle()
             viewModelScope.launch { mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle) }
