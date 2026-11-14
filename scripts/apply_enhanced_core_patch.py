@@ -205,43 +205,28 @@ edit(icons,
 """                .setDisplayName(if (this.isEnhanced) "Enhanced 2+1" else context.getString(R.string.shuffle))
                 .setSessionCommand(""")
 
-# All notification glyphs use the identical new arrow geometry as Compose.
-# Only Enhanced adds one large top and one subtle bottom sparkle; regular Shuffle has
-# ample space above and below. Active icons both use a filled square background.
+# Native icons match full-size original SimpMusic arrows (no squeezing).
+# Enhanced adds one small four-point star above-left and a dot below.
 drawable_dir = ROOT/"media/media3/src/main/res/drawable"
 drawable_dir.joinpath("baseline_simp_shuffle_off_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M20.235,9.39 16.455,7.369 16.455,8.564 15.096,8.616 13.854,9.029 12.531,9.863 10.893,11.248 8.94,9.657 7.275,8.788 6.006,8.564 3.657,8.625 3.324,8.865 3.126,9.313 3.225,9.777 3.513,10.078 3.909,10.216 6.141,10.224 6.879,10.413 8.175,11.162 9.651,12.4 8.175,13.638 6.879,14.387 6.141,14.576 3.585,14.679 3.189,15.092 3.189,15.728 3.513,16.098 3.909,16.236 6.006,16.236 6.969,16.107 8.697,15.315 10.893,13.552 12.531,14.937 13.854,15.771 15.096,16.184 16.455,16.236 16.455,17.431 20.235,15.41 16.455,13.389 16.455,14.584 15.033,14.464 13.827,13.802 12.144,12.4 13.827,10.998 15.033,10.336 16.455,10.216 16.455,11.411Z" />
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M15,20 q-0.42,0,-0.71,-0.29 Q14,19.43,14,19 t0.29,-0.71 T15,18 h1.6 L14.13,15.53 q-0.3,-0.3,-0.29,-0.71 T14.15,14.1 t0.71,-0.3 t0.71,0.3 L18,16.55 V15 q0,-0.43,0.29,-0.71 T19,14 t0.71,0.29 T20,15 v4 q0,0.43,-0.29,0.71 T19,20 L15 Z M4.3,19.7 Q4.03,19.43,4.03,19 T4.3,18.3 L16.6,6 L15 Q14.58,6,14.29,5.71 Q14,5.43,14,5 T14.29,4.29 T15,4 h4 q0.43,0,0.71,0.29 T20,5 V9 q0,0.42,-0.29,0.71 T19,10 T18.29,9.71 T18,9 V7.4 L5.7,19.7 Q5.43,19.98,5,19.98 q-0.42,0,-0.7,-0.28 Z M4.28,5.7 Q4,5.43,4,5 T4.28,4.3 T4.96,4.02 T5.68,4.3 l4.2,4.18 q0.28,0.28,0.29,0.69 T9.88,9.88 Q9.6,10.15,9.18,10.15 T8.48,9.88 L4.28,5.7 Z" />
 </vector>
 """)
 drawable_dir.joinpath("baseline_simp_shuffle_on_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M1,1 L23,1 L23,23 L1,23 Z M20.235,9.39 16.455,7.369 16.455,8.564 15.096,8.616 13.854,9.029 12.531,9.863 10.893,11.248 8.94,9.657 7.275,8.788 6.006,8.564 3.657,8.625 3.324,8.865 3.126,9.313 3.225,9.777 3.513,10.078 3.909,10.216 6.141,10.224 6.879,10.413 8.175,11.162 9.651,12.4 8.175,13.638 6.879,14.387 6.141,14.576 3.585,14.679 3.189,15.092 3.189,15.728 3.513,16.098 3.909,16.236 6.006,16.236 6.969,16.107 8.697,15.315 10.893,13.552 12.531,14.937 13.854,15.771 15.096,16.184 16.455,16.236 16.455,17.431 20.235,15.41 16.455,13.389 16.455,14.584 15.033,14.464 13.827,13.802 12.144,12.4 13.827,10.998 15.033,10.336 16.455,10.216 16.455,11.411Z" />
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M0,0 L24,0 L24,24 L0,24 Z M15,20 q-0.42,0,-0.71,-0.29 Q14,19.43,14,19 t0.29,-0.71 T15,18 h1.6 L14.13,15.53 q-0.3,-0.3,-0.29,-0.71 T14.15,14.1 t0.71,-0.3 t0.71,0.3 L18,16.55 V15 q0,-0.43,0.29,-0.71 T19,14 t0.71,0.29 T20,15 v4 q0,0.43,-0.29,0.71 T19,20 L15 Z M4.3,19.7 Q4.03,19.43,4.03,19 T4.3,18.3 L16.6,6 L15 Q14.58,6,14.29,5.71 Q14,5.43,14,5 T14.29,4.29 T15,4 h4 q0.43,0,0.71,0.29 T20,5 V9 q0,0.42,-0.29,0.71 T19,10 T18.29,9.71 T18,9 V7.4 L5.7,19.7 Q5.43,19.98,5,19.98 q-0.42,0,-0.7,-0.28 Z M4.28,5.7 Q4,5.43,4,5 T4.28,4.3 T4.96,4.02 T5.68,4.3 l4.2,4.18 q0.28,0.28,0.29,0.69 T9.88,9.88 Q9.6,10.15,9.18,10.15 T8.48,9.88 L4.28,5.7 Z" />
 </vector>
 """)
 drawable_dir.joinpath("baseline_simp_shuffle_enhanced_24.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M1,1 L23,1 L23,23 L1,23 Z M20.235,9.39 16.455,7.369 16.455,8.564 15.096,8.616 13.854,9.029 12.531,9.863 10.893,11.248 8.94,9.657 7.275,8.788 6.006,8.564 3.657,8.625 3.324,8.865 3.126,9.313 3.225,9.777 3.513,10.078 3.909,10.216 6.141,10.224 6.879,10.413 8.175,11.162 9.651,12.4 8.175,13.638 6.879,14.387 6.141,14.576 3.585,14.679 3.189,15.092 3.189,15.728 3.513,16.098 3.909,16.236 6.006,16.236 6.969,16.107 8.697,15.315 10.893,13.552 12.531,14.937 13.854,15.771 15.096,16.184 16.455,16.236 16.455,17.431 20.235,15.41 16.455,13.389 16.455,14.584 15.033,14.464 13.827,13.802 12.144,12.4 13.827,10.998 15.033,10.336 16.455,10.216 16.455,11.411Z M12,0.9 L13.15,2.8 L15.25,4 L13.15,5.2 L12,7.1 L10.85,5.2 L8.75,4 L10.85,2.8Z M12,18.75 L12.48,20.12 L13.35,20.55 L12.48,20.98 L12,22.35 L11.52,20.98 L10.65,20.55 L11.52,20.12Z" />
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M0,0 L24,0 L24,24 L0,24 Z M15,20 q-0.42,0,-0.71,-0.29 Q14,19.43,14,19 t0.29,-0.71 T15,18 h1.6 L14.13,15.53 q-0.3,-0.3,-0.29,-0.71 T14.15,14.1 t0.71,-0.3 t0.71,0.3 L18,16.55 V15 q0,-0.43,0.29,-0.71 T19,14 t0.71,0.29 T20,15 v4 q0,0.43,-0.29,0.71 T19,20 L15 Z M4.3,19.7 Q4.03,19.43,4.03,19 T4.3,18.3 L16.6,6 L15 Q14.58,6,14.29,5.71 Q14,5.43,14,5 T14.29,4.29 T15,4 h4 q0.43,0,0.71,0.29 T20,5 V9 q0,0.42,-0.29,0.71 T19,10 T18.29,9.71 T18,9 V7.4 L5.7,19.7 Q5.43,19.98,5,19.98 q-0.42,0,-0.7,-0.28 Z M4.28,5.7 Q4,5.43,4,5 T4.28,4.3 T4.96,4.02 T5.68,4.3 l4.2,4.18 q0.28,0.28,0.29,0.69 T9.88,9.88 Q9.6,10.15,9.18,10.15 T8.48,9.88 L4.28,5.7 Z M9.5,0.45 L10.32,2.25 L12.1,3.05 L10.32,3.85 L9.5,5.65 L8.68,3.85 L6.9,3.05 L8.68,2.25 Z M9.45,21.05 Q10.25,21.05,10.25,21.85 Q10.25,22.65,9.45,22.65 Q8.65,22.65,8.65,21.85 Q8.65,21.05,9.45,21.05 Z" />
 </vector>
 """)
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")
