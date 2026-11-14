@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-debug:
@@ -119,3 +120,20 @@ jobs:
           fi
           gh release view enhanced-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-arm64.apk'
           echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk"
+      - name: Clean previous Enhanced debug artifacts, retain newest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[] | select(.name == "simpmusic-enhanced-debug") | [.created_at, (.id | tostring)] | @tsv' | sort -r > "$RUNNER_TEMP/enhanced-artifacts.tsv"
+          count=$(wc -l < "$RUNNER_TEMP/enhanced-artifacts.tsv")
+          if [ "$count" -le 1 ]; then
+            echo "Only $count old artifact(s); no removal needed."
+            exit 0
+          fi
+          tail -n +2 "$RUNNER_TEMP/enhanced-artifacts.tsv" | cut -f2 | while read -r artifact_id; do
+            test -n "$artifact_id"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > /dev/null
+          done
+          echo "Removed $((count - 1)) old Enhanced artifacts, kept newest one."
