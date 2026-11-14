@@ -75,21 +75,21 @@ internal suspend fun buildEnhancedBatch(
         }.awaitAll()
     }
 
-    val used = excludedIds.toMutableSet()
+    // Radios sometimes return no usable results for a particular pair.
+    // Do not turn the opening A -> B -> recommendation slot into A -> B -> C -> D:
+    // borrow a still-unused candidate from a nearby pair's already-fetched radio.
+    // The pair's own suggestions always take priority when available.
+    val selected = EnhancedShufflePlanner.selectForAllPairs(
+        radioPairs = radioPairs,
+        excludedIds = excludedIds,
+        id = { it.videoId },
+    )
     val recommendations = hashSetOf<String>()
     val result = ArrayList<Track>(likedBatch.size + pairs.size)
     for ((index, pair) in pairs.withIndex()) {
         result.addAll(pair)
         if (pair.size != 2) continue
-        val (firstRadio, secondRadio) = radioPairs[index]
-        val pick = EnhancedShufflePlanner.selectForPair(
-            firstRadio = firstRadio,
-            secondRadio = secondRadio,
-            usedIds = used,
-            id = { it.videoId },
-            preferSecondOnFallback = index % 2 == 1,
-        )
-        if (pick != null && used.add(pick.videoId)) {
+        selected[index]?.let { pick ->
             result.add(pick)
             recommendations.add(pick.videoId)
         }
