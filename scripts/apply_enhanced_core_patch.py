@@ -43,6 +43,8 @@ object EnhancedMediaBridge {
     // Keep a confirmed remote like stable while older status requests finish.
     val youtubeLikeVideoId = MutableStateFlow<String?>(null)
     val likeMutationRevision = MutableStateFlow(0L)
+    // Source of truth for identifying a recommended track on Android's media card.
+    val recommendedTrackIds = MutableStateFlow<Set<String>>(emptySet())
     var onShuffleClick: (() -> Unit)? = null
 }
 """)
@@ -183,6 +185,50 @@ edit(callback,
                     mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle)
                 }
             }""")
+
+
+# Android SystemUI owns the Media3 notification layout. We can still mark a
+# recommendation with a one-character prefix in the current Media3 title;
+# this does NOT introduce a new notification or disturb the playback queue.
+adapter="media/media3/src/main/java/com/maxrave/media3/exoplayer/ExoPlayerAdapter.kt"
+edit(adapter,
+"""import com.maxrave.domain.data.player.GenericMediaItem
+""",
+"""import com.maxrave.domain.data.player.GenericMediaItem
+import com.maxrave.domain.data.player.EnhancedMediaBridge
+""")
+edit(adapter,
+"""fun GenericMediaItem.toMedia3MediaItem(): MediaItem {
+    val builder =
+        MediaItem
+            .Builder()
+            .setMediaId(mediaId)
+            .setMediaMetadata(metadata.toMedia3MediaMetadata())""",
+"""fun GenericMediaItem.toMedia3MediaItem(): MediaItem {
+    // Media3 exposes the current MediaItem title to Android SystemUI.
+    // Decorate only recommended tracks when the player item is first added.
+    val ytId = mediaId.removePrefix("Video")
+    val isRecommended = ytId in EnhancedMediaBridge.recommendedTrackIds.value
+    val notificationMetadata =
+        if (isRecommended && !metadata.title.isNullOrBlank()) {
+            metadata.copy(title = "✦ " + metadata.title)
+        } else metadata
+    val builder =
+        MediaItem
+            .Builder()
+            .setMediaId(mediaId)
+            .setMediaMetadata(notificationMetadata.toMedia3MediaMetadata())""")
+edit(adapter,
+"""        metadata = mediaMetadata.toGenericMediaMetadata(),
+        customCacheKey = localConfiguration?.customCacheKey,""",
+"""        // The sparkle belongs only in the Android notification, not in the
+        // canonical song title used by app screens, searches or playback state.
+        metadata = mediaMetadata.toGenericMediaMetadata().let { meta ->
+            if (mediaId.removePrefix("Video") in EnhancedMediaBridge.recommendedTrackIds.value &&
+                meta.title?.startsWith("✦ ") == true
+            ) meta.copy(title = meta.title.removePrefix("✦ ")) else meta
+        },
+        customCacheKey = localConfiguration?.customCacheKey,""")
 
 icons="media/media3/src/main/java/com/maxrave/media3/extension/Media3Ext.kt"
 # Repeat stays available in the full player, but must NOT occupy Android 13
