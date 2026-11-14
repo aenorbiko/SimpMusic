@@ -118,10 +118,10 @@ jobs:
           test -s "$APK"
           cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Lab-arm64.apk"
           if gh release view enhanced-lab-latest >/dev/null 2>&1; then
-            gh release upload enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Lab-arm64.apk" --clobber
-            gh release edit enhanced-latest --notes "Experimental signed ARM64 APK: ${GITHUB_SHA}"
+            gh release upload enhanced-lab-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Lab-arm64.apk" --clobber
+            gh release edit enhanced-lab-latest --notes "Experimental signed ARM64 APK: ${GITHUB_SHA}"
           else
-            gh release create enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Lab-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Lab (experimental)" --notes "Experimental signed ARM64 APK; installs beside stable SimpMusic Dev. Source: feature/enhanced-optimisation." --prerelease
+            gh release create enhanced-lab-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Lab-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Lab (experimental)" --notes "Experimental signed ARM64 APK; installs beside stable SimpMusic Dev. Source: feature/enhanced-optimisation." --prerelease
           fi
-          gh release view enhanced-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Lab-arm64.apk'
-          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-latest/SimpMusic-Enhanced-Lab-arm64.apk"
+          gh release view enhanced-lab-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Lab-arm64.apk'
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-lab-latest/SimpMusic-Enhanced-Lab-arm64.apk"
