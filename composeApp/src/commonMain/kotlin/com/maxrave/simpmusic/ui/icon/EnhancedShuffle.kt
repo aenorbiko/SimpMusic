@@ -6,10 +6,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-// Original full-size SimpMusic shuffle geometry, never scaled.
+// Same 92% shuffle arrow geometry as Shuffle; bigger top star and centered bottom dot.
 @Suppress("CheckReturnValue")
 val SimpIcons.EnhancedShuffle: ImageVector
   get() {
@@ -25,6 +26,7 @@ val SimpIcons.EnhancedShuffle: ImageVector
           viewportHeight = 24f,
         )
         .apply {
+          group(scaleX = 0.92f, scaleY = 0.92f, pivotX = 12f, pivotY = 12f) {
           path(
             fill = SolidColor(Color.Black),
             fillAlpha = 1f,
@@ -93,25 +95,27 @@ val SimpIcons.EnhancedShuffle: ImageVector
             lineTo(4.28f, 5.7f)
             close()
           }
-          // Spotify-style minimal accent: one sparkle at upper-left.
+          }
+          // One prominent sparkle at upper-left, not overlapping the arrows.
           path(fill = SolidColor(Color.Black)) {
-            moveTo(9.5f, 0.45f)
-            lineTo(10.32f, 2.25f)
-            lineTo(12.1f, 3.05f)
-            lineTo(10.32f, 3.85f)
-            lineTo(9.5f, 5.65f)
-            lineTo(8.68f, 3.85f)
-            lineTo(6.9f, 3.05f)
-            lineTo(8.68f, 2.25f)
+            moveTo(9.6f, 0.2f)
+            lineTo(11.05f, 2.15f)
+            lineTo(13.2f, 3.35f)
+            lineTo(11.05f, 4.55f)
+            lineTo(9.6f, 6.5f)
+            lineTo(8.15f, 4.55f)
+            lineTo(6f, 3.35f)
+            lineTo(8.15f, 2.15f)
             close()
           }
-          // A small dot (not a second star) below the unchanged arrows.
+          // Center the small dot at x=12 directly below the crossing,
+          // with a 0.8dp gap from the bottom of the scaled arrows.
           path(fill = SolidColor(Color.Black)) {
-            moveTo(9.45f, 21.05f)
-            quadTo(10.25f, 21.05f, 10.25f, 21.85f)
-            quadTo(10.25f, 22.65f, 9.45f, 22.65f)
-            quadTo(8.65f, 22.65f, 8.65f, 21.85f)
-            quadTo(8.65f, 21.05f, 9.45f, 21.05f)
+            moveTo(12f, 20.15f)
+            quadTo(12.65f, 20.15f, 12.65f, 20.8f)
+            quadTo(12.65f, 21.45f, 12f, 21.45f)
+            quadTo(11.35f, 21.45f, 11.35f, 20.8f)
+            quadTo(11.35f, 20.15f, 12f, 20.15f)
             close()
           }
         }
