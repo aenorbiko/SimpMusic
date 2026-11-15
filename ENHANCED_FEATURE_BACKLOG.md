@@ -36,14 +36,19 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Ensure no restart of the current song, no gaps or duplicates, rapid cancellation of old-source work, no stale results after switching; retain prefetch near end.
 - Test phone behavior with large Liked and short albums, navigation and notification toggles, pause/Next, empty/offline radio.
 
-### 2. Improve recommendation relevance — NOT IMPLEMENTED
+### 2. Improve recommendation relevance — IMPLEMENTED ON A SEPARATE LAB BRANCH, PHONE TEST PENDING
 
-- User observed surprising recommendations in the `Весёлая жизнь` album (e.g. a Lady Gaga remix and Chris Watson track).
-- Current algorithm queries one radio per song using `RDAMVM<videoId>`, one initial radio page for each source song (no continuation pagination). For each pair it prefers a song present in both radios, else picks the first unused candidate from either radio. If neither has a usable candidate, it may borrow from another pair's radio; this can reduce relevance.
-- **Proposed experiment, not a proven similarity metric:** consider at most the *first 15 entries of each radio* for intersections and rank overlap by both positions. When no intersection exists, inspect only the *top 5 entries of each radio* as fallback candidates. This does **not** mean adding 5 tracks: add at most 1 recommendation for a 2-song source pair.
-- Consider refusing weak/off-topic recommendations rather than borrowing from another pair merely to enforce 2+1.
-- Compare the resulting selections on mixed-genre playlists and single-artist albums; adjust limits based on observed results.
-- Note: fewer local candidates does not necessarily cut network wait time.
+- Branch: `feature/enhanced-radio-relevance`; **do not merge until the user tests and approves it**.
+- User observed unexpected recommendations from the `Весёлая жизнь` album.
+- Exact requested rule for each consecutive source pair A, B:
+  1. Ask YouTube Music for separate radio lists for A and B.
+  2. Compare only the **first 15 returned songs from each radio**; choose an unused song appearing in both, ranked by the combined positions, resolving ties in favour of B (the second, most recently played source song).
+  3. If no common unused song exists, take the **first unused suggestion from B's own radio**, again within its first 15 songs. **No top-5 rule.**
+  4. Never fall back to A's radio or borrow suggestions from other pairs; if B has no unused candidate, omit this pair's recommendation.
+- A and B are source tracks from the chosen album or playlist; “second playlist” here means the *radio recommendation list for B*, not another user-created playlist.
+- Exclude original collection songs and already selected recommendations by video ID. Do not change Enhanced's 14-track batch size, current-song preservation or finite queue behavior.
+- Status: code and automated regression tests committed on `feature/enhanced-radio-relevance`; Android Lab APK/build and phone acceptance must be verified separately.
+- Compare recommendation quality on albums from one artist and mixed-genre playlists; this is a selection heuristic, not an audio-similarity measurement. Limiting local candidates may not reduce network requests.
 
 ### 3. Fix Start Radio restarting the currently playing song — NOT IMPLEMENTED
 
@@ -96,6 +101,16 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Notification Like-heart flicker: user says it is already fixed (2026-11-15).
 - Main-player/notification like action and scroll-induced accidental swipe: previously tested.
 - Avoid generating duplicate recommendations *within one queue*. The same recommendation may legitimately appear when Enhanced is regenerated in a different queue.
+
+## Branch map and merge status (2026-11-15)
+
+- `dev`: **GitHub default branch**, original/upstream SimpMusic source. **No Enhanced feature merges here.**
+- `feature/enhanced-shuffle`: **our stable Enhanced integration branch** (Liked 2+1, icons, main-player/notification sync, Like fixes, all playlists and albums); user-tested; stable Android APK published via `enhanced-latest`.
+- `feature/enhanced-all-playlists`: branched from older Enhanced baseline; user-tested on phone, **merged by PR #1 into `feature/enhanced-shuffle`**. Branch retained for history.
+- `feature/enhanced-radio-cache`: branched from older Enhanced baseline; 64 radio response lists, TTL 20 min; automatic tests only, no approved phone test; **unmerged**.
+- `feature/enhanced-optimisation`: branched from older Enhanced baseline; multi-feature prototypes (including per-device Bluetooth lyrics offset and backup work); **unmerged, not fully phone-tested**. We must extract each feature into its own clean branch rather than merge everything.
+- `feature/enhanced-radio-relevance`: branched from the current stable Enhanced baseline; top-15 match or second-song-radio fallback; **code and tests in progress / not user-accepted; unmerged**.
+- Development workflow: copy/branch from stable → implement one feature → build a separately installed Lab APK → phone test → explicit approval → merge into stable. Leave `dev` alone until an explicit future decision to reorganize branches.
 
 ## Current delivery checkpoint
 
