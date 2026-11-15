@@ -28,6 +28,8 @@ jobs:
           cache: gradle
       - name: Verify approved Enhanced icon keeps 24dp shuffle geometry
         run: python3 scripts/test_enhanced_shuffle_icons.py
+      - name: Verify Enhanced support across playlists and albums
+        run: python3 scripts/test_enhanced_all_playlists.py
       - name: Apply enhanced controls to pinned core submodule
         run: python3 scripts/apply_enhanced_core_patch.py
       - name: Generate library definitions
@@ -107,7 +109,8 @@ jobs:
         run: |
           ./gradlew :composeApp:jvmTest \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
-            --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest"
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest"
       - name: Publish one ARM64 APK for direct download (no ZIP)
         shell: bash
         env:
