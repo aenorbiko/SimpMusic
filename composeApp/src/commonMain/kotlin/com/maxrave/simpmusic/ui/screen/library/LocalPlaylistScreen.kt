@@ -159,6 +159,7 @@ import com.maxrave.simpmusic.ui.icon.MoreVert
 import com.maxrave.simpmusic.ui.icon.Pause
 import com.maxrave.simpmusic.ui.icon.PlayArrow
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.Sort
 import com.maxrave.simpmusic.ui.icon.TipsAndUpdates
@@ -169,6 +170,7 @@ import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LocalPlaylistUIEvent
 import com.maxrave.simpmusic.viewModel.LocalPlaylistViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
 import com.maxrave.simpmusic.viewModel.UIEvent
 import dev.chrisbanes.haze.HazeInput
@@ -228,6 +230,9 @@ fun LocalPlaylistScreen(
 ) {
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val smartShuffleMode by sharedViewModel.smartShuffleMode.collectAsStateWithLifecycle()
+    val smartShuffleSource by sharedViewModel.smartShuffleSource.collectAsStateWithLifecycle()
+    val localSourceId = "local:${LOCAL_PLAYLIST_ID}${uiState.id}"
 
     val aiPainter = rememberVectorPainter(SimpIcons.TipsAndUpdates)
     val limit = 1.5f
@@ -822,14 +827,18 @@ fun LocalPlaylistScreen(
                                                             .clip(CircleShape)
                                                             .background(Color.White.copy(alpha = 0.12f))
                                                             .clickable {
-                                                                viewModel.onUIEvent(LocalPlaylistUIEvent.ShuffleClick)
+                                                                viewModel.getFullTracksForEnhanced { allTracks ->
+                                                                    sharedViewModel.cycleSourceShuffle(
+                                                                        allTracks, uiState.title, localSourceId,
+                                                                    )
+                                                                }
                                                             },
                                                     contentAlignment = Alignment.Center,
                                                 ) {
                                                     Icon(
-                                                        imageVector = SimpIcons.Shuffle,
-                                                        contentDescription = "Shuffle",
-                                                        tint = Color.White,
+                                                        imageVector = if (smartShuffleSource == localSourceId && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                        contentDescription = "Shuffle: " + (if (smartShuffleSource == localSourceId) smartShuffleMode.name else "OFF"),
+                                                        tint = if (smartShuffleSource == localSourceId && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                         modifier = Modifier.size(22.dp),
                                                     )
                                                 }
@@ -1069,14 +1078,18 @@ fun LocalPlaylistScreen(
                                                     .clip(CircleShape)
                                                     .background(Color.White.copy(alpha = 0.12f))
                                                     .clickable {
-                                                        viewModel.onUIEvent(LocalPlaylistUIEvent.ShuffleClick)
+                                                        viewModel.getFullTracksForEnhanced { allTracks ->
+                                                                    sharedViewModel.cycleSourceShuffle(
+                                                                        allTracks, uiState.title, localSourceId,
+                                                                    )
+                                                                }
                                                     },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Icon(
-                                                imageVector = SimpIcons.Shuffle,
-                                                contentDescription = "Shuffle",
-                                                tint = Color.White,
+                                                imageVector = if (smartShuffleSource == localSourceId && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                contentDescription = "Shuffle: " + (if (smartShuffleSource == localSourceId) smartShuffleMode.name else "OFF"),
+                                                tint = if (smartShuffleSource == localSourceId && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                 modifier = Modifier.size(22.dp),
                                             )
                                         }

@@ -668,20 +668,20 @@ fun PlaylistScreen(
                                                                                 .clip(CircleShape)
                                                                                 .background(Color.White.copy(alpha = 0.12f))
                                                                                 .clickable {
-                                                                                    if (data.id == "LM") {
-                                                                                        viewModel.getFullTracks { allLiked ->
-                                                                                            sharedViewModel.cycleLikedShuffle(allLiked, data.title, "LM")
-                                                                                        }
-                                                                                    } else {
-                                                                                        viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
-                                                                                    }
+                                                                                    viewModel.getFullTracks { allTracks ->
+                                                                                         sharedViewModel.cycleSourceShuffle(
+                                                                                             allTracks,
+                                                                                             data.title,
+                                                                                             if (data.id == "LM") "LM" else "playlist:${data.id}",
+                                                                                         )
+                                                                                     }
                                                                                 },
                                                                         contentAlignment = Alignment.Center,
                                                                     ) {
                                                                         Icon(
-                                                                            imageVector = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                                            imageVector = if (smartShuffleSource == (if (data.id == "LM") "LM" else "playlist:${data.id}") && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
                                                                             contentDescription = "Shuffle",
-                                                                            tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
+                                                                            tint = if (smartShuffleSource == (if (data.id == "LM") "LM" else "playlist:${data.id}") && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                             modifier = Modifier.size(22.dp),
                                                                         )
                                                                     }
@@ -889,20 +889,20 @@ fun PlaylistScreen(
                                                                         .clip(CircleShape)
                                                                         .background(Color.White.copy(alpha = 0.12f))
                                                                         .clickable {
-                                                                            if (data.id == "LM") {
-                                                                                        viewModel.getFullTracks { allLiked ->
-                                                                                            sharedViewModel.cycleLikedShuffle(allLiked, data.title, "LM")
-                                                                                        }
-                                                                                    } else {
-                                                                                        viewModel.onUIEvent(PlaylistUIEvent.Shuffle)
-                                                                                    }
+                                                                            viewModel.getFullTracks { allTracks ->
+                                                                                         sharedViewModel.cycleSourceShuffle(
+                                                                                             allTracks,
+                                                                                             data.title,
+                                                                                             if (data.id == "LM") "LM" else "playlist:${data.id}",
+                                                                                         )
+                                                                                     }
                                                                         },
                                                                 contentAlignment = Alignment.Center,
                                                             ) {
                                                                 Icon(
-                                                                    imageVector = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
-                                                                    contentDescription = "Shuffle: " + (if (data.id == "LM" && smartShuffleSource == "LM") smartShuffleMode.name else "OFF"),
-                                                                            tint = if (data.id == "LM" && smartShuffleSource == "LM" && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
+                                                                    imageVector = if (smartShuffleSource == (if (data.id == "LM") "LM" else "playlist:${data.id}") && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                                    contentDescription = "Shuffle: " + (if (smartShuffleSource == (if (data.id == "LM") "LM" else "playlist:${data.id}")) smartShuffleMode.name else "OFF"),
+                                                                            tint = if (smartShuffleSource == (if (data.id == "LM") "LM" else "playlist:${data.id}") && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                     modifier = Modifier.size(22.dp),
                                                                 )
                                                             }

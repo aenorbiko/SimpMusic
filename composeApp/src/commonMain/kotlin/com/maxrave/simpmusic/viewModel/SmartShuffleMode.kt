@@ -13,3 +13,15 @@ enum class SmartShuffleMode {
             ENHANCED -> OFF
         }
 }
+
+/** Identify which original source queue is already playing before reshuffling. */
+internal fun smartShuffleMatchesOriginalQueue(sourceId: String, queuePlaylistId: String?): Boolean {
+    if (queuePlaylistId.isNullOrBlank()) return false
+    return when {
+        sourceId == "LM" -> queuePlaylistId == "LM"
+        sourceId.startsWith("playlist:") -> queuePlaylistId == sourceId.removePrefix("playlist:")
+        sourceId.startsWith("album:") -> queuePlaylistId == sourceId.removePrefix("album:")
+        sourceId.startsWith("local:") -> queuePlaylistId == sourceId.removePrefix("local:")
+        else -> false
+    }
+}

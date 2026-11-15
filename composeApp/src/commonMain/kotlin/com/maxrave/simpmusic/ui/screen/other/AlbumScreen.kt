@@ -105,6 +105,7 @@ import com.maxrave.simpmusic.ui.icon.MoreVert
 import com.maxrave.simpmusic.ui.icon.Pause
 import com.maxrave.simpmusic.ui.icon.PlayArrow
 import com.maxrave.simpmusic.ui.icon.Shuffle
+import com.maxrave.simpmusic.ui.icon.EnhancedShuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
@@ -114,6 +115,7 @@ import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.AlbumViewModel
 import com.maxrave.simpmusic.viewModel.LocalPlaylistState
 import com.maxrave.simpmusic.viewModel.SharedViewModel
+import com.maxrave.simpmusic.viewModel.SmartShuffleMode
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
 import com.maxrave.simpmusic.viewModel.UIEvent
 import dev.chrisbanes.haze.HazeInput
@@ -158,6 +160,9 @@ fun AlbumScreen(
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val smartShuffleMode by sharedViewModel.smartShuffleMode.collectAsStateWithLifecycle()
+    val smartShuffleSource by sharedViewModel.smartShuffleSource.collectAsStateWithLifecycle()
+    val albumSourceId = "album:${browseId.removePrefix("VL")}"
 
     var showBottomSheet by rememberSaveable { mutableStateOf(false) }
     var albumBottomSheetShow by rememberSaveable { mutableStateOf(false) }
@@ -500,13 +505,13 @@ fun AlbumScreen(
                                                                         .size(48.dp)
                                                                         .clip(CircleShape)
                                                                         .background(Color.White.copy(alpha = 0.12f))
-                                                                        .clickable { viewModel.shuffle() },
+                                                                        .clickable { sharedViewModel.cycleSourceShuffle(uiState.listTrack, uiState.title, albumSourceId) },
                                                                 contentAlignment = Alignment.Center,
                                                             ) {
                                                                 Icon(
-                                                                    imageVector = SimpIcons.Shuffle,
-                                                                    contentDescription = "Shuffle",
-                                                                    tint = Color.White,
+                                                                    imageVector = if (smartShuffleSource == albumSourceId && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                                    contentDescription = "Shuffle: " + (if (smartShuffleSource == albumSourceId) smartShuffleMode.name else "OFF"),
+                                                                    tint = if (smartShuffleSource == albumSourceId && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                                     modifier = Modifier.size(22.dp),
                                                                 )
                                                             }
@@ -704,13 +709,13 @@ fun AlbumScreen(
                                                                 .size(48.dp)
                                                                 .clip(CircleShape)
                                                                 .background(Color.White.copy(alpha = 0.12f))
-                                                                .clickable { viewModel.shuffle() },
+                                                                .clickable { sharedViewModel.cycleSourceShuffle(uiState.listTrack, uiState.title, albumSourceId) },
                                                         contentAlignment = Alignment.Center,
                                                     ) {
                                                         Icon(
-                                                            imageVector = SimpIcons.Shuffle,
-                                                            contentDescription = "Shuffle",
-                                                            tint = Color.White,
+                                                            imageVector = if (smartShuffleSource == albumSourceId && smartShuffleMode == SmartShuffleMode.ENHANCED) SimpIcons.EnhancedShuffle else SimpIcons.Shuffle,
+                                                            contentDescription = "Shuffle: " + (if (smartShuffleSource == albumSourceId) smartShuffleMode.name else "OFF"),
+                                                            tint = if (smartShuffleSource == albumSourceId && smartShuffleMode != SmartShuffleMode.OFF) seed else Color.White,
                                                             modifier = Modifier.size(22.dp),
                                                         )
                                                     }
