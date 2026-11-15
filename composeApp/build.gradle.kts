@@ -844,6 +844,14 @@ buildkonfig {
         buildConfigField(STRING, "versionName", versionName)
         buildConfigField(INT, "versionCode", "$versionCode")
 
+        // Our Enhanced build identity, supplied by signed APK workflows.
+        // Empty for upstream/non-fork builds. The short SHA lets a screenshot
+        // identify the exact build even when the upstream version is unchanged.
+        val enhancedChannel = providers.gradleProperty("simpmusicEnhancedBuildChannel").orNull.orEmpty()
+        val enhancedCommit = System.getenv("GITHUB_SHA")?.take(8) ?: "local"
+        buildConfigField(STRING, "enhancedBuildChannel", enhancedChannel)
+        buildConfigField(STRING, "enhancedBuildCommit", enhancedCommit)
+
         if (isFullBuild) {
             try {
                 println("Full build detected, enabling Sentry DSN")
