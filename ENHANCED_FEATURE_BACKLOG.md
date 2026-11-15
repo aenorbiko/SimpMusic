@@ -51,6 +51,7 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Compare recommendation quality on albums from one artist and mixed-genre playlists; this is a selection heuristic, not an audio-similarity measurement. Limiting local candidates may not reduce network requests.
 - **Phone observations, November 16, 2026 (user-supplied screenshots):** two independently generated Enhanced queues for album `Весёлая жизнь` preserve the visible 2-source + 1-starred-recommendation rhythm, with no obvious in-queue duplicates; both queues contain conspicuously unrelated-looking music, including `EE DOWNLOAD IN DESCRIPTION`, `CLUB - ROI INSTRUMENTAL`, `Charlie Puth - Attention` remixes and `Stay with me remix`. User satisfaction with relevance has **not** been established; do not merge solely on those screenshots.
 - **Diagnosis required before more heuristics:** screenshots alone cannot verify whether a selected track was present in both top-15 lists or chosen as fallback from B's radio. Add optional non-sensitive logging or a debug report per pair: original A/B `videoId` and titles, returned list sizes, first 15 candidate IDs/titles/positions, chosen candidate ID, common-vs-B-fallback decision, and whether a candidate was excluded. Keep diagnostics opt-in and avoid logging tokens/account credentials. Check whether the YouTube Music radio endpoint itself offers off-topic recommendations; if so, a first-15 restriction or B fallback cannot guarantee genre similarity. Re-test on the album and evaluate improvement before user approves merge.
+- **USER PRIORITY UPDATE (2026-11-16): Detailed radio-selection diagnostics are LOW PRIORITY / DEFERRED. Do not implement them now.** The user confirmed screenshots were captured using `SimpMusic Lab (Relevance)`; no further confirmation required.
 - **Build identity caveat:** queue screenshots showing footer `SimpMusic v2.5.0` do not distinguish Lab from stable: the fork still uses upstream version metadata. Verify the installed Android app's `SimpMusic Lab (Relevance)` identity when attributing this test to the new algorithm.
 
 
@@ -78,7 +79,12 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Restore sign-ins and preferences reliably, avoid credential leaks, preserve future per-device timing profiles appropriately, and test backup compatibility.
 - User reported YouTube Music authorization survives current backup/restore. The prototype on `feature/enhanced-optimisation` needs separate review/test.
 
-### 7. Clearly identify our build for sharing — PARTIAL
+### 7. Clearly identify our build for sharing and screenshots — IN PROGRESS
+
+- **Requested 2026-11-16:** show the exact custom build *channel/name + short Git commit revision* inside the Now Playing queue view even when the bottom footer is off-screen. Also update the existing footer, which currently says only SimpMusic v2.5.0 and looks identical in stable and Lab screenshots.
+- Implement on a separate `feature/enhanced-build-identity` branch from stable, with an isolated APK. This feature is not merged until phone acceptance; propagate through later Stable and Lab builds via per-workflow build labels.
+- Do not equate the upstream 2.5.0 version with our fork revision; version text must clearly distinguish both.
+
 
 - Display custom build name/version, fork/commit identifier, link to our releases and upstream licenses/attribution.
 - Keep stable, experimental Lab, and upstream SimpMusic clearly distinguishable without changing the installed app identity inadvertently.
