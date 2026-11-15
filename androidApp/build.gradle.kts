@@ -17,6 +17,7 @@ android {
     // Build this one feature as a separate Android app without overwriting either
     // the stable Enhanced app or the unrelated radio-cache Lab app.
     val isPlaylistExperiment = providers.gradleProperty("simpmusicPlaylistsExperimental").orNull == "true"
+    val isRelevanceExperiment = providers.gradleProperty("simpmusicRelevanceExperimental").orNull == "true"
     val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
 
     // Stable signing key comes only from a private GitHub Actions secret.
@@ -129,8 +130,16 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = if (isPlaylistExperiment) ".dev.playlists" else ".dev"
-            versionNameSuffix = if (isPlaylistExperiment) "-playlists-lab" else "-dev"
+            applicationIdSuffix = when {
+                isRelevanceExperiment -> ".dev.relevance"
+                isPlaylistExperiment -> ".dev.playlists"
+                else -> ".dev"
+            }
+            versionNameSuffix = when {
+                isRelevanceExperiment -> "-relevance-lab"
+                isPlaylistExperiment -> "-playlists-lab"
+                else -> "-dev"
+            }
             // Stable key allows updates over earlier versions signed with it.
             if (enhancedSigningProperties != null) {
                 signingConfig = signingConfigs.getByName("simpmusicEnhanced")
