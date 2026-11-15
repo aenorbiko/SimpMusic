@@ -39,10 +39,11 @@ android {
         applicationId = "com.maxrave.simpmusic"
         minSdk = 26
         targetSdk = 36
+        // The Lab must upgrade over its earlier signed APK without touching stable .dev.
         versionCode =
             libs.versions.version.code
                 .get()
-                .toInt()
+                .toInt() + if (isRelevanceExperiment) 1 else 0
         versionName =
             libs.versions.version.name
                 .get()
