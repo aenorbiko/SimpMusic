@@ -75,10 +75,11 @@ internal suspend fun buildEnhancedBatch(
         }.awaitAll()
     }
 
-    // Radios sometimes return no usable results for a particular pair.
-    // Do not turn the opening A -> B -> recommendation slot into A -> B -> C -> D:
-    // borrow a still-unused candidate from a nearby pair's already-fetched radio.
-    // The pair's own suggestions always take priority when available.
+    // For each pair A, B, compare the first 15 tracks of their separate
+    // YouTube Music radios. If none overlap, choose the first unused suggestion
+    // from B's radio (the most recently played source song).
+    // A missing B radio means no recommendation for this pair; do not borrow
+    // unrelated recommendations from other pairs just to fill a 2+1 slot.
     val selected = EnhancedShufflePlanner.selectForAllPairs(
         radioPairs = radioPairs,
         excludedIds = excludedIds,
