@@ -23,9 +23,9 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Recommendations seed from the actual selected collection, not unrelated Liked Songs.
 - Switching modes in the same collection preserves current playback position and pause state. Opening a different collection starts that source; recommendations are distinct within a queue.
 - Batch logic: up to 14 source tracks and 7 recommendations; prefetches remaining source songs when appropriate; never continues with Enhanced recommendations after exhausting the original source collection.
-- Phone-tested November 14–15, 2026: Shpongle album, Russian album `Весёлая жизнь`, a regular playlist, locally created `Test` playlist, switching/re-enabling Enhanced, no unwanted duplicate rows, short albums and a 20-track album, finite queue and dynamic prefetch. **User explicitly approved merging `feature/enhanced-all-playlists` into `feature/enhanced-shuffle` on November 15, 2026.**
+- Phone-tested November 14–15, 2026: Shpongle album, Russian album `Весёлая жизнь`, a regular playlist, locally created `Test` playlist, switching/re-enabling Enhanced, no unwanted duplicate rows, short albums and a 20-track album, finite queue and dynamic prefetch. **User explicitly approved merging `feature/enhanced-all-playlists` into `feature/enhanced-shuffle` on November 15, 2026. GitHub PR #1 was merged successfully at commit `42b19994ae1d847435b1a4e09204c2f8ac19094c`.**
 - Previous fixes confirmed by user: accidental song swipe while scrolling queue; Like/Unlike actions via notification and main player; notification heart's transient flicker (user reports fixed, November 15, 2026).
-- Note: the current `feature/enhanced-all-playlists` branch is an experiment pending integration until the actual PR merge and build have been verified.
+- Integration into stable Enhanced confirmed via GitHub PR #1. The separate `feature/enhanced-all-playlists` branch remains available for reference; the new stable signed APK must still complete CI before it can be called published.
 
 ## Next: independent feature branches, in intended priority order
 
@@ -99,5 +99,5 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 ## Current delivery checkpoint
 
-- `feature/enhanced-all-playlists` phone testing passed and user approved merging it into `feature/enhanced-shuffle` on 2026-11-15. Verify merged PR, branch head and stable APK before marking integration complete.
+- **MERGED:** PR #1 merged into `feature/enhanced-shuffle` on 2026-11-15 (merge commit `42b19994`). Stable app label remains `SimpMusic Dev`; the Lab-only name is set in the Lab workflow. Stable workflow runs all-playlist source and JVM regression checks. **CI/release status must be verified separately; do not claim the newly merged APK has been published before the stable workflow succeeds.**
 - Keep future improvements isolated in their own branches. Do not combine startup-speed, relevance, radio-preserve, cache and lyrics-profile work in the merge.
