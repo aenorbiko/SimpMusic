@@ -50,7 +50,9 @@ jobs:
             echo "SIMP_SIGNING_DIR=$SIGNING_DIR" >> "$GITHUB_ENV"
             echo "Permanent signing credentials restored from GitHub secret."
           fi
-      - name: Build debug APK (separate .dev package)
+      - name: Label this APK as Playlists Lab (not the stable Enhanced app)
+        run: sed -i 's/SimpMusic Dev/SimpMusic Lab (Playlists)/' androidApp/src/debug/res/values/app_name.xml
+      - name: Build debug APK (separate .dev.playlists package)
         run: ./gradlew :androidApp:assembleDebug -PsimpmusicPlaylistsExperimental=true
       - name: Verify APK uses the permanent signing certificate
         shell: bash
