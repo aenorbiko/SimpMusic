@@ -79,11 +79,19 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Display custom build name/version, fork/commit identifier, link to our releases and upstream licenses/attribution.
 - Keep stable, experimental Lab, and upstream SimpMusic clearly distinguishable without changing the installed app identity inadvertently.
 
-### 8. Fix update prompts on custom builds — NOT IMPLEMENTED
+### 8. Fork-aware in-app update checks — NOT IMPLEMENTED
 
-- Current in-app update check uses official upstream SimpMusic and may suggest downloading from `simpmusic.org/download` instead of our Enhanced APK.
-- Our stable and Lab APKs should show only applicable releases from our GitHub, or disable built-in upstream auto-check until proper fork-aware updates exist.
-- Upstream SimpMusic 2.6.0 was officially released 2026-11-14; our initial code base already contains much of that feature work, but version metadata still says 2.5.0. Synchronize/version only after checking changes and release compatibility.
+**Goal: update only our signed SimpMusic Enhanced app on the phone, never replace it with upstream SimpMusic.**
+
+- Current code still checks upstream SimpMusic GitHub/F-Droid via `UpdateRepository`. In `App.kt`, the update dialog opens `https://simpmusic.org/download`. This is wrong for our fork.
+- Proposed: stable `SimpMusic Dev` (`com.maxrave.simpmusic.dev`) checks **only releases from `aenorbiko/SimpMusic` for the stable Enhanced channel**. Experimental Lab packages must have their own matching release channel or no update checks.
+- Publish **immutable versioned release tags** and an explicit latest-stable pointer/manifest. Current moving `enhanced-latest` tag alone is not a proper comparable version number.
+- Show two version identities: original SimpMusic base version plus our Enhanced revision/build (for example `2.6.0-enhanced.3`). The Android `versionCode` must increase for each in-place upgrade. Keep application ID and permanent signing certificate unchanged.
+- Offer an APK only if its channel, Android package and expected signing identity match the installed app. Use standard Android installation with user confirmation; do not silently install updates.
+- Show our release notes and links, allow opt-out, work offline without breaking playback, and handle missing/stale/prerelease metadata.
+- Test updating the stable app **over the installed stable app** and preserving login, settings, playback and backup/restore. Test Lab packages separately.
+- Develop in a separate branch with an isolated Lab APK. Merge only after phone testing and explicit approval.
+- This is distinct from pulling **source code updates** from the upstream project, tracked below.
 
 ### 9. Maintainable code and repeatable tests — PLANNED
 
@@ -95,6 +103,22 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 - Verify that tapping Next while Repeat One is enabled advances to the next track while natural end-of-track repeats the current one; check previous and repeat-mode changes.
 - Original SimpMusic v2.5.0 lists improvements here; determine whether any issue remains in our fork before implementing code changes.
+
+### 11. Incorporate new official SimpMusic releases without losing Enhanced — PROCESS PLANNED
+
+**Goal: adopt selected official bug fixes and features, but keep our own tested Enhanced behavior intact.**
+
+- Official upstream: `maxrave-dev/SimpMusic` (default `dev`, versioned releases). Our repository's own `dev` is a **snapshot**, not an automatically synchronized upstream mirror. Stable **our app** code lives in `feature/enhanced-shuffle`.
+- The project pins a second upstream repo via Git submodule `core` (`maxrave-dev/core`) and modifies its behavior with `scripts/apply_enhanced_core_patch.py`. Every upstream sync must check **both** the main source and the pinned `core` revision.
+- For each official release:
+  1. Examine the upstream release notes and actual changed code (including `core`); note security and breaking changes.
+  2. Branch from the latest tested stable Enhanced into `integration/upstream-vX.Y.Z`. Bring in upstream **release-tag source** and resolve conflicts deliberately, especially shuffle, queue, likes, notification, player, data schema and build files. Preserve our code and tests.
+  3. Build and run regressions; create a **separate signed integration Lab** with a different app ID.
+  4. Phone-test login, playlists (Liked/YouTube/local/albums), 2+1, queue prefetch, icon and notification, backups, lyrics, Radio and playback. Do not automatically merge upstream releases.
+  5. After explicit user approval, merge the integration changes into the stable Enhanced branch, increment Android `versionCode`, keep its existing package/signing certificate and publish a new immutable **our** release. Update the latest-stable pointer for our in-app updater.
+- Automating **upstream-release monitoring/diff/checklist creation** is welcome; automatically replacing working Enhanced or merging untested upstream code is not.
+- Official release `v2.6.0` was published 2026-11-14; our copied base has much of that implementation already, but still has `version-name = 2.5.0` / `version-code = 62`. Compare actual source + `core` SHA before synchronizing version metadata. A newer upstream version does **not** mean a newer signed Enhanced build is available.
+- Keep this separate from one-feature-per-branch development and fork-aware **in-app update checks** (item 8).
 
 ## Verified resolved / not to re-open without a regression
 
