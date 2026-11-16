@@ -93,19 +93,17 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Future build identity improvements: display fuller fork/version/changelog and upstream licence attribution for sharing, tracked separately.
 - Upstream SimpMusic version (`v2.5.0`) is distinct from our build label and Git commit identity.
 
-### 8. Fork-aware in-app update checks — NOT IMPLEMENTED
+### 8. Fork-aware in-app update checks — CODED ON ISOLATED UPDATES LAB, CI AND PHONE TEST PENDING
 
-**Goal: update only our signed SimpMusic Enhanced app on the phone, never replace it with upstream SimpMusic.**
-
-- Current code still checks upstream SimpMusic GitHub/F-Droid via `UpdateRepository`. In `App.kt`, the update dialog opens `https://simpmusic.org/download`. This is wrong for our fork.
-- Proposed: stable `SimpMusic Dev` (`com.maxrave.simpmusic.dev`) checks **only releases from `aenorbiko/SimpMusic` for the stable Enhanced channel**. Experimental Lab packages must have their own matching release channel or no update checks.
-- Publish **immutable versioned release tags** and an explicit latest-stable pointer/manifest. Current moving `enhanced-latest` tag alone is not a proper comparable version number.
-- Show two version identities: original SimpMusic base version plus our Enhanced revision/build (for example `2.6.0-enhanced.3`). The Android `versionCode` must increase for each in-place upgrade. Keep application ID and permanent signing certificate unchanged.
-- Offer an APK only if its channel, Android package and expected signing identity match the installed app. Use standard Android installation with user confirmation; do not silently install updates.
-- Show our release notes and links, allow opt-out, work offline without breaking playback, and handle missing/stale/prerelease metadata.
-- Test updating the stable app **over the installed stable app** and preserving login, settings, playback and backup/restore. Test Lab packages separately.
-- Develop in a separate branch with an isolated Lab APK. Merge only after phone testing and explicit approval.
-- This is distinct from pulling **source code updates** from the upstream project, tracked below.
+- **2026-11-16:** created `feature/fork-aware-updates` based on stable `main` (Android build 65). No merge to `main` until tests and user approval.
+- New Update Lab APK uses unique Android ID `com.maxrave.simpmusic.dev.updates`, display name `SimpMusic Lab (Updates)`, build label `Update Lab · <SHA>`. Its installer cannot replace Stable and must never offer a Stable APK as an in-app update.
+- Stable `com.maxrave.simpmusic.dev` now fetches **only** `https://api.github.com/repos/aenorbiko/SimpMusic/releases/tags/enhanced-latest` (not upstream Github/F-Droid). Release must have exact `enhanced-latest` tag, non-draft state, a positive `Android build: N` in its notes, and a large ARM64 asset at our exact known GitHub download URL.
+- Compare the release's Android build number against installed `BuildKonfig.versionCode`; show update only for **strictly higher** N. Do not compare upstream `2.5.0` against Enhanced build numbers.
+- Browser download button opens only our known stable APK URL. Android verifies the package name and signing certificate at user-approved installation time; the app does not silently install anything.
+- Settings for stable Enhanced: auto-check toggle retained; update source pinned to SimpMusic Enhanced releases with no F-Droid/upstream channel switch; manual Check for update remains. Settings for Labs: explanation and Releases link, no automatic Stable update prompt or upstream fallback.
+- Network failure, malformed release JSON, absent asset, mismatched URL or unparseable code → **no update** (do not interrupt playback). Unit tests cover parsing, version comparisons, wrong tag/URL, Labs and original upstream IDs.
+- **Follow-up before merge:** signed isolated APK must compile, pass regression tests and be phone tested; verify Labs never offer stable APK, no upstream update channel, and in-app change log and music behavior remain working. Verify Stable update comparison in tests; an eventual stable build must be tested installing over current Stable without losing data.
+- **Known release-channel limitation:** this is a safe `enhanced-latest` APK check, not a fully immutable versioned-release/update-metadata system. Future work can publish `enhanced-vN` tags and signed SHA256 manifest if update maintenance expands.
 
 ### 9. Maintainable code and repeatable tests — PLANNED
 
