@@ -1,3 +1,10 @@
+> **SimpMusic Enhanced — community fork.** This repository extends the original [SimpMusic](https://github.com/maxrave-dev/SimpMusic) with Enhanced 2+1 shuffle, queue and notification improvements.  
+> **[What's new and what is different](CHANGELOG.md)** · **[Download the current Enhanced APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)** · **[Experiments and older builds](https://github.com/aenorbiko/SimpMusic/releases)**
+>
+> The README below describes the original SimpMusic project. See our changelog for features added specifically by this fork.
+
+---
+
 <div align="center"> <img src="https://raw.githubusercontent.com/maxrave-dev/SimpMusic/dev/fastlane/metadata/android/en-US/images/featureGraphic.png"> <h1>SimpMusic</h1>  
 A FOSS YouTube Music client for Android and Desktop with many features from<br>Spotify, SponsorBlock, ReturnYouTubeDislike using Compose Multiplatform to develop.
 <br> 
