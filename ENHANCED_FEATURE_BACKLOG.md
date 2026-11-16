@@ -79,9 +79,11 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Restore sign-ins and preferences reliably, avoid credential leaks, preserve future per-device timing profiles appropriately, and test backup compatibility.
 - User reported YouTube Music authorization survives current backup/restore. The prototype on `feature/enhanced-optimisation` needs separate review/test.
 
-### 7. Clearly identify our build for sharing and screenshots — IN PROGRESS
+### 7. Clearly identify our build for sharing and screenshots — IMPLEMENTED IN LAB, SCREENSHOT TEST PASSED; STABLE MERGE PENDING APPROVAL
 
 - **Requested 2026-11-16:** show the exact custom build *channel/name + short Git commit revision* inside the Now Playing queue view even when the bottom footer is off-screen. Also update the existing footer, which currently says only SimpMusic v2.5.0 and looks identical in stable and Lab screenshots.
+- **Phone test passed 2026-11-16:** user supplied screenshot from installed `SimpMusic Lab (Relevance)` showing `NOW PLAYING · Relevance Lab · 94bd9afe` in queue header and matching `Relevance Lab · 94bd9afe` in footer under upstream `v2.5.0`. GitHub CI for updated Relevance Lab finished successfully. Build identification is now unambiguous in screenshots.
+- `feature/enhanced-build-identity`: dedicated isolated signed Identity Lab build and tests passed; `feature/enhanced-radio-relevance`: same UI identification was integrated into the already-installed Lab, signed as versionCode 63, successfully built and user-tested. **Neither experimental branch is approved for merging into stable yet.**
 - Implement on a separate `feature/enhanced-build-identity` branch from stable, with an isolated APK. This feature is not merged until phone acceptance; propagate through later Stable and Lab builds via per-workflow build labels.
 - Do not equate the upstream 2.5.0 version with our fork revision; version text must clearly distinguish both.
 
