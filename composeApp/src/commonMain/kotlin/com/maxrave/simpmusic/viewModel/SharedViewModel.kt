@@ -72,6 +72,7 @@ import com.maxrave.domain.utils.toSyncedLyrics
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.LogLevel
 import com.maxrave.logger.Logger
+import com.maxrave.simpmusic.BuildKonfig
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.getDownloadFolderPath
 import com.maxrave.simpmusic.expect.isOnUnmeteredNetwork
@@ -79,6 +80,8 @@ import com.maxrave.simpmusic.expect.ui.toByteArray
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.utils.LyricsPromo
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.EnhancedForkUpdateClient
+import com.maxrave.simpmusic.utils.isEnhancedStablePackage
 import com.maxrave.simpmusic.utils.decodeLyricsPromos
 import com.maxrave.simpmusic.utils.decodePromos
 import com.maxrave.simpmusic.utils.shownPromoIds
@@ -1715,6 +1718,28 @@ class SharedViewModel(
                 "CheckForUpdateAt",
                 System.currentTimeMillis().toString(),
             )
+            // A fork app must NEVER check the upstream SimpMusic or F-Droid update feeds.
+            // Lab packages have a different Android application ID, so cannot install Stable.
+            // Only the signed Stable channel checks our own known GitHub release.
+            if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                _updateResponse.value = null
+                showedUpdateDialog = false
+                if (getPlatform() == Platform.Android &&
+                    isEnhancedStablePackage(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId)
+                ) {
+                    val forkRelease = EnhancedForkUpdateClient.check()
+                    if (forkRelease != null && forkRelease.buildCode > BuildKonfig.versionCode) {
+                        _updateResponse.value = UpdateData(
+                            tagName = "Enhanced build ${forkRelease.buildCode}",
+                            releaseTime = forkRelease.releaseTime,
+                            body = forkRelease.notes + "\\n\\n[What's new](https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md)",
+                        )
+                        showedUpdateDialog = true
+                    }
+                }
+                return@launch
+            }
+
             if (updateChannel == DataStoreManager.GITHUB) {
                 updateRepository.checkForGithubReleaseUpdate().collectLatest { response ->
                     val data = response.data
