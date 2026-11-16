@@ -52,7 +52,7 @@ jobs:
             echo "Permanent signing credentials restored from GitHub secret."
           fi
       - name: Build debug APK (separate .dev package)
-        run: ./gradlew :androidApp:assembleDebug
+        run: ./gradlew :androidApp:assembleDebug -PsimpmusicEnhancedBuildChannel="Enhanced Stable"
       - name: Verify APK uses the permanent signing certificate
         shell: bash
         run: |
@@ -110,7 +110,8 @@ jobs:
           ./gradlew :composeApp:jvmTest \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
-            --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest"
+            --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
+            --tests "com.maxrave.simpmusic.utils.EnhancedBuildIdentityTest"
       - name: Publish one ARM64 APK for direct download (no ZIP)
         shell: bash
         env:

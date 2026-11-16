@@ -13,6 +13,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maxrave.domain.extension.now
 import com.maxrave.simpmusic.ui.theme.typo
+import com.maxrave.simpmusic.utils.EnhancedBuildIdentity
 import com.maxrave.simpmusic.utils.VersionManager
 import org.jetbrains.compose.resources.stringResource
 import simpmusic.composeapp.generated.resources.Res
@@ -29,12 +30,15 @@ fun EndOfPage(withoutCredit: Boolean = false) {
         contentAlignment = Alignment.TopCenter,
     ) {
         if (!withoutCredit) {
+            val buildCaption = EnhancedBuildIdentity.screenshotCaption
             Text(
                 "@${now().year} " + stringResource(Res.string.app_name) + " " +
                     stringResource(
                         Res.string.version_format,
                         VersionManager.getVersionName(),
-                    ) + "\nmaxrave-dev",
+                    ) +
+                    (if (buildCaption.isBlank()) "" else "\n$buildCaption") +
+                    "\nmaxrave-dev",
                 style = typo().bodySmall,
                 textAlign = TextAlign.Center,
                 modifier =

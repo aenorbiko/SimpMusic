@@ -1,6 +1,7 @@
 package com.maxrave.simpmusic.ui.component
 
 import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
+import com.maxrave.simpmusic.utils.EnhancedBuildIdentity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -1088,10 +1089,14 @@ fun QueueBottomSheet(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                         ) {
+                            val buildCaption = EnhancedBuildIdentity.screenshotCaption
                             Text(
-                                text = stringResource(Res.string.now_playing_upper),
-                                style = typo().bodyMedium,
+                                text = stringResource(Res.string.now_playing_upper) +
+                                    (if (buildCaption.isBlank()) "" else " · $buildCaption"),
+                                style = if (buildCaption.isBlank()) typo().bodyMedium else typo().bodySmall,
                                 color = rememberSurfaceDarkColors().content,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
                             )
                             Text(
                                 text = screenDataState.playlistName,
