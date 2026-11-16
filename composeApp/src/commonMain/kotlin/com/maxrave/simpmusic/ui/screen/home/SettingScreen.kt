@@ -486,6 +486,7 @@ fun SettingScreen(
 ) {
     val platformContext = LocalPlatformContext.current
     val localDensity = LocalDensity.current
+    val enhancedReleaseDiagnostic by sharedViewModel.enhancedReleaseDiagnostic.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -2829,6 +2830,11 @@ fun SettingScreen(
                             onClick = { sharedViewModel.checkForUpdate() },
                         )
                     } else {
+                        SettingItem(
+                            title = "Test Enhanced release check",
+                            subtitle = enhancedReleaseDiagnostic,
+                            onClick = { sharedViewModel.inspectEnhancedReleaseInLab() },
+                        )
                         SettingItem(
                             title = "Experimental Lab build",
                             subtitle = "No automatic APK updates. Stable APK cannot replace this separate app.",
