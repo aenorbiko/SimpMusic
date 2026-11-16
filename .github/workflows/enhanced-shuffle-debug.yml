@@ -1,7 +1,7 @@
-name: Enhanced Shuffle debug APK
+name: SimpMusic Enhanced Stable ARM64 APK
 on:
   push:
-    branches: [feature/enhanced-shuffle]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
