@@ -434,6 +434,10 @@ class SharedViewModel(
                         batchSize = ENHANCED_LIKED_BATCH_SIZE,
                         id = { it.videoId },
                     )
+                    if (opening.radioSeeds.isEmpty()) {
+                        _smartShuffleMode.value = SmartShuffleMode.OFF
+                        return@launch
+                    }
                     enhancedLikedOrder = shuffled
                     nextEnhancedLikedIndex = opening.upcomingLikedCount
                     val label = "$name · Enhanced 2+1"
