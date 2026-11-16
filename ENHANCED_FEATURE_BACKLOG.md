@@ -42,6 +42,9 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - **2026-11-16 phone follow-up:** user confirmed rapidly pressing Next works smoothly and switching Enhanced off leaves a normal shuffled source-song queue, rather than adding more recommendations. **Passed:** rapid Next; Enhanced → Shuffle. **Still to verify:** near-end progressive prefetch on 300+ Liked queue, no repeats/stale results after switching during still-pending radio requests, and end-of-source behavior on a short album. Do not merge yet without explicit approval.
 - Cached radio and per-device Lyrics Offset stay independent features.
 
+
+- **2026-11-16 final user follow-up:** user confirms that the Speed Lab queue automatically **continues to fill when advancing toward its end**. Phone-verified: first group appears ~3 seconds, later groups append progressively; fast Next works; disabling Enhanced yields ordinary shuffled tracks; prefetch works at the end of the loaded group. User approval for a merge into `main` has **not** yet been requested/received. No merge until explicit approval.
+
 ### 2. Improve recommendation relevance — IMPLEMENTED ON A SEPARATE LAB BRANCH, PHONE TEST PENDING
 
 - Branch: `feature/enhanced-radio-relevance`; **do not merge until the user tests and approves it**.
