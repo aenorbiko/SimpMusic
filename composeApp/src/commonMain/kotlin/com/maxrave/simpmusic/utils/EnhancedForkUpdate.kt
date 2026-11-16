@@ -52,23 +52,23 @@ internal fun isNewerEnhancedBuild(
 internal fun parseEnhancedStableRelease(response: String): EnhancedForkRelease? =
     runCatching {
         val release = Json.parseToJsonElement(response).jsonObject
-        if (release["tag_name"]?.jsonPrimitive?.content != "enhanced-latest") return null
-        if (release["draft"]?.jsonPrimitive?.content == "true") return null
+        if (release["tag_name"]?.jsonPrimitive?.content != "enhanced-latest") return@runCatching null
+        if (release["draft"]?.jsonPrimitive?.content == "true") return@runCatching null
 
-        val notes = release["body"]?.jsonPrimitive?.content ?: return null
+        val notes = release["body"]?.jsonPrimitive?.content ?: return@runCatching null
         // A GitHub release with no known build number is NOT safe to compare:
         // never compare upstream 2.5.0 against our Android build 65.
         val code = Regex("^Android build: ([0-9]+)\\s*$", RegexOption.MULTILINE)
-            .find(notes)?.groupValues?.get(1)?.toIntOrNull() ?: return null
-        if (code <= 0) return null
+            .find(notes)?.groupValues?.get(1)?.toIntOrNull() ?: return@runCatching null
+        if (code <= 0) return@runCatching null
 
         val matchingAssets = release["assets"]?.jsonArray?.filter { item ->
             val a = item.jsonObject
             a["name"]?.jsonPrimitive?.content == "SimpMusic-Enhanced-arm64.apk" &&
                 a["browser_download_url"]?.jsonPrimitive?.content == ENHANCED_STABLE_APK_URL &&
                 (a["size"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L) > 1_000_000L
-        } ?: return null
-        if (matchingAssets.size != 1) return null
+        } ?: return@runCatching null
+        if (matchingAssets.size != 1) return@runCatching null
 
         EnhancedForkRelease(
             buildCode = code,
