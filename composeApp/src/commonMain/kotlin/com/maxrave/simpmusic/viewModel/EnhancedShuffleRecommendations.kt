@@ -13,6 +13,29 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 
+internal suspend fun fetchEnhancedRadio(
+    song: Track,
+    songRepository: SongRepository,
+    radioSemaphore: Semaphore,
+): List<Track> =
+        radioSemaphore.withPermit {
+            try {
+                withTimeoutOrNull(8_000L) {
+                    songRepository.getRadioFromEndpoint(
+                        YouTubeWatchEndpoint(
+                            videoId = song.videoId,
+                            playlistId = "RDAMVM${song.videoId}",
+                        ),
+                    ).firstOrNull { it is Resource.Success }?.data?.first.orEmpty()
+                }.orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+
+
 internal const val ENHANCED_LIKED_BATCH_SIZE = 14
 internal const val ENHANCED_PREFETCH_REMAINING = 14
 
@@ -41,24 +64,6 @@ internal suspend fun buildEnhancedBatch(
     val pairs = likedBatch.chunked(2)
     val radioSemaphore = Semaphore(4)
 
-    suspend fun fetchRadio(song: Track): List<Track> =
-        radioSemaphore.withPermit {
-            try {
-                withTimeoutOrNull(8_000L) {
-                    songRepository.getRadioFromEndpoint(
-                        YouTubeWatchEndpoint(
-                            videoId = song.videoId,
-                            playlistId = "RDAMVM${song.videoId}",
-                        ),
-                    ).firstOrNull { it is Resource.Success }?.data?.first.orEmpty()
-                }.orEmpty()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                emptyList()
-            }
-        }
-
     val radioPairs = coroutineScope {
         pairs.map { pair ->
             async {
@@ -66,8 +71,8 @@ internal suspend fun buildEnhancedBatch(
                     emptyList<Track>() to emptyList<Track>()
                 } else {
                     coroutineScope {
-                        val first = async { fetchRadio(pair[0]) }
-                        val second = async { fetchRadio(pair[1]) }
+                        val first = async { fetchEnhancedRadio(pair[0], songRepository, radioSemaphore) }
+                        val second = async { fetchEnhancedRadio(pair[1], songRepository, radioSemaphore) }
                         first.await() to second.await()
                     }
                 }
