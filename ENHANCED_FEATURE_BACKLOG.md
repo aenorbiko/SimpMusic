@@ -79,17 +79,15 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Restore sign-ins and preferences reliably, avoid credential leaks, preserve future per-device timing profiles appropriately, and test backup compatibility.
 - User reported YouTube Music authorization survives current backup/restore. The prototype on `feature/enhanced-optimisation` needs separate review/test.
 
-### 7. Clearly identify our build for sharing and screenshots — IMPLEMENTED IN LAB, SCREENSHOT TEST PASSED; STABLE MERGE PENDING APPROVAL
+### 7. Identify custom builds visibly in screenshots — MERGED INTO STABLE; RELEASE VERIFICATION PENDING
 
-- **Requested 2026-11-16:** show the exact custom build *channel/name + short Git commit revision* inside the Now Playing queue view even when the bottom footer is off-screen. Also update the existing footer, which currently says only SimpMusic v2.5.0 and looks identical in stable and Lab screenshots.
-- **Phone test passed 2026-11-16:** user supplied screenshot from installed `SimpMusic Lab (Relevance)` showing `NOW PLAYING · Relevance Lab · 94bd9afe` in queue header and matching `Relevance Lab · 94bd9afe` in footer under upstream `v2.5.0`. GitHub CI for updated Relevance Lab finished successfully. Build identification is now unambiguous in screenshots.
-- `feature/enhanced-build-identity`: dedicated isolated signed Identity Lab build and tests passed; `feature/enhanced-radio-relevance`: same UI identification was integrated into the already-installed Lab, signed as versionCode 63, successfully built and user-tested. **Neither experimental branch is approved for merging into stable yet.**
-- Implement on a separate `feature/enhanced-build-identity` branch from stable, with an isolated APK. This feature is not merged until phone acceptance; propagate through later Stable and Lab builds via per-workflow build labels.
-- Do not equate the upstream 2.5.0 version with our fork revision; version text must clearly distinguish both.
-
-
-- Display custom build name/version, fork/commit identifier, link to our releases and upstream licenses/attribution.
-- Keep stable, experimental Lab, and upstream SimpMusic clearly distinguishable without changing the installed app identity inadvertently.
+- **User-approved and merged 2026-11-16:** PR #2 merged `feature/enhanced-build-identity` into stable `feature/enhanced-shuffle`, merge commit `b3adf5b877486ac50d7bae8a7adb607c28217a60`. This merges **only build identity UI**, **not** radio-relevance recommendation changes.
+- User successfully tested the label on Android in `SimpMusic Lab (Relevance)`: header `NOW PLAYING · Relevance Lab · 94bd9afe` and matching footer `Relevance Lab · 94bd9afe` under upstream `v2.5.0`.
+- Stable signed workflow is configured to stamp `Enhanced Stable · <Git commit first 8 chars>` in the header and footer. The stable Android application ID and permanent signing key remain unchanged.
+- Separate `Identity Lab` CI and on-phone `Relevance Lab` screenshot test passed. Verify the post-merge stable CI run and release before marking the new stable APK published; do not claim another on-phone stable test occurred.
+- `feature/enhanced-radio-relevance` remains **unmerged/unapproved** as a recommendation algorithm; its screenshot identity is already present as a separate compatible patch.
+- Future build identity improvements: display fuller fork/version/changelog and upstream licence attribution for sharing, tracked separately.
+- Upstream SimpMusic version (`v2.5.0`) is distinct from our build label and Git commit identity.
 
 ### 8. Fork-aware in-app update checks — NOT IMPLEMENTED
 
@@ -145,7 +143,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - `feature/enhanced-all-playlists`: branched from older Enhanced baseline; user-tested on phone, **merged by PR #1 into `feature/enhanced-shuffle`**. Branch retained for history.
 - `feature/enhanced-radio-cache`: branched from older Enhanced baseline; 64 radio response lists, TTL 20 min; automatic tests only, no approved phone test; **unmerged**.
 - `feature/enhanced-optimisation`: branched from older Enhanced baseline; multi-feature prototypes (including per-device Bluetooth lyrics offset and backup work); **unmerged, not fully phone-tested**. We must extract each feature into its own clean branch rather than merge everything.
-- `feature/enhanced-radio-relevance`: branched from the current stable Enhanced baseline; top-15 match or second-song-radio fallback; **code and tests in progress / not user-accepted; unmerged**.
+- `feature/enhanced-radio-relevance`: top-15 match or second-song-radio fallback; includes visible Relevance Lab build identity; **recommendation algorithm not user-accepted; unmerged**.
+- `feature/enhanced-build-identity`: created from tested stable Enhanced, passed separate CI and user's Relevance Lab screenshot test, and **merged into stable by PR #2 on 2026-11-16**. Kept for history.
 - Development workflow: copy/branch from stable → implement one feature → build a separately installed Lab APK → phone test → explicit approval → merge into stable. Leave `dev` alone until an explicit future decision to reorganize branches.
 
 ## Current delivery checkpoint
