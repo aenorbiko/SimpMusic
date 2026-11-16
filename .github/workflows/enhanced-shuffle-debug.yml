@@ -30,6 +30,8 @@ jobs:
         run: python3 scripts/test_enhanced_shuffle_icons.py
       - name: Verify Enhanced support across playlists and albums
         run: python3 scripts/test_enhanced_all_playlists.py
+      - name: Verify stable release changelog, in-app link and safe merged branch housekeeping
+        run: python3 scripts/test_enhanced_changelog.py
       - name: Apply enhanced controls to pinned core submodule
         run: python3 scripts/apply_enhanced_core_patch.py
       - name: Generate library definitions
