@@ -1,17 +1,11 @@
 name: Build APK for Release (Full & FOSS) && Desktop app release
 
+# This is the ORIGINAL upstream full/FOSS/desktop release workflow.
+# Our fork's main branch publishes ONLY the tested Enhanced ARM64 APK through
+# enhanced-shuffle-debug.yml. Keep this workflow manual-only to avoid running
+# upstream release jobs on each Enhanced change and consuming CI minutes.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'main'
-    paths-ignore:
-      - 'README.md'
-      - 'fastlane/**'
-      - 'assets/**'
-      - '.github/**/*.md'
-      - '.github/FUNDING.yml'
-      - '.github/ISSUE_TEMPLATE/**'
 
 permissions:
   contents: write
