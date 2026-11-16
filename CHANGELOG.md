@@ -23,6 +23,15 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 66 — Enhanced-only update checks (2026-11-17)
+
+- **Fork-aware updates:** Stable SimpMusic Enhanced checks only signed APK releases in [our own GitHub repository](https://github.com/aenorbiko/SimpMusic/releases), never the original SimpMusic GitHub/F-Droid update feeds.
+- **Correct version comparison:** compare Android build numbers (66, 67, ...) instead of treating the original project's version `2.5.0` as a newer or older Enhanced release.
+- **Safer download prompts:** only accept an existing, expected ARM64 APK from our `enhanced-latest` release; the update button opens that APK, and Android verifies its package ID and signing certificate during installation. Nothing is installed silently.
+- **Separate Labs:** experimental applications have different Android package IDs and do not offer the stable Enhanced APK as an update.
+- **Settings:** the update source is fixed to SimpMusic Enhanced GitHub Releases while automatic update checks can still be turned off. The original SimpMusic project and other developer builds retain their original update settings.
+- Tested in a separate Update Lab (`3d55c513`) on 17 November: it correctly reported Stable build 65 without offering an incompatible APK. The in-place Stable 65 → 66 upgrade and future 66 → 67 prompt still require observation on an actual phone.
+
 ### Android build 65 — Changelog and public release information (2026-11-16)
 
 - **What's New** link added under **Settings → About us**, opening this maintained changelog.
