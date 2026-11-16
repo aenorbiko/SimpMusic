@@ -1751,7 +1751,9 @@ class SharedViewModel(
                         _updateResponse.value = UpdateData(
                             tagName = "Enhanced build ${forkRelease.buildCode}",
                             releaseTime = forkRelease.releaseTime,
-                            body = forkRelease.notes + "\\n\\n[What's new](https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md)",
+                            // The GitHub Release body already links to CHANGELOG.md.
+                            // Do not append escaped \\n text or a duplicate link.
+                            body = forkRelease.notes,
                         )
                         showedUpdateDialog = true
                     }
