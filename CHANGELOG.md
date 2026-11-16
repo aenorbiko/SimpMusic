@@ -23,6 +23,16 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 67 — Clear Enhanced and original SimpMusic credits (2026-11-17)
+
+- **About/Credits now clearly identifies SimpMusic Enhanced** with its own Android build number, build channel and short Git revision, separately from the original SimpMusic v2.5.0.
+- **Original developer: maxrave-dev** remains credited with a working link; original project description, links, licence and legal disclaimer are preserved under **About the original SimpMusic**.
+- Added links from About to our [Enhanced changelog](https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md) and [fork source code](https://github.com/aenorbiko/SimpMusic).
+- Settings → About us → Version displays `SimpMusic Enhanced · build 67 · Enhanced Stable`; upstream/unlabelled builds keep their original About identity. An Update Lab-only test button is hidden from unrelated Labs.
+- No changes to playback, Enhanced recommendation selection or queue loading.
+- About Lab `ec2afcd1` was reviewed from user-provided Android screenshots; the corrected About Lab `c467c2c0` passed CI. The user explicitly approved this layout. Stable build 67 also enables testing the **66 → 67** update prompt from our GitHub release channel.
+
+
 ### Android build 66 — Enhanced-only update checks (2026-11-17)
 
 - **Fork-aware updates:** Stable SimpMusic Enhanced checks only signed APK releases in [our own GitHub repository](https://github.com/aenorbiko/SimpMusic/releases), never the original SimpMusic GitHub/F-Droid update feeds.

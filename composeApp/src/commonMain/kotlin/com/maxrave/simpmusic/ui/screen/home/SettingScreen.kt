@@ -2795,7 +2795,11 @@ fun SettingScreen(
             SettingGroup(title = stringResource(Res.string.about_us)) {
                 SettingItem(
                     title = stringResource(Res.string.version),
-                    subtitle = stringResource(Res.string.version_format, VersionManager.getVersionName()),
+                    subtitle = if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                        "SimpMusic Enhanced · build ${BuildKonfig.versionCode} · ${BuildKonfig.enhancedBuildChannel}"
+                    } else {
+                        stringResource(Res.string.version_format, VersionManager.getVersionName())
+                    },
                     onClick = {
                         navController.navigate(CreditDestination)
                     },
@@ -2830,11 +2834,15 @@ fun SettingScreen(
                             onClick = { sharedViewModel.checkForUpdate() },
                         )
                     } else {
-                        SettingItem(
-                            title = "Test Enhanced release check",
-                            subtitle = enhancedReleaseDiagnostic,
-                            onClick = { sharedViewModel.inspectEnhancedReleaseInLab() },
-                        )
+                        // This diagnostic is functional only in the dedicated Update Lab.
+                        // Other Labs must not show a button that silently does nothing.
+                        if (BuildKonfig.enhancedBuildChannel == "Update Lab") {
+                            SettingItem(
+                                title = "Test Enhanced release check",
+                                subtitle = enhancedReleaseDiagnostic,
+                                onClick = { sharedViewModel.inspectEnhancedReleaseInLab() },
+                            )
+                        }
                         SettingItem(
                             title = "Experimental Lab build",
                             subtitle = "No automatic APK updates. Stable APK cannot replace this separate app.",

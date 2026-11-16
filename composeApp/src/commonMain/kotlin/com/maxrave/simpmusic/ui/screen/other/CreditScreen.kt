@@ -51,7 +51,9 @@ import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.theme.typo
+import com.maxrave.simpmusic.BuildKonfig
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.enhancedAboutDetails
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownTypography
 import dev.chrisbanes.haze.HazeInput
@@ -68,6 +70,12 @@ fun CreditScreen(
     paddingValues: PaddingValues,
     navController: NavController,
 ) {
+    val enhancedAbout = enhancedAboutDetails(
+        buildChannel = BuildKonfig.enhancedBuildChannel,
+        buildCode = BuildKonfig.versionCode,
+        baseVersion = VersionManager.getVersionName(),
+        commit = BuildKonfig.enhancedBuildCommit,
+    )
     val hazeState = rememberHazeState()
     val scrollState = rememberScrollState()
     Column(
@@ -96,21 +104,33 @@ fun CreditScreen(
 
         // App name
         Text(
-            text = stringResource(Res.string.app_name),
+            text = enhancedAbout?.title ?: stringResource(Res.string.app_name),
             style = typo().titleLarge,
             fontSize = 22.sp,
         )
 
-        // Version
+        // Fork version is NOT the same as the original SimpMusic version.
         Text(
-            text = stringResource(Res.string.version_format, VersionManager.getVersionName()),
+            text = enhancedAbout?.buildLabel ?: stringResource(Res.string.version_format, VersionManager.getVersionName()),
             style = typo().bodySmall,
             fontSize = 13.sp,
         )
+        if (enhancedAbout != null) {
+            Text(
+                text = enhancedAbout.baseVersionLabel,
+                style = typo().bodySmall,
+                fontSize = 13.sp,
+            )
+            Text(
+                text = enhancedAbout.revisionLabel,
+                style = typo().bodySmall,
+                fontSize = 12.sp,
+            )
+        }
 
-        // Developer - clickable, opens dev blog
+        // Preserve original author's credit and link for both upstream and fork.
         Text(
-            text = stringResource(Res.string.maxrave_dev),
+            text = enhancedAbout?.originalDeveloperLabel ?: stringResource(Res.string.maxrave_dev),
             style = typo().bodyMedium,
             textDecoration = TextDecoration.Underline,
             modifier =
@@ -120,6 +140,38 @@ fun CreditScreen(
         )
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // Explain the fork before the unchanged original project's description.
+        if (enhancedAbout != null) {
+            Text(
+                text = "SimpMusic Enhanced is a community fork with Enhanced 2+1 shuffle, progressive recommendations and player improvements.",
+                style = typo().bodyMedium,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 25.dp),
+                textAlign = TextAlign.Start,
+            )
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                TextButton(
+                    onClick = { openUrl("https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md") },
+                    modifier = Modifier.align(Alignment.Start).padding(horizontal = 25.dp),
+                ) {
+                    Text("What's new in Enhanced")
+                }
+                TextButton(
+                    onClick = { openUrl("https://github.com/aenorbiko/SimpMusic") },
+                    modifier = Modifier.align(Alignment.Start).padding(horizontal = 25.dp),
+                ) {
+                    Text("Enhanced source on GitHub")
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "About the original SimpMusic",
+                style = typo().titleMedium,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 25.dp),
+                textAlign = TextAlign.Start,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // App description
         Text(
@@ -262,7 +314,7 @@ fun CreditScreen(
                 .hazeBlur(HazeInput.Sources(hazeState), ultraThinBarStyle()),
         title = {
             Text(
-                text = stringResource(Res.string.app_name),
+                text = enhancedAbout?.title ?: stringResource(Res.string.app_name),
                 style = typo().titleMedium,
                 maxLines = 1,
                 modifier =

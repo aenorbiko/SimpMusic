@@ -114,7 +114,8 @@ jobs:
             --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
             --tests "com.maxrave.simpmusic.utils.EnhancedBuildIdentityTest" \
-            --tests "com.maxrave.simpmusic.utils.EnhancedForkUpdateTest"
+            --tests "com.maxrave.simpmusic.utils.EnhancedForkUpdateTest" \
+            --tests "com.maxrave.simpmusic.utils.EnhancedAboutDetailsTest"
       - name: Publish one ARM64 APK for direct download (no ZIP)
         shell: bash
         env:

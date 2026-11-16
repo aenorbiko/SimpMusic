@@ -20,6 +20,7 @@ android {
     val isIdentityExperiment = providers.gradleProperty("simpmusicIdentityExperimental").orNull == "true"
     val isSpeedExperiment = providers.gradleProperty("simpmusicSpeedExperimental").orNull == "true"
     val isUpdatesExperiment = providers.gradleProperty("simpmusicUpdatesExperimental").orNull == "true"
+    val isAboutExperiment = providers.gradleProperty("simpmusicAboutExperimental").orNull == "true"
     val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
 
     // Stable signing key comes only from a private GitHub Actions secret.
@@ -133,6 +134,7 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = when {
+                isAboutExperiment -> ".dev.about"
                 isUpdatesExperiment -> ".dev.updates"
                 isSpeedExperiment -> ".dev.speed"
                 isIdentityExperiment -> ".dev.identity"
@@ -140,6 +142,7 @@ android {
                 else -> ".dev"
             }
             versionNameSuffix = when {
+                isAboutExperiment -> "-about-lab"
                 isUpdatesExperiment -> "-updates-lab"
                 isSpeedExperiment -> "-speed-lab"
                 isIdentityExperiment -> "-identity-lab"

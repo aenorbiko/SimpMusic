@@ -132,6 +132,15 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Official release `v2.6.0` was published 2026-11-14; our copied base has much of that implementation already, but still has `version-name = 2.5.0` / `version-code = 62`. Compare actual source + `core` SHA before synchronizing version metadata. A newer upstream version does **not** mean a newer signed Enhanced build is available.
 - Keep this separate from one-feature-per-branch development and fork-aware **in-app update checks** (item 8).
 
+### 12. Clear Enhanced version, original SimpMusic and author in About — ABOUT LAB BUILD IN PROGRESS
+
+- **User confirmed 2026-11-17:** Android Stable 65 → 66 in-place update preserved YouTube Music authorization, playlists and settings; About still showed only upstream `v2.5.0`.
+- Created `feature/enhanced-about-version` from latest stable `main`. New separate signed `SimpMusic Lab (About)` APK (`.dev.about`) is planned; **do not merge to main before user tests**.
+- Settings → About us → Version shows `SimpMusic Enhanced · build 66 · About Lab` in the Lab and `SimpMusic Enhanced · build 67 · Enhanced Stable` if a future stable build 67 is approved. Upstream/unlabelled builds retain original `v2.5.0`.
+- Credits/About page prominently shows `SimpMusic Enhanced`, exact build number/channel and SHA, `Based on SimpMusic v2.5.0` and `Original developer: maxrave-dev` with original author's link. Original project description, upstream website, GitHub, licence and legal disclaimer remain visible. Added a separate link to the Enhanced changelog and our source.
+- Automated tests cover Stable identity, Lab identity and upstream fallback. Lab build must compile and pass JVM regression tests before phone testing.
+- After phone acceptance and explicit merge approval, bump Android versionCode 66→67, document in CHANGELOG, add About unit test to stable CI and verify a stable build 67 publishes. That stable release can additionally test the **new automatic 66→67 update notification** on the installed 66 app.
+
 ## Verified resolved / not to re-open without a regression
 
 - Notification Like-heart flicker: user says it is already fixed (2026-11-15).
