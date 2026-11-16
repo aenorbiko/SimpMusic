@@ -29,12 +29,16 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 ## Next: independent feature branches, in intended priority order
 
-### 1. Reduce ~10-second Enhanced initial startup delay — NOT IMPLEMENTED
+### 1. Reduce ~10-second Enhanced initial startup delay — IN PROGRESS ON ISOLATED LAB BRANCH
 
-- On a 300+ Liked playlist the initial 14-source-song batch makes up to 14 radio metadata requests, capped at 4 concurrently. The whole batch appears after about 10 seconds, rather than appearing progressively.
-- Proposed: prioritize the first song pair, add its recommendation promptly, and generate later 2+1 segments progressively in the background.
-- Ensure no restart of the current song, no gaps or duplicates, rapid cancellation of old-source work, no stale results after switching; retain prefetch near end.
-- Test phone behavior with large Liked and short albums, navigation and notification toggles, pause/Next, empty/offline radio.
+- Branch `feature/enhanced-progressive-queue` based on stable `main`; **not merged or user-tested**. Separate Android package ID `com.maxrave.simpmusic.dev.speed`, app label `SimpMusic Lab (Speed)`, release channel `enhanced-speed-latest`.
+- Original behavior: 14 source songs trigger 14 radio metadata fetches (4 at once), then UI shows the entire 2+1 batch only after all return (~10 seconds on 300+ Liked).
+- New implementation: radio fetches for all 14 seeds remain concurrent with four permits and 8s timeout per radio, but their results are **consumed in order per source pair**. Apply the first `A → B → recommendation(A,B)` block immediately after the first pair is ready, then append the next blocks as their radios resolve. **No playback reset, no seek, no restart** during later appends.
+- Preserve original `EnhancedShufflePlanner.selectForPair` (and nearest-other-pair fallback only when the pair has no available candidate), used IDs, up to 14 source songs per segment, and bounded finite source list. This is a loading change, **not** the unapproved Radio Relevance algorithm.
+- Queues are bound to an Enhanced session and main Player state. When switching modes/sources or cancelling the coroutine, cancel all pending network requests and reject stale chunks. Recommended-track badge membership is set before each chunk is appended.
+- New coroutine unit tests check that the first block arrives before blocked later radio calls, preserve selection and uniqueness, cancel safely and handle odd-ended sources.
+- **Next acceptance step after successful CI:** install *separate* Speed Lab; on Liked 300+ songs measure time to first recommended song and time to full first batch (compare to ~10 seconds baseline); verify 2+1, current song uninterrupted, fast Next, mode switching from main player and shade, playlist/album switching, local playlists, finite ending and near-end prefetch. Do not merge until explicitly approved.
+- Cached radio and per-device Lyrics Offset stay independent features.
 
 ### 2. Improve recommendation relevance — IMPLEMENTED ON A SEPARATE LAB BRANCH, PHONE TEST PENDING
 
