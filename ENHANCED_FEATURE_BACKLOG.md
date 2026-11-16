@@ -1,11 +1,11 @@
 # SimpMusic Enhanced — feature backlog
 
-Last reviewed: 2026-11-15 (Australia/Brisbane).
+Last reviewed: 2026-11-16 (Australia/Brisbane).
 This is the durable feature and bug tracker for our SimpMusic fork, not an indication that all listed features are implemented.
 
 ## Development and release rules
 
-- Stable Enhanced integration branch: `feature/enhanced-shuffle`. Upstream/default `dev` is not the target for experimental features.
+- Stable Enhanced integration branch: **`main`** (formerly `feature/enhanced-shuffle`). `dev` remains the unchanged original/upstream snapshot, and is currently still the GitHub repository's default branch until switched in GitHub Settings.
 - **One behavior change per feature branch**, with its own Android Lab build when needed.
 - Run automated tests, then **test the APK on the user's phone**; CI success alone is not acceptance.
 - **Merge only after the user's explicit approval**, preserving old experimental branches for later work.
@@ -139,7 +139,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ## Branch map and merge status (2026-11-15)
 
 - `dev`: **GitHub default branch**, original/upstream SimpMusic source. **No Enhanced feature merges here.**
-- `feature/enhanced-shuffle`: **our stable Enhanced integration branch** (Liked 2+1, icons, main-player/notification sync, Like fixes, all playlists and albums); user-tested; stable Android APK published via `enhanced-latest`.
+- `main`: **our current stable Enhanced integration branch** (2+1 on all playlists, likes, icons, screenshot build labels). Created 2026-11-16 from approved `feature/enhanced-shuffle`; stable signed APK workflow moved to run from `main`. App label `SimpMusic Enhanced`, same Android package ID `com.maxrave.simpmusic.dev` and signing certificate; Android versionCode incremented to 63 for an in-place update. Verify new main-branch CI/release separately.
+- `feature/enhanced-shuffle`: previous tested stable integration branch, now **historical / no longer target of future merges or releases**. Do not delete until the `main` workflow, published APK and repository default have been verified.
 - `feature/enhanced-all-playlists`: branched from older Enhanced baseline; user-tested on phone, **merged by PR #1 into `feature/enhanced-shuffle`**. Branch retained for history.
 - `feature/enhanced-radio-cache`: branched from older Enhanced baseline; 64 radio response lists, TTL 20 min; automatic tests only, no approved phone test; **unmerged**.
 - `feature/enhanced-optimisation`: branched from older Enhanced baseline; multi-feature prototypes (including per-device Bluetooth lyrics offset and backup work); **unmerged, not fully phone-tested**. We must extract each feature into its own clean branch rather than merge everything.
@@ -147,7 +148,17 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - `feature/enhanced-build-identity`: created from tested stable Enhanced, passed separate CI and user's Relevance Lab screenshot test, and **merged into stable by PR #2 on 2026-11-16**. Kept for history.
 - Development workflow: copy/branch from stable → implement one feature → build a separately installed Lab APK → phone test → explicit approval → merge into stable. Leave `dev` alone until an explicit future decision to reorganize branches.
 
+## Stable branch/app naming cleanup (2026-11-16)
+
+- **Our stable branch:** `main`; app launcher label: **SimpMusic Enhanced**; in-queue build stamp: **Enhanced Stable · <short SHA>**; signed APK release: `enhanced-latest` (`SimpMusic-Enhanced-arm64.apk`).
+- **Upstream snapshot:** `dev` (do not accidentally merge experiments here; not automatically tracking the upstream `maxrave-dev/SimpMusic` repo).
+- **Experimental branches:** `feature/enhanced-radio-relevance`, `feature/enhanced-radio-cache`, `feature/enhanced-optimisation` remain unmerged. Installed Lab APKs use separate package IDs and show `SimpMusic Lab (Relevance)`, etc., with build stamp `Relevance Lab · <short SHA>`.
+- **Archive branches** `feature/enhanced-all-playlists`, `feature/enhanced-build-identity`, `feature/enhanced-shuffle`: retain for history, do not target with new features.
+- **GitHub UI/default branch:** repo default is still `dev` unless changed in Settings → General → Default branch. The current GitHub connector cannot change repository settings; switching default to `main` remains one manual step and does not change app code.
+- All future accepted PRs target **`main`**. Create independent feature branches from `main`; experimental branches created earlier must be rebased or have their feature-only changes ported to a new branch based on `main`.
+- Changing the app **display label** does not change Android `applicationId`, APK signing key or stored user data. Do not rename package IDs in existing installed apps.
+
 ## Current delivery checkpoint
 
 - **MERGED:** PR #1 merged into `feature/enhanced-shuffle` on 2026-11-15 (merge commit `42b19994`). Stable app label remains `SimpMusic Dev`; the Lab-only name is set in the Lab workflow. Stable workflow runs all-playlist source and JVM regression checks. **CI/release status must be verified separately; do not claim the newly merged APK has been published before the stable workflow succeeds.**
-- Keep future improvements isolated in their own branches. Do not combine startup-speed, relevance, radio-preserve, cache and lyrics-profile work in the merge.
+- Keep future improvements isolated in their own branches branched from `main`. Do not combine startup-speed, relevance, radio-preserve, cache and lyrics-profile work in the merge.
