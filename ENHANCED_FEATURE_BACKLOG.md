@@ -132,14 +132,14 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Official release `v2.6.0` was published 2026-11-14; our copied base has much of that implementation already, but still has `version-name = 2.5.0` / `version-code = 62`. Compare actual source + `core` SHA before synchronizing version metadata. A newer upstream version does **not** mean a newer signed Enhanced build is available.
 - Keep this separate from one-feature-per-branch development and fork-aware **in-app update checks** (item 8).
 
-### 12. Clear Enhanced version, original SimpMusic and author in About — ABOUT LAB BUILD IN PROGRESS
+### 12. Clear Enhanced version, original SimpMusic and author in About — MERGED AND PUBLISHED, BUILD 67
 
-- **User confirmed 2026-11-17:** Android Stable 65 → 66 in-place update preserved YouTube Music authorization, playlists and settings; About still showed only upstream `v2.5.0`.
-- Created `feature/enhanced-about-version` from latest stable `main`. New separate signed `SimpMusic Lab (About)` APK (`.dev.about`) is planned; **do not merge to main before user tests**.
-- Settings → About us → Version shows `SimpMusic Enhanced · build 66 · About Lab` in the Lab and `SimpMusic Enhanced · build 67 · Enhanced Stable` if a future stable build 67 is approved. Upstream/unlabelled builds retain original `v2.5.0`.
-- Credits/About page prominently shows `SimpMusic Enhanced`, exact build number/channel and SHA, `Based on SimpMusic v2.5.0` and `Original developer: maxrave-dev` with original author's link. Original project description, upstream website, GitHub, licence and legal disclaimer remain visible. Added a separate link to the Enhanced changelog and our source.
-- Automated tests cover Stable identity, Lab identity and upstream fallback. Lab build must compile and pass JVM regression tests before phone testing.
-- After phone acceptance and explicit merge approval, bump Android versionCode 66→67, document in CHANGELOG, add About unit test to stable CI and verify a stable build 67 publishes. That stable release can additionally test the **new automatic 66→67 update notification** on the installed 66 app.
+- **Completed 2026-11-17:** user reviewed Android About Lab `ec2afcd1` screenshots and explicitly approved the layout. The Lab-only issue of showing a nonfunctional Update Lab diagnostic was fixed in `c467c2c0`; corrected About Lab CI run [43959815985](https://github.com/aenorbiko/SimpMusic/actions/runs/43959815985) passed.
+- Merged approved [PR #6](https://github.com/aenorbiko/SimpMusic/pull/6) into `main` as commit `34f76e7c542c4dcc4f19be39ac80179df421a878`. Android Stable `versionCode` increased **66 → 67**. Successful stable [Actions run 43964309556](https://github.com/aenorbiko/SimpMusic/actions/runs/43964309556) compiled and signed the APK, verified the permanent signing certificate, and passed Enhanced shuffle, updater and About tests. GitHub `enhanced-latest` release notes confirmed **Android build: 67** with ARM64 APK published 2026-11-16 22:01 UTC.
+- Settings → About us → Version now identifies `SimpMusic Enhanced · build 67 · Enhanced Stable`. Tapping Version opens Credits/About showing the Enhanced title, build/channel/short SHA, `Based on SimpMusic v2.5.0`, `Original developer: maxrave-dev` (clickable), plus links to our changelog and fork source. Original project description, website, GitHub, issues, credits and legal disclaimer remain accessible.
+- Upstream/unlabelled builds retain original About title. The dedicated Update Lab check button is hidden from other Labs. No recommendation algorithm, playback, queue or auth state changes.
+- **Verified earlier by user:** YouTube Music sign-in, preferences and playlists remained intact when updating Stable 65 → 66.
+- **Pending phone verification, user instructed:** before manually installing 67, use the installed Stable **66** → Settings → About us → Check for update and capture the offer for **Enhanced build 67**. Check that it opens only our signed release; afterwards verify in-place 66→67 upgrade retains login and playlists. Do not mark automatic 66→67 update prompt as user-tested until confirmed.
 
 ## Verified resolved / not to re-open without a regression
 
