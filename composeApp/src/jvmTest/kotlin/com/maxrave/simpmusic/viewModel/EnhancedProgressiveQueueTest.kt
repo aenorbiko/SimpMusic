@@ -48,7 +48,7 @@ class EnhancedProgressiveQueueTest {
     }
 
     @Test
-    fun recommendationsUseExistingNearestRadioFallbackAndNeverDuplicate() = runBlocking {
+    fun recommendationsUseOnlyTheirOwnPairAndNeverDuplicate() = runBlocking {
         val emitted = mutableListOf<List<String>>()
         emitEnhancedPairsProgressively(
             seeds = listOf("A", "B", "C", "D", "E", "F"),
@@ -64,17 +64,77 @@ class EnhancedProgressiveQueueTest {
         ) { pair, recommendation ->
             emitted += pair + listOfNotNull(recommendation)
         }
-        val initial = EnhancedShufflePlanner.selectForAllPairs(
-            radioPairs = listOf(
-                emptyList<String>() to emptyList(),
-                listOf("R1", "R2", "R3") to listOf("R1", "R2", "R3"),
-                listOf("R3") to listOf("R3"),
-            ),
-            excludedIds = setOf("A", "B", "C", "D", "E", "F"),
-            id = { it },
+        // An unrelated pair may have plenty of candidates, but it must NEVER
+        // provide a recommendation for A/B (both its own radios were empty).
+        assertEquals(
+            listOf(listOf("A", "B"), listOf("C", "D", "R1"), listOf("E", "F", "R3")),
+            emitted,
         )
-        assertEquals(initial, emitted.map { it.getOrNull(2) })
-        assertEquals(3, emitted.size)
+        assertEquals(listOf(null, "R1", "R3"), emitted.map { it.getOrNull(2) })
+    }
+
+    @Test
+    fun topFifteenAndSecondRadioFallbackAlsoApplyToProgressiveStartup() = runBlocking {
+        val emitted = mutableListOf<List<String>>()
+        val first = (1..15).map { "A$it" } + "Beyond15"
+        val second = (1..15).map { "B$it" } + "Beyond15"
+        emitEnhancedPairsProgressively(
+            seeds = listOf("A", "B", "C", "D"),
+            excludedIds = setOf("A", "B", "C", "D"),
+            id = { it },
+            fetchRadio = { seed ->
+                when (seed) {
+                    "A" -> first
+                    "B" -> second
+                    "C" -> listOf("OnlyFromC")
+                    else -> listOf("FreshFromD")
+                }
+            },
+        ) { pair, recommendation ->
+            emitted += pair + listOfNotNull(recommendation)
+        }
+        // Beyond15 is shared but not eligible; pick only B1 from B's top 15.
+        // Second pair has no common radio candidate, so use D's radio.
+        assertEquals(
+            listOf(listOf("A", "B", "B1"), listOf("C", "D", "FreshFromD")),
+            emitted,
+        )
+    }
+
+    @Test
+    fun emptySecondRadioEmitsNextPairWithoutWaitingForOtherRadios() = runBlocking {
+        val laterRadioGate = CompletableDeferred<Unit>()
+        val firstEmitted = CompletableDeferred<Unit>()
+        val emitted = mutableListOf<List<String>>()
+        val worker = async {
+            emitEnhancedPairsProgressively(
+                seeds = listOf("A", "B", "C", "D"),
+                excludedIds = setOf("A", "B", "C", "D"),
+                id = { it },
+                fetchRadio = { seed ->
+                    when (seed) {
+                        "A" -> listOf("OnlyFromA")
+                        "B" -> emptyList()
+                        else -> {
+                            laterRadioGate.await()
+                            listOf("LaterCandidate")
+                        }
+                    }
+                },
+            ) { pair, recommendation ->
+                emitted += pair + listOfNotNull(recommendation)
+                if (emitted.size == 1) firstEmitted.complete(Unit)
+            }
+        }
+        withTimeout(2_000) { firstEmitted.await() }
+        assertEquals(listOf("A", "B"), emitted.first())
+        assertFalse(worker.isCompleted)
+        laterRadioGate.complete(Unit)
+        withTimeout(2_000) { worker.await() }
+        assertEquals(
+            listOf(listOf("A", "B"), listOf("C", "D", "LaterCandidate")),
+            emitted,
+        )
     }
 
     @Test
