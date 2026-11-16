@@ -65,34 +65,47 @@ internal object EnhancedShufflePlanner {
     }
 
     /**
-     * Prefer tracks recommended by BOTH preceding liked songs, then fall back to
-     * either individual radio. This is a proxy, not a true two-song similarity score.
+     * Compare only the first 15 tracks of each radio. If a song appears in both,
+     * prefer the smallest combined rank (ties favour the radio of the second,
+     * most recently heard source song).
+     *
+     * When no common track exists, use the first unused candidate from the
+     * second song's radio, not the first song's or another pair's radio.
+     * No suitable candidate => skip this pair's recommendation.
      */
+    private const val RADIO_CANDIDATE_LIMIT = 15
+
     fun <T> selectForPair(
         firstRadio: List<T>,
         secondRadio: List<T>,
         usedIds: Set<String>,
         id: (T) -> String,
-        preferSecondOnFallback: Boolean = false,
     ): T? {
-        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
-        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
-        val secondIds = b.mapTo(hashSetOf(), id)
-        val intersection = a.filter { id(it) in secondIds }
-        if (intersection.isNotEmpty()) return intersection.first()
-
-        val preferred = if (preferSecondOnFallback) b else a
-        val alternative = if (preferSecondOnFallback) a else b
-        return preferred.firstOrNull() ?: alternative.firstOrNull()
+        val a = firstRadio.take(RADIO_CANDIDATE_LIMIT)
+            .filter { id(it) !in usedIds }
+            .distinctBy(id)
+        val b = secondRadio.take(RADIO_CANDIDATE_LIMIT)
+            .filter { id(it) !in usedIds }
+            .distinctBy(id)
+        val firstPosition = a.mapIndexed { index, candidate -> id(candidate) to index }.toMap()
+        val overlap = b.mapIndexedNotNull { secondPosition, candidate ->
+            val positionA = firstPosition[id(candidate)] ?: return@mapIndexedNotNull null
+            Triple(candidate, positionA, secondPosition)
+        }
+        if (overlap.isNotEmpty()) {
+            return overlap.minWithOrNull(
+                compareBy<Triple<T, Int, Int>> { it.second + it.third }
+                    .thenBy { it.third }
+                    .thenBy { it.second },
+            )?.first
+        }
+        return b.firstOrNull()
     }
 
     /**
-     * Do not silently skip a 2+1 slot when both radios for that pair are empty
-     * (or only contain already-liked tracks). Prefer the pair's own radio;
-     * otherwise borrow an UNUSED recommendation from the nearest subsequent
-     * pair's radio. This preserves the 2+1 cadence whenever any candidate exists.
-     *
-     * If every fetched radio is empty, no candidate can safely be invented.
+     * Pick at most one new recommendation for each pair, never duplicating
+     * a source song or another recommendation in the current batch.
+     * A missing second-song radio yields no third song for that pair.
      */
     fun <T> selectForAllPairs(
         radioPairs: List<Pair<List<T>, List<T>>>,
@@ -100,31 +113,13 @@ internal object EnhancedShufflePlanner {
         id: (T) -> String,
     ): List<T?> {
         val used = excludedIds.toMutableSet()
-        return radioPairs.mapIndexed { index, (first, second) ->
-            var candidate = selectForPair(
+        return radioPairs.map { (first, second) ->
+            selectForPair(
                 firstRadio = first,
                 secondRadio = second,
                 usedIds = used,
                 id = id,
-                preferSecondOnFallback = index % 2 == 1,
-            )
-            if (candidate == null) {
-                val neighbours = radioPairs.indices
-                    .filter { it != index }
-                    .sortedWith(compareBy<Int> { kotlin.math.abs(it - index) }.thenBy { it })
-                for (nearby in neighbours) {
-                    val (otherFirst, otherSecond) = radioPairs[nearby]
-                    candidate = selectForPair(
-                        firstRadio = otherFirst,
-                        secondRadio = otherSecond,
-                        usedIds = used,
-                        id = id,
-                        preferSecondOnFallback = index % 2 == 1,
-                    )
-                    if (candidate != null) break
-                }
-            }
-            candidate?.also { used.add(id(it)) }
+            )?.also { used.add(id(it)) }
         }
     }
 
