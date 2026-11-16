@@ -121,11 +121,14 @@ jobs:
           APK=androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk
           test -s "$APK"
           cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk"
+          VERSION_CODE="$(sed -n 's/^version-code = "\\([0-9]*\\)"/\\1/p' gradle/libs.versions.toml)"
+          CHANGELOG_URL="https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md"
+          RELEASE_NOTES="$(printf 'SimpMusic Enhanced Stable (ARM64)\\nAndroid build: %s\\nSource commit: %s\\n\\nWhat is new and how this differs from original SimpMusic:\\n%s\\n\\nThis is the Enhanced fork, not the upstream SimpMusic release.' "$VERSION_CODE" "$GITHUB_SHA" "$CHANGELOG_URL")"
           if gh release view enhanced-latest >/dev/null 2>&1; then
             gh release upload enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk" --clobber
-            gh release edit enhanced-latest --notes "Current signed ARM64 APK: ${GITHUB_SHA}"
+            gh release edit enhanced-latest --notes "$RELEASE_NOTES"
           else
-            gh release create enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced (latest)" --notes "Direct-download signed ARM64 debug APK for Motorola Android." --prerelease
+            gh release create enhanced-latest "$RUNNER_TEMP/SimpMusic-Enhanced-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced (latest)" --notes "$RELEASE_NOTES" --prerelease
           fi
           gh release view enhanced-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-arm64.apk'
           echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk"
