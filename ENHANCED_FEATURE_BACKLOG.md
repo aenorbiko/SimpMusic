@@ -93,17 +93,15 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - Future build identity improvements: display fuller fork/version/changelog and upstream licence attribution for sharing, tracked separately.
 - Upstream SimpMusic version (`v2.5.0`) is distinct from our build label and Git commit identity.
 
-### 8. Fork-aware in-app update checks — CODED ON ISOLATED UPDATES LAB, CI AND PHONE TEST PENDING
+### 8. Fork-aware in-app update checks — MERGED, SIGNED, PUBLISHED IN STABLE BUILD 66
 
-- **2026-11-16:** created `feature/fork-aware-updates` based on stable `main` (Android build 65). No merge to `main` until tests and user approval.
-- New Update Lab APK uses unique Android ID `com.maxrave.simpmusic.dev.updates`, display name `SimpMusic Lab (Updates)`, build label `Update Lab · <SHA>`. Its installer cannot replace Stable and must never offer a Stable APK as an in-app update.
-- Stable `com.maxrave.simpmusic.dev` now fetches **only** `https://api.github.com/repos/aenorbiko/SimpMusic/releases/tags/enhanced-latest` (not upstream Github/F-Droid). Release must have exact `enhanced-latest` tag, non-draft state, a positive `Android build: N` in its notes, and a large ARM64 asset at our exact known GitHub download URL.
-- Compare the release's Android build number against installed `BuildKonfig.versionCode`; show update only for **strictly higher** N. Do not compare upstream `2.5.0` against Enhanced build numbers.
-- Browser download button opens only our known stable APK URL. Android verifies the package name and signing certificate at user-approved installation time; the app does not silently install anything.
-- Settings for stable Enhanced: auto-check toggle retained; update source pinned to SimpMusic Enhanced releases with no F-Droid/upstream channel switch; manual Check for update remains. Settings for Labs: explanation and Releases link, no automatic Stable update prompt or upstream fallback.
-- Network failure, malformed release JSON, absent asset, mismatched URL or unparseable code → **no update** (do not interrupt playback). Unit tests cover parsing, version comparisons, wrong tag/URL, Labs and original upstream IDs.
-- **Follow-up before merge:** signed isolated APK must compile, pass regression tests and be phone tested; verify Labs never offer stable APK, no upstream update channel, and in-app change log and music behavior remain working. Verify Stable update comparison in tests; an eventual stable build must be tested installing over current Stable without losing data.
-- **Known release-channel limitation:** this is a safe `enhanced-latest` APK check, not a fully immutable versioned-release/update-metadata system. Future work can publish `enhanced-vN` tags and signed SHA256 manifest if update maintenance expands.
+- **Completed 2026-11-17:** user explicitly approved merging after signing and automated verification of Updates Lab and a phone screenshot proving the Lab fetched our Stable Android build 65 correctly without offering incompatible Stable APK.
+- Merged [PR #5](https://github.com/aenorbiko/SimpMusic/pull/5) into `main` as commit `518934a58e71a960a945a5a995deeef0e4fe88b4`. Successful Stable [GitHub Actions run 43950350763](https://github.com/aenorbiko/SimpMusic/actions/runs/43950350763) compiled the Android build **66** APK, verified the permanent signing certificate and passed JVM shuffle/update regression tests.
+- GitHub Release `enhanced-latest` was verified to publish a new `SimpMusic-Enhanced-arm64.apk` (72,138,403 bytes) with release notes **Android build: 66** and source commit `518934a5`. Download: https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk
+- `com.maxrave.simpmusic.dev` Stable checks only our `aenorbiko/SimpMusic` tagged `enhanced-latest` GitHub API release (never upstream SimpMusic/F-Droid). Requires exact expected tag, released non-draft state, positive `Android build: N`, and expected large ARM64 APK URL. Offers update only if `N > BuildKonfig.versionCode`. The button opens the APK in the browser; Android still enforces package identity and signing certificate during user-approved installation.
+- Stable Settings allow toggling auto-check, pin source to our GitHub and keep manual Check for update. Labs show no automatic update offers and remain separate Android packages. Failed offline/malformed requests return no update without affecting music.
+- **Pending actual Stable phone checks:** install build **66 over 65** without losing YouTube Music login, preferences or playlists; confirm About updates source shows our fork; press Check for update while at 66 and verify that no upstream/older APK is offered. The future 66→67 update notification can only be end-to-end tested after releasing 67. Do not claim these are phone-tested yet.
+- **Later optional improvement:** publish immutable release tags `enhanced-vN` plus an explicit verifiable update manifest. Current `enhanced-latest` stable-release validation is adequate for this stage; metadata validation does not substitute for Android's signature check.
 
 ### 9. Maintainable code and repeatable tests — PLANNED
 
