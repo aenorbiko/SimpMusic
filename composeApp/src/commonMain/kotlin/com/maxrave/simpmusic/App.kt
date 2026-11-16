@@ -108,6 +108,9 @@ import com.maxrave.simpmusic.ui.theme.fontFamily
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.ENHANCED_STABLE_APK_URL
+import com.maxrave.simpmusic.utils.ENHANCED_STABLE_CHANNEL
+import com.maxrave.simpmusic.utils.isNewerEnhancedBuild
 import com.maxrave.simpmusic.utils.isAppLinkAvailable
 import com.maxrave.simpmusic.utils.libraryTabOf
 import com.maxrave.simpmusic.viewModel.SharedViewModel
@@ -451,9 +454,14 @@ fun App(
         // Only a NEWER release is offered. This used to compare the tags for inequality, which told a
         // build ahead of the latest release (dev, beta) to "update" back down to it, and told every
         // F-Droid-channel user to update on each launch: that channel's tag carries no leading "v".
-        if (viewModel.showedUpdateDialog && VersionManager.isBehind(response.tagName)) {
-            shouldShowUpdateDialog = true
+        val newer = if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+            // Fork builds are NOT comparable to original SimpMusic 2.x.x tags.
+            BuildKonfig.enhancedBuildChannel == ENHANCED_STABLE_CHANNEL &&
+                isNewerEnhancedBuild(BuildKonfig.versionCode, response.tagName)
+        } else {
+            VersionManager.isBehind(response.tagName)
         }
+        if (viewModel.showedUpdateDialog && newer) shouldShowUpdateDialog = true
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -923,7 +931,13 @@ fun App(
                                 onClick = {
                                     shouldShowUpdateDialog = false
                                     viewModel.showedUpdateDialog = false
-                                    openUrl("https://simpmusic.org/download")
+                                    openUrl(
+                                        if (BuildKonfig.enhancedBuildChannel == ENHANCED_STABLE_CHANNEL) {
+                                            ENHANCED_STABLE_APK_URL
+                                        } else {
+                                            "https://simpmusic.org/download"
+                                        },
+                                    )
                                 },
                             ) {
                                 Text(
