@@ -2797,6 +2797,15 @@ fun SettingScreen(
                         navController.navigate(CreditDestination)
                     },
                 )
+                // The fork's changes are not the same as upstream's update notes.
+                // Let anyone who installs a shared APK see exactly what is different.
+                SettingItem(
+                    title = "What's new in SimpMusic Enhanced",
+                    subtitle = "Changes compared with original SimpMusic, by build",
+                    onClick = {
+                        uriHandler.openUri("https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md")
+                    },
+                )
                 SettingItem(
                     title = stringResource(Res.string.auto_check_for_update),
                     subtitle = stringResource(Res.string.auto_check_for_update_description),
