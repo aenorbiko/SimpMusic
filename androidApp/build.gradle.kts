@@ -18,6 +18,7 @@ android {
     // the stable Enhanced app or the unrelated radio-cache Lab app.
     val isPlaylistExperiment = providers.gradleProperty("simpmusicPlaylistsExperimental").orNull == "true"
     val isIdentityExperiment = providers.gradleProperty("simpmusicIdentityExperimental").orNull == "true"
+    val isSpeedExperiment = providers.gradleProperty("simpmusicSpeedExperimental").orNull == "true"
     val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
 
     // Stable signing key comes only from a private GitHub Actions secret.
@@ -131,11 +132,13 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = when {
+                isSpeedExperiment -> ".dev.speed"
                 isIdentityExperiment -> ".dev.identity"
                 isPlaylistExperiment -> ".dev.playlists"
                 else -> ".dev"
             }
             versionNameSuffix = when {
+                isSpeedExperiment -> "-speed-lab"
                 isIdentityExperiment -> "-identity-lab"
                 isPlaylistExperiment -> "-playlists-lab"
                 else -> "-dev"
