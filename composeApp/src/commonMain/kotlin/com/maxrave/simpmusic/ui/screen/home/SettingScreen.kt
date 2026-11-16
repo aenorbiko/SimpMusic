@@ -2795,7 +2795,11 @@ fun SettingScreen(
             SettingGroup(title = stringResource(Res.string.about_us)) {
                 SettingItem(
                     title = stringResource(Res.string.version),
-                    subtitle = stringResource(Res.string.version_format, VersionManager.getVersionName()),
+                    subtitle = if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                        "SimpMusic Enhanced · build ${BuildKonfig.versionCode} · ${BuildKonfig.enhancedBuildChannel}"
+                    } else {
+                        stringResource(Res.string.version_format, VersionManager.getVersionName())
+                    },
                     onClick = {
                         navController.navigate(CreditDestination)
                     },
