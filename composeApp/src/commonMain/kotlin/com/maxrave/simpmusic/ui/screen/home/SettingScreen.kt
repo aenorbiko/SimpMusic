@@ -151,6 +151,8 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.SpotifyLoginDestina
 import com.maxrave.simpmusic.ui.theme.md_theme_dark_primary
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
+import com.maxrave.simpmusic.BuildKonfig
+import com.maxrave.simpmusic.utils.ENHANCED_STABLE_CHANNEL
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.ImportViewModel
 import com.maxrave.simpmusic.viewModel.SettingAlertState
@@ -2806,53 +2808,84 @@ fun SettingScreen(
                         uriHandler.openUri("https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md")
                     },
                 )
-                SettingItem(
-                    title = stringResource(Res.string.auto_check_for_update),
-                    subtitle = stringResource(Res.string.auto_check_for_update_description),
-                    switch = (autoCheckUpdate to { viewModel.setAutoCheckUpdate(it) }),
-                )
-                SettingItem(
-                    title = stringResource(Res.string.update_channel),
-                    subtitle =
-                        if (updateChannel == DataStoreManager.FDROID) {
-                            "F-Droid"
-                        } else {
-                            "SimpMusic GitHub Release"
-                        },
-                    onClick = {
-                        viewModel.setAlertData(
-                            SettingAlertState(
-                                title = runBlocking { getString(Res.string.update_channel) },
-                                selectOne =
-                                    SettingAlertState.SelectData(
-                                        listSelect =
-                                            listOf(
-                                                (updateChannel == DataStoreManager.FDROID) to "F-Droid",
-                                                (updateChannel == DataStoreManager.GITHUB) to "SimpMusic GitHub Release",
-                                            ),
-                                    ),
-                                confirm =
-                                    runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setUpdateChannel(
-                                            when (state.selectOne?.getSelected()) {
-                                                "F-Droid" -> DataStoreManager.FDROID
-                                                "SimpMusic GitHub Release" -> DataStoreManager.GITHUB
-                                                else -> DataStoreManager.GITHUB
-                                            },
-                                        )
-                                    },
-                                dismiss = runBlocking { getString(Res.string.cancel) },
-                            ),
+                // Never tell users of our fork to install an upstream or F-Droid APK.
+                if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                    if (BuildKonfig.enhancedBuildChannel == ENHANCED_STABLE_CHANNEL) {
+                        SettingItem(
+                            title = stringResource(Res.string.auto_check_for_update),
+                            subtitle = "Check only signed SimpMusic Enhanced releases",
+                            switch = (autoCheckUpdate to { viewModel.setAutoCheckUpdate(it) }),
                         )
-                    },
-                )
-                SettingItem(
-                    title = stringResource(Res.string.check_for_update),
-                    subtitle = checkForUpdateSubtitle,
-                    onClick = {
-                        sharedViewModel.checkForUpdate()
-                    },
-                )
+                        SettingItem(
+                            title = "Update source",
+                            subtitle = "SimpMusic Enhanced · GitHub Releases (fixed)",
+                            onClick = {
+                                uriHandler.openUri("https://github.com/aenorbiko/SimpMusic/releases")
+                            },
+                        )
+                        SettingItem(
+                            title = stringResource(Res.string.check_for_update),
+                            subtitle = checkForUpdateSubtitle,
+                            onClick = { sharedViewModel.checkForUpdate() },
+                        )
+                    } else {
+                        SettingItem(
+                            title = "Experimental Lab build",
+                            subtitle = "No automatic APK updates. Stable APK cannot replace this separate app.",
+                            onClick = {
+                                uriHandler.openUri("https://github.com/aenorbiko/SimpMusic/releases")
+                            },
+                        )
+                    }
+                } else {
+                    SettingItem(
+                        title = stringResource(Res.string.auto_check_for_update),
+                        subtitle = stringResource(Res.string.auto_check_for_update_description),
+                        switch = (autoCheckUpdate to { viewModel.setAutoCheckUpdate(it) }),
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.update_channel),
+                        subtitle =
+                            if (updateChannel == DataStoreManager.FDROID) {
+                                "F-Droid"
+                            } else {
+                                "SimpMusic GitHub Release"
+                            },
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.update_channel) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                listOf(
+                                                    (updateChannel == DataStoreManager.FDROID) to "F-Droid",
+                                                    (updateChannel == DataStoreManager.GITHUB) to "SimpMusic GitHub Release",
+                                                ),
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setUpdateChannel(
+                                                when (state.selectOne?.getSelected()) {
+                                                    "F-Droid" -> DataStoreManager.FDROID
+                                                    "SimpMusic GitHub Release" -> DataStoreManager.GITHUB
+                                                    else -> DataStoreManager.GITHUB
+                                                },
+                                            )
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.check_for_update),
+                        subtitle = checkForUpdateSubtitle,
+                        onClick = {
+                            sharedViewModel.checkForUpdate()
+                        },
+                    )
+                }
                 SettingItem(
                     title = stringResource(Res.string.author),
                     subtitle = stringResource(Res.string.maxrave_dev),
