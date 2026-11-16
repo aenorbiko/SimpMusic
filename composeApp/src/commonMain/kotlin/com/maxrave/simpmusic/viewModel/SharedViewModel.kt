@@ -72,6 +72,7 @@ import com.maxrave.domain.utils.toSyncedLyrics
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.LogLevel
 import com.maxrave.logger.Logger
+import com.maxrave.simpmusic.BuildKonfig
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.getDownloadFolderPath
 import com.maxrave.simpmusic.expect.isOnUnmeteredNetwork
@@ -79,6 +80,8 @@ import com.maxrave.simpmusic.expect.ui.toByteArray
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.utils.LyricsPromo
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.EnhancedForkUpdateClient
+import com.maxrave.simpmusic.utils.isEnhancedStablePackage
 import com.maxrave.simpmusic.utils.decodeLyricsPromos
 import com.maxrave.simpmusic.utils.decodePromos
 import com.maxrave.simpmusic.utils.shownPromoIds
@@ -159,6 +162,11 @@ class SharedViewModel(
 
     private val _isCheckingUpdate = MutableStateFlow(false)
     val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate
+
+    // Only the isolated Update Lab exposes a read-only diagnostic. It never
+    // offers a Stable APK to install (the Lab has a different package ID).
+    private val _enhancedReleaseDiagnostic = MutableStateFlow("Tap to check our GitHub release")
+    val enhancedReleaseDiagnostic: StateFlow<String> = _enhancedReleaseDiagnostic
 
     private var _liked: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val liked: SharedFlow<Boolean> = _liked.asSharedFlow()
@@ -1705,6 +1713,20 @@ class SharedViewModel(
     private var _updateResponse = MutableStateFlow<UpdateData?>(null)
     val updateResponse: StateFlow<UpdateData?> = _updateResponse
 
+    /** A safe end-to-end network test for the separate Update Lab package. */
+    fun inspectEnhancedReleaseInLab() {
+        if (BuildKonfig.enhancedBuildChannel != "Update Lab") return
+        _enhancedReleaseDiagnostic.value = "Checking our GitHub release..."
+        viewModelScope.launch {
+            val release = EnhancedForkUpdateClient.check()
+            _enhancedReleaseDiagnostic.value = if (release == null) {
+                "Release unavailable or invalid. No APK offered."
+            } else {
+                "Enhanced Stable: Android build ${release.buildCode}. No APK offered to this Lab."
+            }
+        }
+    }
+
     fun checkForUpdate() {
         // Raised before the coroutine starts, so Home's launch banner, which reads it right after
         // startup, can never miss a check that is already under way but not yet marked.
@@ -1715,6 +1737,28 @@ class SharedViewModel(
                 "CheckForUpdateAt",
                 System.currentTimeMillis().toString(),
             )
+            // A fork app must NEVER check the upstream SimpMusic or F-Droid update feeds.
+            // Lab packages have a different Android application ID, so cannot install Stable.
+            // Only the signed Stable channel checks our own known GitHub release.
+            if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                _updateResponse.value = null
+                showedUpdateDialog = false
+                if (getPlatform() == Platform.Android &&
+                    isEnhancedStablePackage(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId)
+                ) {
+                    val forkRelease = EnhancedForkUpdateClient.check()
+                    if (forkRelease != null && forkRelease.buildCode > BuildKonfig.versionCode) {
+                        _updateResponse.value = UpdateData(
+                            tagName = "Enhanced build ${forkRelease.buildCode}",
+                            releaseTime = forkRelease.releaseTime,
+                            body = forkRelease.notes + "\\n\\n[What's new](https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md)",
+                        )
+                        showedUpdateDialog = true
+                    }
+                }
+                return@launch
+            }
+
             if (updateChannel == DataStoreManager.GITHUB) {
                 updateRepository.checkForGithubReleaseUpdate().collectLatest { response ->
                     val data = response.data
