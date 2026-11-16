@@ -420,6 +420,81 @@ class SharedViewModel(
                 else emptySet<String>()
                 val notYetPlayedLiked = sourceTracks.filterNot { it.videoId in alreadyHeard }
 
+                // Enhanced is a bounded stream of ordered 2+1 chunks. Start
+                // playback after radio(A,B), not after all fourteen seed radios.
+                // Remaining radio pairs are already fetching concurrently.
+                if (requestedMode == SmartShuffleMode.ENHANCED) {
+                    val shuffled = notYetPlayedLiked.shuffled()
+                    val currentLiked = if (switchingCollection) null else sourceTracks.firstOrNull {
+                        activeMediaId == it.videoId || activeMediaId?.endsWith(it.videoId) == true
+                    }
+                    val opening = EnhancedShufflePlanner.firstBlock(
+                        currentLiked = currentLiked,
+                        shuffledUpcoming = shuffled,
+                        batchSize = ENHANCED_LIKED_BATCH_SIZE,
+                        id = { it.videoId },
+                    )
+                    if (opening.radioSeeds.isEmpty()) {
+                        _smartShuffleMode.value = SmartShuffleMode.OFF
+                        return@launch
+                    }
+                    enhancedLikedOrder = shuffled
+                    nextEnhancedLikedIndex = opening.upcomingLikedCount
+                    val label = "$name · Enhanced 2+1"
+                    var started = false
+
+                    buildEnhancedBatchProgressively(
+                        likedBatch = opening.radioSeeds,
+                        songRepository = songRepository,
+                        excludedIds = enhancedOwnedIds,
+                    ) { chunk ->
+                        // Every callback runs in the original cancelable session.
+                        // Switching source/mode cancels all pending radio lookups.
+                        if (thisSession != enhancedSession ||
+                            _smartShuffleMode.value != SmartShuffleMode.ENHANCED
+                        ) throw kotlinx.coroutines.CancellationException("Stale Enhanced queue")
+
+                        if (!started) {
+                            val openingTracks = if (opening.hasCurrentSeed) chunk.tracks.drop(1) else chunk.tracks
+                            if (openingTracks.isEmpty() && mediaPlayerHandler.getCurrentMediaItem() == null) {
+                                _smartShuffleMode.value = SmartShuffleMode.OFF
+                                throw kotlinx.coroutines.CancellationException("No Enhanced source tracks")
+                            }
+                            if (!applySmartQueueKeepingCurrent(
+                                    ordered = openingTracks,
+                                    sourceTracks = sourceTracks,
+                                    requestedMode = requestedMode,
+                                    label = label,
+                                    recommendationIds = chunk.recommendedIds,
+                                    forceNewQueue = switchingCollection,
+                                )
+                            ) {
+                                _smartShuffleMode.value = modeBefore
+                                throw kotlinx.coroutines.CancellationException("Could not preserve current playback")
+                            }
+                            started = true
+                            playingSmartQueueName = label
+                        } else {
+                            if (mediaPlayerHandler.queueData.value?.data?.playlistName != label ||
+                                playingSmartQueueName != label
+                            ) throw kotlinx.coroutines.CancellationException("Enhanced source changed")
+
+                            // Notification badge state must precede Media3 queue insertion.
+                            setRecommendedTrackIds(_recommendedTrackIds.value + chunk.recommendedIds)
+                            mediaPlayerHandler.loadMoreCatalog(
+                                chunk.tracks.toCollection(arrayListOf<Track>()),
+                                isAddToQueue = false,
+                            )
+                        }
+                        enhancedUsedRecommendations.addAll(chunk.recommendedIds)
+                    }
+
+                    if (started && enhancedUsedRecommendations.isEmpty()) {
+                        makeToast("No radio suggestions in this block; continuing with liked songs")
+                    }
+                    return@launch
+                }
+
                 val ordered: List<Track>
                 val initialRecommendations: Set<String>
                 when (requestedMode) {
@@ -431,35 +506,7 @@ class SharedViewModel(
                         ordered = notYetPlayedLiked.shuffled()
                         initialRecommendations = emptySet()
                     }
-                    SmartShuffleMode.ENHANCED -> {
-                        val shuffled = notYetPlayedLiked.shuffled()
-                        // A song already playing from Liked is the first seed:
-                        // A (current) -> B (next liked) -> recommendation(A,B).
-                        // Neither restart A nor insert it twice in the player.
-                        val currentLiked = if (switchingCollection) null else sourceTracks.firstOrNull {
-                            activeMediaId == it.videoId || activeMediaId?.endsWith(it.videoId) == true
-                        }
-                        val opening = EnhancedShufflePlanner.firstBlock(
-                            currentLiked = currentLiked,
-                            shuffledUpcoming = shuffled,
-                            batchSize = ENHANCED_LIKED_BATCH_SIZE,
-                            id = { it.videoId },
-                        )
-                        val firstBatch = buildEnhancedBatch(
-                            likedBatch = opening.radioSeeds,
-                            songRepository = songRepository,
-                            excludedIds = enhancedOwnedIds,
-                        )
-                        if (thisSession != enhancedSession) return@launch
-                        ordered = if (opening.hasCurrentSeed) firstBatch.tracks.drop(1) else firstBatch.tracks
-                        initialRecommendations = firstBatch.recommendedIds
-                        enhancedLikedOrder = shuffled
-                        nextEnhancedLikedIndex = opening.upcomingLikedCount
-                        enhancedUsedRecommendations.addAll(initialRecommendations)
-                        if (initialRecommendations.isEmpty()) {
-                            makeToast("No radio suggestions in this block; continuing with liked songs")
-                        }
-                    }
+                    SmartShuffleMode.ENHANCED -> return@launch
                 }
                 if (thisSession != enhancedSession) return@launch
 

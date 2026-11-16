@@ -38,7 +38,7 @@ shared = Path("composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/viewModel/
 assert 'EnhancedMediaBridge.recommendedTrackIds.value = ids' in shared
 assert 'setRecommendedTrackIds(_recommendedTrackIds.value + nextBatch.recommendedIds)' in shared
 assert "EnhancedShufflePlanner.firstBlock(" in shared, "Current song must seed first Enhanced pair"
-assert "firstBatch.tracks.drop(1)" in shared, "Current track must never be played twice"
+assert ("if (opening.hasCurrentSeed) chunk.tracks.drop(1)" in shared or "firstBatch.tracks.drop(1)" in shared), "Current track must never be played twice"
 planner = Path("composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/viewModel/EnhancedShufflePlanner.kt").read_text()
 assert "currentLiked: T?" in planner and "upcomingLikedCount" in planner
 print("PASS: matching Shuffle arrows, small lower star exactly centred at previous dot (11,17.8), labels unchanged")

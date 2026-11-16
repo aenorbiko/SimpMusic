@@ -29,12 +29,21 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 ## Next: independent feature branches, in intended priority order
 
-### 1. Reduce ~10-second Enhanced initial startup delay — NOT IMPLEMENTED
+### 1. Reduce ~10-second Enhanced initial startup delay — IN PROGRESS ON ISOLATED LAB BRANCH
 
-- On a 300+ Liked playlist the initial 14-source-song batch makes up to 14 radio metadata requests, capped at 4 concurrently. The whole batch appears after about 10 seconds, rather than appearing progressively.
-- Proposed: prioritize the first song pair, add its recommendation promptly, and generate later 2+1 segments progressively in the background.
-- Ensure no restart of the current song, no gaps or duplicates, rapid cancellation of old-source work, no stale results after switching; retain prefetch near end.
-- Test phone behavior with large Liked and short albums, navigation and notification toggles, pause/Next, empty/offline radio.
+- Branch `feature/enhanced-progressive-queue` based on stable `main`; **not merged or user-tested**. Separate Android package ID `com.maxrave.simpmusic.dev.speed`, app label `SimpMusic Lab (Speed)`, release channel `enhanced-speed-latest`.
+- Original behavior: 14 source songs trigger 14 radio metadata fetches (4 at once), then UI shows the entire 2+1 batch only after all return (~10 seconds on 300+ Liked).
+- New implementation: radio fetches for all 14 seeds remain concurrent with four permits and 8s timeout per radio, but their results are **consumed in order per source pair**. Apply the first `A → B → recommendation(A,B)` block immediately after the first pair is ready, then append the next blocks as their radios resolve. **No playback reset, no seek, no restart** during later appends.
+- Preserve original `EnhancedShufflePlanner.selectForPair` (and nearest-other-pair fallback only when the pair has no available candidate), used IDs, up to 14 source songs per segment, and bounded finite source list. This is a loading change, **not** the unapproved Radio Relevance algorithm.
+- Queues are bound to an Enhanced session and main Player state. When switching modes/sources or cancelling the coroutine, cancel all pending network requests and reject stale chunks. Recommended-track badge membership is set before each chunk is appended.
+- New coroutine unit tests check that the first block arrives before blocked later radio calls, preserve selection and uniqueness, cancel safely and handle odd-ended sources.
+- **Next acceptance step after successful CI:** install *separate* Speed Lab; on Liked 300+ songs measure time to first recommended song and time to full first batch (compare to ~10 seconds baseline); verify 2+1, current song uninterrupted, fast Next, mode switching from main player and shade, playlist/album switching, local playlists, finite ending and near-end prefetch. Do not merge until explicitly approved.
+- **2026-11-16 Android phone test (Speed Lab `479996db`):** in Liked Music (300+ songs) the first part of the Enhanced queue appeared after approximately **3 seconds**, rather than approximately **10 seconds** for the previous all-at-once batch. Additional queue entries appeared later. Two screenshots confirm Speed Lab marker, increasing queue length, and 2+1 cadence. This is a user-observed improvement in time to first displayed group, not a benchmark of entire batch. Further phone checks needed: rapid Next, mode/source switch mid-loading, no song restarts or duplicate recommendations, finite queue and near-end prefetch. **Not yet user-approved for merge into `main`.**
+- **2026-11-16 phone follow-up:** user confirmed rapidly pressing Next works smoothly and switching Enhanced off leaves a normal shuffled source-song queue, rather than adding more recommendations. **Passed:** rapid Next; Enhanced → Shuffle. **Still to verify:** near-end progressive prefetch on 300+ Liked queue, no repeats/stale results after switching during still-pending radio requests, and end-of-source behavior on a short album. Do not merge yet without explicit approval.
+- Cached radio and per-device Lyrics Offset stay independent features.
+
+
+- **2026-11-16 final user follow-up:** user confirms that the Speed Lab queue automatically **continues to fill when advancing toward its end**. Phone-verified: first group appears ~3 seconds, later groups append progressively; fast Next works; disabling Enhanced yields ordinary shuffled tracks; prefetch works at the end of the loaded group. User approval for a merge into `main` has **not** yet been requested/received. No merge until explicit approval.
 
 ### 2. Improve recommendation relevance — IMPLEMENTED ON A SEPARATE LAB BRANCH, PHONE TEST PENDING
 
