@@ -163,6 +163,11 @@ class SharedViewModel(
     private val _isCheckingUpdate = MutableStateFlow(false)
     val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate
 
+    // Only the isolated Update Lab exposes a read-only diagnostic. It never
+    // offers a Stable APK to install (the Lab has a different package ID).
+    private val _enhancedReleaseDiagnostic = MutableStateFlow("Tap to check our GitHub release")
+    val enhancedReleaseDiagnostic: StateFlow<String> = _enhancedReleaseDiagnostic
+
     private var _liked: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val liked: SharedFlow<Boolean> = _liked.asSharedFlow()
 
@@ -1707,6 +1712,20 @@ class SharedViewModel(
 
     private var _updateResponse = MutableStateFlow<UpdateData?>(null)
     val updateResponse: StateFlow<UpdateData?> = _updateResponse
+
+    /** A safe end-to-end network test for the separate Update Lab package. */
+    fun inspectEnhancedReleaseInLab() {
+        if (BuildKonfig.enhancedBuildChannel != "Update Lab") return
+        _enhancedReleaseDiagnostic.value = "Checking our GitHub release..."
+        viewModelScope.launch {
+            val release = EnhancedForkUpdateClient.check()
+            _enhancedReleaseDiagnostic.value = if (release == null) {
+                "Release unavailable or invalid. No APK offered."
+            } else {
+                "Enhanced Stable: Android build ${release.buildCode}. No APK offered to this Lab."
+            }
+        }
+    }
 
     fun checkForUpdate() {
         // Raised before the coroutine starts, so Home's launch banner, which reads it right after
