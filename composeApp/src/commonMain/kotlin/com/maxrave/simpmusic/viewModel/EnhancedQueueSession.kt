@@ -75,7 +75,7 @@ internal fun planEnhancedRestoration(
 ): EnhancedRestorationPlan? {
     if (playlistName != session.playlistLabel) return null
     if (actualQueueVideoIds.isEmpty() || currentVideoId.isNullOrBlank()) return null
-    if (currentVideoId !in actualQueueVideoIds) return null
+    if (actualQueueVideoIds.none { currentVideoId == it || currentVideoId.endsWith(it) }) return null
 
     val expected = session.queueVideoIds
     val sharedPrefix = minOf(expected.size, actualQueueVideoIds.size)
