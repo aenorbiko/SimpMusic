@@ -75,7 +75,10 @@ internal fun planEnhancedRestoration(
 ): EnhancedRestorationPlan? {
     if (playlistName != session.playlistLabel) return null
     if (actualQueueVideoIds.isEmpty() || currentVideoId.isNullOrBlank()) return null
-    if (actualQueueVideoIds.none { currentVideoId == it || currentVideoId.endsWith(it) }) return null
+    // Media3 prefixes some video IDs with the literal "Video" marker.
+    // Never use endsWith(): an unrelated ID may coincidentally end in a
+    // short/overlapping ID and resurrect a completely different queue.
+    if (actualQueueVideoIds.none { currentVideoId == it || currentVideoId == "Video$it" }) return null
 
     val expected = session.queueVideoIds
     val sharedPrefix = minOf(expected.size, actualQueueVideoIds.size)
