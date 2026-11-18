@@ -112,6 +112,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
 import org.koin.core.component.inject
@@ -259,7 +261,106 @@ class SharedViewModel(
     private var enhancedOwnedIds: Set<String> = emptySet()
     private val enhancedUsedRecommendations = mutableSetOf<String>()
 
+    // Local persistence has a separate lifetime from Media3's saved track queue.
+    // The revision + mutex prevent an old in-flight write from resurrecting an
+    // Enhanced session after an explicit mode/source switch.
+    private val enhancedSessionWriteMutex = Mutex()
+    private var enhancedSessionWriteRevision = 0L
+    private var abandonStartupEnhancedRestore = false
+
+    private fun persistEnhancedSnapshot(snapshot: EnhancedQueueSession?) {
+        val revision = ++enhancedSessionWriteRevision
+        viewModelScope.launch {
+            val encoded = snapshot?.let(EnhancedQueueSessionCodec::encode).orEmpty()
+            enhancedSessionWriteMutex.withLock {
+                if (revision == enhancedSessionWriteRevision) {
+                    dataStoreManager.putString(ENHANCED_QUEUE_SESSION_KEY, encoded)
+                }
+            }
+        }
+    }
+
+    private fun saveActiveEnhancedSession() {
+        if (_smartShuffleMode.value != SmartShuffleMode.ENHANCED || playingSmartQueueName == null) return
+        if (likedSourceTracks.isEmpty() || enhancedLikedOrder.isEmpty()) return
+        val queue = mediaPlayerHandler.queueData.value?.data ?: return
+        if (queue.playlistName != playingSmartQueueName || queue.listTracks.isEmpty()) return
+
+        persistEnhancedSnapshot(
+            EnhancedQueueSession(
+                sourceId = _smartShuffleSource.value ?: return,
+                sourceName = likedSourceName ?: return,
+                sourceTracks = likedSourceTracks,
+                shuffledUpcoming = enhancedLikedOrder,
+                queueVideoIds = queue.listTracks.map { it.videoId },
+                nextSourceIndex = nextEnhancedLikedIndex,
+                recommendedVideoIds = _recommendedTrackIds.value,
+                usedRecommendationIds = enhancedUsedRecommendations.toSet(),
+            ),
+        )
+    }
+
+    /**
+     * Queue restore happens asynchronously inside the Media3 service and may
+     * complete after SharedViewModel initialization. Wait until both the actual
+     * queue and current media item are ready; do NOT trust a stale title alone.
+     *
+     * No player reset/seek/play is needed: only recover Enhanced controls,
+     * source order and star membership, then let normal prefetch continue.
+     */
+    private fun restoreEnhancedSessionIfSaved() {
+        viewModelScope.launch {
+            val snapshot = EnhancedQueueSessionCodec.decode(
+                dataStoreManager.getString(ENHANCED_QUEUE_SESSION_KEY).first(),
+            ) ?: return@launch
+            val (queue, currentMediaId) = combine(
+                mediaPlayerHandler.queueData,
+                mediaPlayerHandler.nowPlaying,
+            ) { restoredQueue, playingItem ->
+                restoredQueue to playingItem?.mediaId
+            }.first { (restoredQueue, playingId) ->
+                restoredQueue != null &&
+                    restoredQueue.queueState == QueueData.StateSource.STATE_INITIALIZED &&
+                    restoredQueue.data.listTracks.isNotEmpty() &&
+                    !playingId.isNullOrBlank()
+            }
+
+            // If the user has already selected another source or pressed Shuffle,
+            // never overwrite their explicit choice with an old saved session.
+            if (abandonStartupEnhancedRestore || _smartShuffleMode.value != SmartShuffleMode.OFF) return@launch
+
+            val restored = planEnhancedRestoration(
+                session = snapshot,
+                playlistName = queue?.data?.playlistName,
+                actualQueueVideoIds = queue?.data?.listTracks.orEmpty().map { it.videoId },
+                currentVideoId = currentMediaId,
+            )
+            if (restored == null) {
+                persistEnhancedSnapshot(null)
+                return@launch
+            }
+
+            likedSourceTracks = snapshot.sourceTracks
+            likedSourceName = snapshot.sourceName
+            playingSmartQueueName = snapshot.playlistLabel
+            enhancedLikedOrder = snapshot.shuffledUpcoming
+            nextEnhancedLikedIndex = restored.nextSourceIndex
+            enhancedOwnedIds = snapshot.sourceTracks.mapTo(hashSetOf()) { it.videoId }
+            enhancedUsedRecommendations.clear()
+            enhancedUsedRecommendations.addAll(restored.usedRecommendationIds)
+            setRecommendedTrackIds(restored.recommendedIds)
+            _smartShuffleSource.value = snapshot.sourceId
+            _smartShuffleMode.value = SmartShuffleMode.ENHANCED
+            // Store the validated actual queue and recovered cursor. Media3 may
+            // have persisted a shorter prefix than the last progressive batch.
+            saveActiveEnhancedSession()
+            maybePrefetchEnhanced()
+        }
+    }
+
     private fun forgetSmartShuffle() {
+        abandonStartupEnhancedRestore = true
+        persistEnhancedSnapshot(null)
         enhancedSession++
         smartShuffleJob?.cancel()
         enhancedPrefetchJob?.cancel()
@@ -375,6 +476,8 @@ class SharedViewModel(
         sourceId: String,
     ) {
         if (liked.isEmpty()) return
+        abandonStartupEnhancedRestore = true
+        persistEnhancedSnapshot(null)
         val oldQueue = mediaPlayerHandler.queueData.value?.data
         val sameActiveSource =
             _smartShuffleSource.value == sourceId &&
@@ -495,6 +598,7 @@ class SharedViewModel(
                             )
                         }
                         enhancedUsedRecommendations.addAll(chunk.recommendedIds)
+                        saveActiveEnhancedSession()
                     }
 
                     if (started && enhancedUsedRecommendations.isEmpty()) {
@@ -595,6 +699,7 @@ class SharedViewModel(
                 if (session != enhancedSession) return@launch
                 nextEnhancedLikedIndex = start + nextLiked.size
                 enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
+                saveActiveEnhancedSession()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -701,6 +806,7 @@ class SharedViewModel(
     val shareSavedLyrics: StateFlow<Boolean> get() = _shareSavedLyrics
 
     init {
+        restoreEnhancedSessionIfSaved()
         // Same shuffle action for media notification and all in-app controls.
         EnhancedMediaBridge.onShuffleClick = { cycleShuffleFromPlayer() }
         viewModelScope.launch {
