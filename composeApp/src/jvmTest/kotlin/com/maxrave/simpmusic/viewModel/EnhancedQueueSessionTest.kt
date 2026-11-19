@@ -115,6 +115,48 @@ class EnhancedQueueSessionTest {
         assertNull(planEnhancedRestoration(session, session.playlistLabel, emptyList(), "B"))
     }
 
+
+    @Test
+    fun restoredTailAfterPlayedHistoryTrimKeepsEnhancedAndRefillCursor() {
+        val session = snapshot()
+        val restored = assertNotNull(
+            planEnhancedRestoration(
+                session,
+                session.playlistLabel,
+                listOf("REC1", "C", "D", "REC2"),
+                "C",
+            )
+        )
+        assertEquals(4, restored.nextSourceIndex)
+        assertEquals(setOf("REC1", "REC2"), restored.recommendedIds)
+    }
+
+    @Test
+    fun resumedCurrentTrackPrependedToOlderSavedQueueCanRestoreSafely() {
+        val session = snapshot()
+        val restored = assertNotNull(
+            planEnhancedRestoration(
+                session,
+                session.playlistLabel,
+                listOf("C", "X", "A", "B", "REC1"),
+                "VideoC",
+            )
+        )
+        assertEquals(3, restored.nextSourceIndex)
+        assertEquals(setOf("REC1"), restored.recommendedIds)
+    }
+
+    @Test
+    fun unrelatedPrependedTrackOrReorderedTailDoesNotRecover() {
+        val session = snapshot()
+        assertNull(
+            planEnhancedRestoration(session, session.playlistLabel, listOf("UNRELATED", "X", "A", "B"), "UNRELATED")
+        )
+        assertNull(
+            planEnhancedRestoration(session, session.playlistLabel, listOf("C", "REC1", "D", "REC2"), "C")
+        )
+    }
+
     @Test
     fun rejectsUnsupportedOrMalformedPersistenceWithoutEnablingEnhanced() {
         assertNull(EnhancedQueueSessionCodec.decode(null))
