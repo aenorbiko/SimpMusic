@@ -81,17 +81,44 @@ internal fun planEnhancedRestoration(
     if (actualQueueVideoIds.none { currentVideoId == it || currentVideoId == "Video$it" }) return null
 
     val expected = session.queueVideoIds
-    val sharedPrefix = minOf(expected.size, actualQueueVideoIds.size)
-    if (expected.take(sharedPrefix) != actualQueueVideoIds.take(sharedPrefix)) return null
-
     val sourceIds = session.sourceTracks.mapTo(hashSetOf()) { it.videoId }
     if (sourceIds.isEmpty()) return null
 
+    // The media service persists the queue separately. A hard stop may restore
+    // a shorter prefix OR trim already-played history, leaving an ordered tail
+    // of the Enhanced session. Require an exact ordered overlap, not just
+    // matching track membership or a shared playlist title.
+    fun matchesOrderedSlice(actual: List<String>): Boolean {
+        if (actual.isEmpty()) return false
+        val start = expected.indexOf(actual.first())
+        if (start < 0) return false
+        val overlap = minOf(expected.size - start, actual.size)
+        // For a previously loaded prefix, even one item is safe if the saved
+        // session has an identical label + currently playing track. For a
+        // shifted tail, require at least three exact sequential IDs.
+        if (start > 0 && overlap < 3) return false
+        return expected.subList(start, start + overlap) == actual.take(overlap)
+    }
+
+    val ordered = matchesOrderedSlice(actualQueueVideoIds)
+    // A resumed track sometimes gets prepended by Media3 if the queue save
+    // lagged behind the recent-media/position save. Never accept an arbitrary
+    // extra track: the head must be the current track from our saved session.
+    val insertedCurrent = actualQueueVideoIds.size > 3 &&
+        (currentVideoId == actualQueueVideoIds.first() ||
+            currentVideoId == "Video${actualQueueVideoIds.first()}") &&
+        (actualQueueVideoIds.first() in expected ||
+            actualQueueVideoIds.first() in sourceIds ||
+            actualQueueVideoIds.first() in session.recommendedVideoIds) &&
+        matchesOrderedSlice(actualQueueVideoIds.drop(1))
+    if (!ordered && !insertedCurrent) return null
+
     val queuedIds = actualQueueVideoIds.toHashSet()
-    // If a crash happened mid-progressive first batch, start refilling after
-    // the last *actually persisted* source track, not the planned 14-track batch.
-    val loadedSourcePrefix = session.shuffledUpcoming
-        .takeWhile { it.videoId in queuedIds }.size
+    // A trimmed queue can omit the old seeds. Refill after the furthest
+    // source track still present, rather than replaying the missing history.
+    val loadedSourcePrefix = session.shuffledUpcoming.indexOfLast {
+        it.videoId in queuedIds
+    } + 1
 
     return EnhancedRestorationPlan(
         nextSourceIndex = loadedSourcePrefix,
