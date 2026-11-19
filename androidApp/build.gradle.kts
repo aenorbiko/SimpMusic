@@ -17,6 +17,7 @@ android {
     // Build this one feature as a separate Android app without overwriting either
     // the stable Enhanced app or the unrelated radio-cache Lab app.
     val isPlaylistExperiment = providers.gradleProperty("simpmusicPlaylistsExperimental").orNull == "true"
+    val isEphemeralExperiment = providers.gradleProperty("simpmusicEphemeralExperimental").orNull == "true"
     val isIdentityExperiment = providers.gradleProperty("simpmusicIdentityExperimental").orNull == "true"
     val isSpeedExperiment = providers.gradleProperty("simpmusicSpeedExperimental").orNull == "true"
     val isUpdatesExperiment = providers.gradleProperty("simpmusicUpdatesExperimental").orNull == "true"
@@ -134,6 +135,7 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = when {
+                isEphemeralExperiment -> ".dev.ephemeral"
                 isAboutExperiment -> ".dev.about"
                 isUpdatesExperiment -> ".dev.updates"
                 isSpeedExperiment -> ".dev.speed"
@@ -142,6 +144,7 @@ android {
                 else -> ".dev"
             }
             versionNameSuffix = when {
+                isEphemeralExperiment -> "-ephemeral-lab"
                 isAboutExperiment -> "-about-lab"
                 isUpdatesExperiment -> "-updates-lab"
                 isSpeedExperiment -> "-speed-lab"

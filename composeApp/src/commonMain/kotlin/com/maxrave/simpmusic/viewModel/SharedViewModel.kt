@@ -258,8 +258,74 @@ class SharedViewModel(
     private var enhancedSession = 0L
     private var enhancedOwnedIds: Set<String> = emptySet()
     private val enhancedUsedRecommendations = mutableSetOf<String>()
+    private var abandonLiveEnhancedRestore = false
+
+    private fun rememberLiveEnhancedQueue() {
+        if (_smartShuffleMode.value != SmartShuffleMode.ENHANCED) return
+        val label = playingSmartQueueName ?: return
+        val queue = mediaPlayerHandler.queueData.value?.data ?: return
+        if (queue.playlistName != label || queue.listTracks.isEmpty()) return
+        val sourceId = _smartShuffleSource.value ?: return
+        val sourceName = likedSourceName ?: return
+        if (likedSourceTracks.isEmpty() || enhancedLikedOrder.isEmpty()) return
+
+        EnhancedLiveQueueMemory.session = EnhancedLiveQueueSession(
+            sourceId = sourceId,
+            sourceName = sourceName,
+            sourceTracks = likedSourceTracks,
+            shuffledUpcoming = enhancedLikedOrder,
+            nextSourceIndex = nextEnhancedLikedIndex,
+            queueVideoIds = queue.listTracks.map { it.videoId },
+            recommendedIds = _recommendedTrackIds.value,
+            usedRecommendationIds = enhancedUsedRecommendations.toSet(),
+        )
+    }
+
+    /**
+     * Recreated UI can rejoin the SAME in-process Media3 player. Nothing is
+     * serialized, restored from disk, or replayed. After process death, memory
+     * is empty and the patched media service starts without a saved queue.
+     */
+    private fun restoreLiveEnhancedQueueIfAny() {
+        val saved = EnhancedLiveQueueMemory.session ?: return
+        viewModelScope.launch {
+            val (queue, playingId) = combine(
+                mediaPlayerHandler.queueData,
+                mediaPlayerHandler.nowPlaying,
+            ) { data, item -> data to item?.mediaId }.first { (data, id) ->
+                data != null &&
+                    data.queueState == QueueData.StateSource.STATE_INITIALIZED &&
+                    matchesLiveEnhancedQueue(
+                        saved,
+                        data.data.playlistName,
+                        data.data.listTracks.map { it.videoId },
+                        id,
+                    )
+            }
+            if (abandonLiveEnhancedRestore || _smartShuffleMode.value != SmartShuffleMode.OFF) return@launch
+            if (!matchesLiveEnhancedQueue(
+                saved, queue?.data?.playlistName,
+                queue?.data?.listTracks.orEmpty().map { it.videoId }, playingId,
+            )) return@launch
+
+            likedSourceTracks = saved.sourceTracks
+            likedSourceName = saved.sourceName
+            playingSmartQueueName = saved.label
+            enhancedLikedOrder = saved.shuffledUpcoming
+            nextEnhancedLikedIndex = saved.nextSourceIndex
+            enhancedOwnedIds = saved.sourceTracks.mapTo(hashSetOf()) { it.videoId }
+            enhancedUsedRecommendations.clear()
+            enhancedUsedRecommendations.addAll(saved.usedRecommendationIds)
+            setRecommendedTrackIds(saved.recommendedIds)
+            _smartShuffleSource.value = saved.sourceId
+            _smartShuffleMode.value = SmartShuffleMode.ENHANCED
+            maybePrefetchEnhanced()
+        }
+    }
 
     private fun forgetSmartShuffle() {
+        abandonLiveEnhancedRestore = true
+        EnhancedLiveQueueMemory.clear()
         enhancedSession++
         smartShuffleJob?.cancel()
         enhancedPrefetchJob?.cancel()
@@ -375,6 +441,8 @@ class SharedViewModel(
         sourceId: String,
     ) {
         if (liked.isEmpty()) return
+        abandonLiveEnhancedRestore = true
+        EnhancedLiveQueueMemory.clear()
         val oldQueue = mediaPlayerHandler.queueData.value?.data
         val sameActiveSource =
             _smartShuffleSource.value == sourceId &&
@@ -495,6 +563,7 @@ class SharedViewModel(
                             )
                         }
                         enhancedUsedRecommendations.addAll(chunk.recommendedIds)
+                        rememberLiveEnhancedQueue()
                     }
 
                     if (started && enhancedUsedRecommendations.isEmpty()) {
@@ -595,6 +664,7 @@ class SharedViewModel(
                 if (session != enhancedSession) return@launch
                 nextEnhancedLikedIndex = start + nextLiked.size
                 enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
+                rememberLiveEnhancedQueue()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -701,6 +771,7 @@ class SharedViewModel(
     val shareSavedLyrics: StateFlow<Boolean> get() = _shareSavedLyrics
 
     init {
+        restoreLiveEnhancedQueueIfAny()
         // Same shuffle action for media notification and all in-app controls.
         EnhancedMediaBridge.onShuffleClick = { cycleShuffleFromPlayer() }
         viewModelScope.launch {
