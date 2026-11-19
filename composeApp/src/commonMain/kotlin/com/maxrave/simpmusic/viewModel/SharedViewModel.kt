@@ -320,7 +320,7 @@ class SharedViewModel(
             // against the live queue instead of permanently erasing a good
             // session on the first mismatch after process death or reboot.
             var restored: EnhancedRestorationPlan? = null
-            repeat(8) { attempt ->
+            for (attempt in 0 until 8) {
                 val (queue, currentMediaId) = combine(
                     mediaPlayerHandler.queueData,
                     mediaPlayerHandler.nowPlaying,
@@ -344,7 +344,7 @@ class SharedViewModel(
                     actualQueueVideoIds = queue?.data?.listTracks.orEmpty().map { it.videoId },
                     currentVideoId = currentMediaId,
                 )
-                if (restored != null) return@repeat
+                if (restored != null) break
                 if (attempt < 7) delay(1000)
             }
             val plan = restored ?: run {
