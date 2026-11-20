@@ -32,6 +32,8 @@ jobs:
         run: python3 scripts/test_enhanced_all_playlists.py
       - name: Apply enhanced controls to pinned core submodule
         run: python3 scripts/apply_enhanced_core_patch.py
+      - name: Verify headless Enhanced restoration and media-button queue resumption
+        run: python3 scripts/test_headless_enhanced_restore.py
       - name: Generate library definitions
         run: ./gradlew exportLibraryDefinitions
       - name: Load permanent signing key, if configured
