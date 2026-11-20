@@ -276,6 +276,18 @@ class SharedViewModel(
             enhancedSessionWriteMutex.withLock {
                 if (revision == enhancedSessionWriteRevision) {
                     dataStoreManager.putString(ENHANCED_QUEUE_SESSION_KEY, encoded)
+                    if (snapshot != null) {
+                        // Media3 saves its playable queue at pauses/transitions,
+                        // independently of Enhanced metadata. A sudden reboot
+                        // after a newly built 2+1 batch otherwise restores an
+                        // OLD queue under a NEW Enhanced snapshot. Persist the
+                        // same live queue at each committed Enhanced checkpoint.
+                        // The core method is synchronous only on a background
+                        // dispatcher: never block the UI/main player thread.
+                        withContext(Dispatchers.IO) {
+                            mediaPlayerHandler.mayBeSaveRecentSong(runBlocking = true)
+                        }
+                    }
                 }
             }
         }
@@ -345,6 +357,14 @@ class SharedViewModel(
                     currentVideoId = currentMediaId,
                 )
                 if (restored != null) break
+                Logger.w(
+                    "EnhancedRestore",
+                    "Retry ${attempt + 1}: saved=${snapshot.queueVideoIds.size}, " +
+                        "player=${queue?.data?.listTracks?.size ?: 0}, " +
+                        "nameMatches=${queue?.data?.playlistName == snapshot.playlistLabel}, " +
+                        "headMatches=${snapshot.queueVideoIds.take(3) == queue?.data?.listTracks.orEmpty().take(3).map { it.videoId }}, " +
+                        "currentInQueue=${queue?.data?.listTracks.orEmpty().any { it.videoId == currentMediaId || currentMediaId == \"Video${it.videoId}\" }}",
+                )
                 if (attempt < 7) delay(1000)
             }
             val plan = restored ?: run {
