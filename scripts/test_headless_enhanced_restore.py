@@ -23,5 +23,11 @@ assert "maybePrefetchEnhanced()" in vm, "headless owner must extend 2+1 queue"
 assert "coroutineScope.launch { restoreSavedQueue(playWhenReady = false) }" in handler, "keep normal queue restore"
 assert "return restoreSavedQueue(playWhenReady = true)" in handler, "keep car media-button auto-resume"
 assert "onMediaServiceCreated" not in handler, "bootstrap belongs in the MediaSession service, not the handler"
+assert 'getString("enhanced_queue_session_v1")' in handler, "read saved Enhanced marker at service boot"
+assert 'pendingQueueName.endsWith(" · Enhanced 2+1")' in handler, "only suppress native shuffle for Enhanced"
+assert handler.index('player.shuffleModeEnabled = false') < handler.index('        mayBeRestoreQueue()'), "disable native shuffle BEFORE Media3 restores the queue"
+assert 'mediaPlayerHandler.mayBeSaveRecentSong(runBlocking = true)' in vm, "persist the playable queue with Enhanced snapshots"
+assert 'withContext(Dispatchers.IO)' in vm, "checkpoint must not block the main player thread"
+assert '"Retry ${attempt + 1}:' in vm, "log queue mismatch after reboot for future diagnosis"
 
 print("PASS: Bluetooth-only service starts existing Enhanced owner; saved-queue resumption still works.")
