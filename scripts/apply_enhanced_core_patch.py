@@ -60,8 +60,8 @@ object EnhancedMediaBridge {
 # saved snapshot and progressive prefetch. No second recommendation engine.
 media_service="media/media3/src/main/java/com/maxrave/media3/service/SimpleMediaService.kt"
 edit(media_service,
-     "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\\n",
-     "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\\nimport com.maxrave.domain.data.player.EnhancedMediaBridge\\n")
+     "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\n",
+     "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\nimport com.maxrave.domain.data.player.EnhancedMediaBridge\n")
 edit(media_service,
 """        simpleMediaServiceHandler.onUpdateNotification = { list ->
             val commandButtonList = list.map { it.toCommandButton(this) }
