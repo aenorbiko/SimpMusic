@@ -18,6 +18,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import coil3.request.crossfade
 import com.maxrave.common.AppIdentity
+import com.maxrave.domain.data.player.EnhancedMediaBridge
+import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.maxrave.data.di.loader.loadAllModules
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.repository.LibrarySyncPhoneRepository
@@ -76,6 +78,14 @@ class SimpMusicApplication :
                 ),
             )
             loadKoinModules(viewModelModule)
+        }
+        // The same Koin-singleton SharedViewModel owns Enhanced in the UI and
+        // while Media3 runs headless. Bluetooth can create only the service,
+        // without MainActivity; this callback lazily starts the already existing
+        // session owner when SimpleMediaService is created. No duplicate radio
+        // logic and no delay before MediaSession playback resumption.
+        EnhancedMediaBridge.onMediaServiceCreated = {
+            get<SharedViewModel>()
         }
         // provide custom configuration
         val workConfig =
