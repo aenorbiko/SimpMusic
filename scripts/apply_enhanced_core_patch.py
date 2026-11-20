@@ -46,8 +46,49 @@ object EnhancedMediaBridge {
     // Source of truth for identifying a recommended track on Android's media card.
     val recommendedTrackIds = MutableStateFlow<Set<String>>(emptySet())
     var onShuffleClick: (() -> Unit)? = null
+    // Android service and the UI share the same Koin singleton queue owner.
+    // The app process installs this hook; no UI Activity is required for
+    // Enhanced state restoration and future 2+1 queue refills.
+    var onMediaServiceCreated: (() -> Unit)? = null
 }
 """)
+
+# A Bluetooth media-button may start only the Media3 service, without an
+# Activity. Bootstrap the *existing* SharedViewModel Koin singleton from the
+# service, once the media session has been set up. The application's callback
+# lazily resolves that singleton, which already owns the Enhanced 2+1 planner,
+# saved snapshot and progressive prefetch. No second recommendation engine.
+media_service="media/media3/src/main/java/com/maxrave/media3/service/SimpleMediaService.kt"
+edit(media_service,
+     "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\\n",
+     "import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler\\nimport com.maxrave.domain.data.player.EnhancedMediaBridge\\n")
+edit(media_service,
+"""        simpleMediaServiceHandler.onUpdateNotification = { list ->
+            val commandButtonList = list.map { it.toCommandButton(this) }
+            mediaSession?.setMediaButtonPreferences(
+                commandButtonList,
+            )
+        }
+
+        val sessionToken = SessionToken(this, ComponentName(this, SimpleMediaService::class.java))""",
+"""        simpleMediaServiceHandler.onUpdateNotification = { list ->
+            val commandButtonList = list.map { it.toCommandButton(this) }
+            mediaSession?.setMediaButtonPreferences(
+                commandButtonList,
+            )
+        }
+
+        // A headset/car Bluetooth can resume playback with NO visible app UI.
+        // Start the same process-wide Enhanced session owner used by screens;
+        // its restoration observes the Media3 queue while normal audio
+        // resumption remains free to start immediately.
+        try {
+            EnhancedMediaBridge.onMediaServiceCreated?.invoke()
+        } catch (e: Exception) {
+            Logger.e("Service", "Enhanced bootstrap failed: ${e.message}")
+        }
+
+        val sessionToken = SessionToken(this, ComponentName(this, SimpleMediaService::class.java))""")
 
 service="data/src/androidMain/kotlin/com/maxrave/data/mediaservice/MediaServiceHandlerImpl.kt"
 edit(service,"import com.maxrave.domain.data.player.GenericCommandButton\n",
