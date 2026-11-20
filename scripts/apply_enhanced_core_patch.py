@@ -91,6 +91,28 @@ edit(media_service,
         val sessionToken = SessionToken(this, ComponentName(this, SimpleMediaService::class.java))""")
 
 service="data/src/androidMain/kotlin/com/maxrave/data/mediaservice/MediaServiceHandlerImpl.kt"
+# 2+1 already has its OWN deterministic shuffled ordering. If native Shuffle
+# (saved from a previous normal queue) is restored first, Media3 randomly
+# reorders the saved 2+1 items before Enhanced can validate the queue, and
+# every star/cursor is lost. Disable native Shuffle before the saved playlist
+# is reloaded, but ONLY if the saved label and Enhanced snapshot are present.
+edit(service,
+"""        mayBeRestoreQueue()
+        coroutineScope.launch {""",
+"""        val pendingEnhancedSnapshot = runBlocking {
+            dataStoreManager.getString("enhanced_queue_session_v1").first().orEmpty()
+        }
+        val pendingQueueName = runBlocking { dataStoreManager.playlistFromSaved.first() }
+        if (pendingEnhancedSnapshot.isNotBlank() && pendingQueueName.endsWith(" · Enhanced 2+1")) {
+            if (player.shuffleModeEnabled) {
+                player.shuffleModeEnabled = false
+                _controlState.value = _controlState.value.copy(isShuffle = false)
+                Logger.w("EnhancedRestore", "Disabled native Shuffle for persisted Enhanced 2+1 queue")
+            }
+        }
+        mayBeRestoreQueue()
+        coroutineScope.launch {""")
+
 edit(service,"import com.maxrave.domain.data.player.GenericCommandButton\n",
      "import com.maxrave.domain.data.player.GenericCommandButton\nimport com.maxrave.domain.data.player.EnhancedMediaBridge\n")
 edit(service,"import com.maxrave.domain.utils.Resource\n",
