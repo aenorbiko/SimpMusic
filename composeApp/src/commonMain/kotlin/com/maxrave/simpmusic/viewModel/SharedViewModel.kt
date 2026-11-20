@@ -363,7 +363,7 @@ class SharedViewModel(
                         "player=${queue?.data?.listTracks?.size ?: 0}, " +
                         "nameMatches=${queue?.data?.playlistName == snapshot.playlistLabel}, " +
                         "headMatches=${snapshot.queueVideoIds.take(3) == queue?.data?.listTracks.orEmpty().take(3).map { it.videoId }}, " +
-                        "currentInQueue=${queue?.data?.listTracks.orEmpty().any { it.videoId == currentMediaId || currentMediaId == \"Video${it.videoId}\" }}",
+                        "currentInQueue=${queue?.data?.listTracks.orEmpty().any { it.videoId == currentMediaId || currentMediaId == "Video${it.videoId}" }}",
                 )
                 if (attempt < 7) delay(1000)
             }
