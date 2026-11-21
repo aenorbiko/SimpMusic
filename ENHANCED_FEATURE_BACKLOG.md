@@ -7,6 +7,7 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 - Stable Enhanced integration branch: **`main`** (formerly `feature/enhanced-shuffle`). `dev` remains the unchanged original/upstream snapshot, and is currently still the GitHub repository's default branch until switched in GitHub Settings.
 - **One behavior change per feature branch**, with its own Android Lab build when needed.
+- **Every change merged or pushed to `main` MUST increase `gradle/libs.versions.toml` `version-code`** beyond the last published Stable Android build, even when it is only a maintenance or documentation change. Update `CHANGELOG.md` accordingly and verify the newly published signed APK. Do not reuse a Stable `versionCode` for a different Git commit; the updater compares Android build numbers, not Git SHAs.
 - Run automated tests, then **test the APK on the user's phone**; CI success alone is not acceptance.
 - **Merge only after the user's explicit approval**, preserving old experimental branches for later work.
 - Lab APKs must use a distinct Android application ID, label and GitHub Release. Stable debug APK keeps `com.maxrave.simpmusic.dev` and the existing permanent signing certificate; experimental Playlist Lab uses `com.maxrave.simpmusic.dev.playlists` only when `-PsimpmusicPlaylistsExperimental=true` is supplied.
