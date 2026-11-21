@@ -26,6 +26,36 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
+      - name: Require a new Android versionCode for each Stable main revision
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(sed -n 's/^version-code = "\([0-9]*\)"/\1/p' gradle/libs.versions.toml)"
+          if [ -z "$CURRENT" ]; then
+            echo "::error::Could not read current Android versionCode."
+            exit 1
+          fi
+          if ! gh release view enhanced-latest --json body >/dev/null 2>&1; then
+            echo "No prior Stable release found; versionCode is $CURRENT."
+            exit 0
+          fi
+          NOTES="$(gh release view enhanced-latest --json body --jq '.body')"
+          PREVIOUS="$(printf '%s\n' "$NOTES" | sed -n 's/^Android build: \([0-9]*\)$/\1/p' | head -n 1)"
+          SOURCE="$(printf '%s\n' "$NOTES" | sed -n 's/^Source commit: \([0-9a-f]*\)$/\1/p' | head -n 1)"
+          if [ -z "$PREVIOUS" ] || [ -z "$SOURCE" ]; then
+            echo "::error::Published Stable release lacks a verifiable Android build or source commit."
+            exit 1
+          fi
+          if [ "$SOURCE" = "$GITHUB_SHA" ]; then
+            echo "Rebuilding the same published Stable revision (build $CURRENT)."
+          elif [ "$CURRENT" -le "$PREVIOUS" ]; then
+            echo "::error::New main revision must increase Android versionCode above published build $PREVIOUS (got $CURRENT)."
+            exit 1
+          else
+            echo "Stable versionCode increases from $PREVIOUS to $CURRENT."
+          fi
       - name: Verify approved Enhanced icon keeps 24dp shuffle geometry
         run: python3 scripts/test_enhanced_shuffle_icons.py
       - name: Verify Enhanced support across playlists and albums

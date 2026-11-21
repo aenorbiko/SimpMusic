@@ -23,6 +23,13 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 68 — Restore Enhanced after process death and Bluetooth resume (2026-11-21)
+
+- **Enhanced 2+1 resumes after Android process eviction or device reboot**, including the original source queue, recommendation markers and later queue prefetch.
+- **Bluetooth media resumption can start playback without opening SimpMusic**, as verified by phone testing. The resumed song may restart from the beginning.
+- Preserves original shuffle/Enhanced behavior, playback controls, account, playlists and update channel; recommendation relevance is unchanged and remains a separate experiment.
+- Supersedes the accidental same-version Stable build 67 publication after PR #8. Build 68 allows the existing in-app updater to detect the new APK.
+
 ### Android build 67 — Clear Enhanced and original SimpMusic credits (2026-11-17)
 
 - **About/Credits now clearly identifies SimpMusic Enhanced** with its own Android build number, build channel and short Git revision, separately from the original SimpMusic v2.5.0.
