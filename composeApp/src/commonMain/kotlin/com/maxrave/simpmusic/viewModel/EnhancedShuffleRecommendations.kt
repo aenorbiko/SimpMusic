@@ -80,10 +80,10 @@ internal suspend fun buildEnhancedBatch(
         }.awaitAll()
     }
 
-    // Radios sometimes return no usable results for a particular pair.
-    // Do not turn the opening A -> B -> recommendation slot into A -> B -> C -> D:
-    // borrow a still-unused candidate from a nearby pair's already-fetched radio.
-    // The pair's own suggestions always take priority when available.
+    // Match only the first 15 tracks in each own pair's radio; if none match,
+    // use only the second seed's radio (top 15). Missing candidates yield
+    // a legitimate A -> B gap rather than borrowing from an unrelated pair.
+    // This same selector is used for progressive startup and later prefetch.
     val selected = EnhancedShufflePlanner.selectForAllPairs(
         radioPairs = radioPairs,
         excludedIds = excludedIds,

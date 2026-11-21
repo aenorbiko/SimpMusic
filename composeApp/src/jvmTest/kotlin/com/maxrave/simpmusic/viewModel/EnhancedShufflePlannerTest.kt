@@ -50,19 +50,17 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
-    fun firstPairWithEmptyRadioStillGetsThirdTrackFromNearbyRadio() {
+    fun noSecondSongRadioDoesNotBorrowFromAnotherPair() {
         val selected = EnhancedShufflePlanner.selectForAllPairs(
             radioPairs = listOf(
                 emptyList<String>() to emptyList(),
-                listOf("R1", "R2") to emptyList(),
-                listOf("R3") to emptyList(),
+                listOf("OnlyA") to listOf("R2", "R3"),
+                listOf("OnlyA3") to emptyList(),
             ),
             excludedIds = setOf("A", "B", "C", "D", "E", "F"),
             id = { it },
         )
-        assertEquals(listOf("R1", "R2", "R3"), selected)
-        val mixed = listOf("A", "B", selected[0], "C", "D", selected[1], "E", "F", selected[2])
-        assertEquals(listOf("A", "B", "R1", "C", "D", "R2", "E", "F", "R3"), mixed)
+        assertEquals(listOf(null, "R2", null), selected)
     }
 
     @Test
@@ -89,7 +87,7 @@ class EnhancedShufflePlannerTest {
             excludedIds = setOf("Liked"),
             id = { it },
         )
-        assertEquals(listOf("Candidate", "SecondCandidate", null), selected)
+        assertEquals(listOf(null, "Candidate", null), selected)
     }
 
     @Test
@@ -157,15 +155,72 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
-    fun fallbackCanPreferSecondRadio() {
+    fun fallbackAlwaysUsesSecondSongRadio() {
         val pick = EnhancedShufflePlanner.selectForPair(
             firstRadio = listOf("OnlyA"),
             secondRadio = listOf("OnlyB"),
             usedIds = emptySet(),
             id = { it },
-            preferSecondOnFallback = true,
         )
         assertEquals("OnlyB", pick)
+    }
+
+    @Test
+    fun commonCandidateRanksByBothPositions() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = listOf("A1", "A2", "Common1", "Common2"),
+            secondRadio = listOf("Common2", "B1", "Common1"),
+            usedIds = emptySet(),
+            id = { it },
+        )
+        // Common2 has indices (3, 0) vs Common1 (2, 2).
+        assertEquals("Common2", pick)
+    }
+
+    @Test
+    fun commonCandidateAfterTopFifteenDoesNotCount() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = (1..15).map { "A$it" } + "OnlyBeyond15",
+            secondRadio = listOf("FreshSecond") + (1..14).map { "B$it" } + "OnlyBeyond15",
+            usedIds = emptySet(),
+            id = { it },
+        )
+        assertEquals("FreshSecond", pick)
+    }
+
+    @Test
+    fun fallbackIgnoresSixteenthSecondRadioTrack() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = emptyList(),
+            secondRadio = (1..15).map { "Already$it" } + "FreshAt16",
+            usedIds = (1..15).mapTo(hashSetOf()) { "Already$it" },
+            id = { it },
+        )
+        assertEquals(null, pick)
+    }
+
+    @Test
+    fun fallbackSkipsPreviouslyUsedSecondRadioCandidates() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = listOf("OnlyA"),
+            secondRadio = listOf("Liked", "RecommendedEarlier", "Fresh"),
+            usedIds = setOf("Liked", "RecommendedEarlier"),
+            id = { it },
+        )
+        assertEquals("Fresh", pick)
+    }
+
+    @Test
+    fun picksNextUniqueRecommendationFromSecondRadioAcrossPairs() {
+        val selected = EnhancedShufflePlanner.selectForAllPairs(
+            radioPairs = listOf(
+                emptyList<String>() to listOf("R1", "R2"),
+                emptyList<String>() to listOf("R1", "R2"),
+            ),
+            excludedIds = emptySet(),
+            id = { it },
+        )
+        assertEquals(listOf("R1", "R2"), selected)
     }
 
     @Test

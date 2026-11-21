@@ -1,6 +1,6 @@
 # SimpMusic Enhanced — feature backlog
 
-Last reviewed: 2026-11-16 (Australia/Brisbane).
+Last reviewed: 2026-11-21 (Australia/Brisbane).
 This is the durable feature and bug tracker for our SimpMusic fork, not an indication that all listed features are implemented.
 
 ## Development and release rules
@@ -59,6 +59,17 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - **USER PRIORITY UPDATE (2026-11-16): Detailed radio-selection diagnostics are LOW PRIORITY / DEFERRED. Do not implement them now.** The user confirmed screenshots were captured using `SimpMusic Lab (Relevance)`; no further confirmation required.
 - **Build identity caveat:** queue screenshots showing footer `SimpMusic v2.5.0` do not distinguish Lab from stable: the fork still uses upstream version metadata. Verify the installed Android app's `SimpMusic Lab (Relevance)` identity when attributing this test to the new algorithm.
 
+
+### 2A. Radio Relevance V2 + updater dialog cleanup — ISOLATED LAB, NOT MERGED
+
+- **2026-11-17 (rebased 2026-11-21):** user explicitly requested revisiting Radio Relevance and combining the small literal `\\n\\n` formatting fix in the **same feature branch**. New `feature/enhanced-radio-relevance-v2` was originally based on Stable build 67; it is now based on **main / Android build 68** including tested Enhanced headless restoration; old `feature/enhanced-radio-relevance` remains unchanged for reference.
+- Apply exactly the earlier agreed Relevance rule: for source-song pair A/B compare only the first 15 tracks of their separate YouTube Music radios, choose an unused common track ranked by summed positions (ties favour B), otherwise pick the first unused of B's first 15. No borrow from A's own radio or any neighboring pair. Omit recommendations when B cannot provide one. Exclude source and already recommended video IDs.
+- **Important:** apply the same selection algorithm both to the **progressive first queue** and to **later near-end prefetch**. Do not discard user-approved progressive loading (~3 seconds to first group on initial 300+ Liked phone test), notification markers, current-song preservation, shuffle state or one-Like behavior. First-15 is a local candidate limit; it does not reduce radio network fetch size or guarantee better subjective relevance.
+- Fix updater popup's literal `\\n\\nWhat's new` text by using the release body directly without appending escaped newlines and duplicate changelog link. It already links to CHANGELOG.md. No changes to update source/URL/package ID/certificate handling.
+- Separate permanently signed Android Lab app ID `com.maxrave.simpmusic.dev.relevance2` and label `SimpMusic Lab (Relevance V2)`. Stable `main` build 68 is untouched. Builds are published to tag `enhanced-relevance-v2-latest` once CI passes.
+- JVM tests verify top-15 overlap, rank/tiebreaks, B-only fallback, duplicate exclusion, no nearest-pair borrowing, progressive emission with empty B, cancel/rapid mode changes, and odd final source song. User phone testing and explicit merge approval are still required.
+- **Phone acceptance to request:** compare 2+1 on a mixed Liked playlist and on a single-artist album, note the selected recommendations, verify first partial queue and later near-end prefetch, quickly switch Enhanced→Shuffle and back, and inspect the updater dialog in this Lab only if a suitable newer Lab release exists (the separate Lab does not itself offer Stable APK updates). Formatting can be validated by regression/static tests and later Stable update prompt; no synthetic update to be shown.
+- Before any future Stable release, bump Android `versionCode` and write a new CHANGELOG.md Stable entry after user approves the actual quality on phone.
 
 ### 3. Fix Start Radio restarting the currently playing song — NOT IMPLEMENTED
 
