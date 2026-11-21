@@ -11,8 +11,10 @@ import kotlinx.coroutines.sync.Semaphore
  * soon as each block is ready. Unlike awaitAll(), this never waits for the
  * LAST radio lookup before the FIRST recommendation can be displayed.
  *
- * The original recommendation selector (including nearest-radio fallback)
- * is deliberately unchanged; this feature only changes when chunks arrive.
+ * Radio Relevance V2 chooses a suggestion only from its own pair's first
+ * 15 radio tracks, falling back exclusively to the second song's radio.
+ * No nearby-pair borrowing: this also preserves progressive responsiveness
+ * when the current pair's radios return empty.
  * Cancellation propagates to pending radio lookups and prevents late chunks.
  */
 internal suspend fun <T> emitEnhancedPairsProgressively(
@@ -50,26 +52,7 @@ internal suspend fun <T> emitEnhancedPairsProgressively(
                     secondRadio = second,
                     usedIds = used,
                     id = id,
-                    preferSecondOnFallback = index % 2 == 1,
                 )
-                if (recommendation == null) {
-                    // Keep the existing nearest-pair fallback. Only wait for
-                    // another pair if the current pair itself had no candidate.
-                    val neighbours = pairs.indices
-                        .filter { it != index }
-                        .sortedWith(compareBy<Int> { kotlin.math.abs(it - index) }.thenBy { it })
-                    for (nearby in neighbours) {
-                        val (otherFirst, otherSecond) = radios[nearby].await()
-                        recommendation = EnhancedShufflePlanner.selectForPair(
-                            firstRadio = otherFirst,
-                            secondRadio = otherSecond,
-                            usedIds = used,
-                            id = id,
-                            preferSecondOnFallback = index % 2 == 1,
-                        )
-                        if (recommendation != null) break
-                    }
-                }
             }
             recommendation?.let { used.add(id(it)) }
             onChunk(pair, recommendation)
