@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          CURRENT="$(sed -n 's/^version-code = "\\([0-9]*\\)"/\\1/p' gradle/libs.versions.toml)"
+          CURRENT="$(sed -n 's/^version-code = "\([0-9]*\)"/\1/p' gradle/libs.versions.toml)"
           if [ -z "$CURRENT" ]; then
             echo "::error::Could not read current Android versionCode."
             exit 1
@@ -42,8 +42,8 @@ jobs:
             exit 0
           fi
           NOTES="$(gh release view enhanced-latest --json body --jq '.body')"
-          PREVIOUS="$(printf '%s\\n' "$NOTES" | sed -n 's/^Android build: \\([0-9]*\\)$/\\1/p' | head -n 1)"
-          SOURCE="$(printf '%s\\n' "$NOTES" | sed -n 's/^Source commit: \\([0-9a-f]*\\)$/\\1/p' | head -n 1)"
+          PREVIOUS="$(printf '%s\n' "$NOTES" | sed -n 's/^Android build: \([0-9]*\)$/\1/p' | head -n 1)"
+          SOURCE="$(printf '%s\n' "$NOTES" | sed -n 's/^Source commit: \([0-9a-f]*\)$/\1/p' | head -n 1)"
           if [ -z "$PREVIOUS" ] || [ -z "$SOURCE" ]; then
             echo "::error::Published Stable release lacks a verifiable Android build or source commit."
             exit 1
