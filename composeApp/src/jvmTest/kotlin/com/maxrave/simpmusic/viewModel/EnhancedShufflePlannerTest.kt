@@ -189,14 +189,37 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
-    fun fallbackIgnoresSixteenthSecondRadioTrack() {
+    fun fallbackFindsFreshSecondRadioTrackAfterExcludedFirstFifteen() {
         val pick = EnhancedShufflePlanner.selectForPair(
             firstRadio = emptyList(),
             secondRadio = (1..15).map { "Already$it" } + "FreshAt16",
             usedIds = (1..15).mapTo(hashSetOf()) { "Already$it" },
             id = { it },
         )
-        assertEquals(null, pick)
+        assertEquals("FreshAt16", pick)
+    }
+
+    @Test
+    fun commonSongAfterExcludedPrefixWinsOverEarlierUnrelatedBFallback() {
+        val albumTracks = (1..15).map { "Album$it" }
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = albumTracks + "SharedBeyondOriginal15",
+            secondRadio = listOf("BUnrelatedFirst") + albumTracks + "SharedBeyondOriginal15",
+            usedIds = albumTracks.toSet(),
+            id = { it },
+        )
+        assertEquals("SharedBeyondOriginal15", pick)
+    }
+
+    @Test
+    fun duplicateRadioIdsDoNotConsumeCandidateSlots() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = List(15) { "DuplicateA" } + "SharedBeyondDuplicates",
+            secondRadio = listOf("UnrelatedB", "SharedBeyondDuplicates"),
+            usedIds = emptySet(),
+            id = { it },
+        )
+        assertEquals("SharedBeyondDuplicates", pick)
     }
 
     @Test

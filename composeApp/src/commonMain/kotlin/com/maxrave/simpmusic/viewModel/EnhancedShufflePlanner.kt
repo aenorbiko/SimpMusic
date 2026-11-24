@@ -65,9 +65,10 @@ internal object EnhancedShufflePlanner {
     }
 
     /**
-     * Compare only the first 15 tracks of each radio. If a song appears in both,
-     * prefer the smallest combined rank (ties favour the radio of the second,
-     * most recently heard source song).
+     * First remove source-collection songs, already used recommendations and
+     * duplicate IDs, then take up to 15 remaining tracks from each radio.
+     * If a song appears in both, prefer the smallest combined rank (ties
+     * favour the radio of the second, most recently heard source song).
      *
      * When no common track exists, use the first unused candidate from the
      * second song's radio, not the first song's or another pair's radio.
@@ -81,12 +82,14 @@ internal object EnhancedShufflePlanner {
         usedIds: Set<String>,
         id: (T) -> String,
     ): T? {
-        val a = firstRadio.take(RADIO_CANDIDATE_LIMIT)
+        val a = firstRadio
             .filter { id(it) !in usedIds }
             .distinctBy(id)
-        val b = secondRadio.take(RADIO_CANDIDATE_LIMIT)
+            .take(RADIO_CANDIDATE_LIMIT)
+        val b = secondRadio
             .filter { id(it) !in usedIds }
             .distinctBy(id)
+            .take(RADIO_CANDIDATE_LIMIT)
         val firstPosition = a.mapIndexed { index, candidate -> id(candidate) to index }.toMap()
         val overlap = b.mapIndexedNotNull { secondPosition, candidate ->
             val positionA = firstPosition[id(candidate)] ?: return@mapIndexedNotNull null
