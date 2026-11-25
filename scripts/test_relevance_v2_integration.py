@@ -19,7 +19,10 @@ assert "best?.track ?: b.firstOrNull()" in planner
 assert "fun <T> selectForAllPairs(" in planner
 assert "analyzePair(" in progressive
 assert "val neighbours =" not in progressive, "Do not borrow other pairs' radio for progressive loading"
-assert "selectForAllPairs(" in prefetch, "Prefetch must use the SAME pair selector"
+assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds)" in prefetch, "Prefetch must use the SAME pair selector"
+assert "if (firstDecision.matches.isEmpty())" in progressive
+assert "ENHANCED_RADIO_MAX_TRACKS = 100" in progressive
+assert "withTimeoutOrNull" not in prefetch
 assert "body = forkRelease.notes," in shared, "Fork update dialog should show clean release body"
 assert "body = forkRelease.notes +" not in shared, "No literal escaped newline or duplicate changelog link"
 assert 'isRelevanceV2Experiment -> ".dev.relevance2"' in gradle

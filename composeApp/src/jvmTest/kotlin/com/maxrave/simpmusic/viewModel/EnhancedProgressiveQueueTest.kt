@@ -196,4 +196,58 @@ class EnhancedProgressiveQueueTest {
         }
         assertEquals(listOf(listOf("A", "B", "R1"), listOf("C")), emitted)
     }
+    @Test
+    fun extraPagesOnlyWhenNoFirstPageMatchAndRemainAnonymousAtCaller() = runBlocking {
+        val calls = mutableListOf<Pair<String, String?>>()
+        val emitted = mutableListOf<List<String>>()
+        val reports = mutableListOf<EnhancedPairTiming<String>>()
+        emitPagedEnhancedPairs(
+            seeds = listOf("A", "B", "C", "D"),
+            excludedIds = setOf("A", "B", "C", "D"),
+            id = { it },
+            fetchPage = { seed, token ->
+                calls.add(seed to token)
+                when {
+                    seed == "A" && token == null -> EnhancedRadioPage(listOf("OnlyA"), "A2")
+                    seed == "B" && token == null -> EnhancedRadioPage(listOf("OnlyB"), "B2")
+                    seed == "A" -> EnhancedRadioPage(listOf("Shared"))
+                    seed == "B" -> EnhancedRadioPage(listOf("Shared"))
+                    else -> EnhancedRadioPage(listOf("AlreadyShared"), "unused")
+                }
+            },
+            onDecision = { _, _, timing -> reports.add(timing) },
+        ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        assertEquals(listOf(listOf("A", "B", "Shared"), listOf("C", "D", "AlreadyShared")), emitted)
+        assertEquals(setOf("A" to "A2", "B" to "B2"), calls.filter { it.second != null }.toSet())
+        assertEquals(0, reports[0].firstMatches)
+        assertEquals(1, reports[1].firstMatches)
+        assertEquals(null, reports[1].secondA)
+    }
+
+    @Test
+    fun missingOrFailedContinuationKeepsOriginalBFallback() = runBlocking {
+        val emitted = mutableListOf<List<String>>()
+        emitPagedEnhancedPairs(
+            seeds = listOf("A", "B"), excludedIds = emptySet(), id = { it },
+            fetchPage = { seed, token ->
+                if (seed == "A") EnhancedRadioPage(listOf("OnlyA"))
+                else if (token == null) EnhancedRadioPage(listOf("OnlyB"), "B2")
+                else EnhancedRadioPage(emptyList(), status = "Error")
+            },
+        ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        assertEquals(listOf(listOf("A", "B", "OnlyB")), emitted)
+    }
+
+    @Test
+    fun extraPageDoesNotCompareBeyondOneHundredReturnedTracks() = runBlocking {
+        val emitted = mutableListOf<List<String>>()
+        emitPagedEnhancedPairs(
+            seeds = listOf("A", "B"), excludedIds = emptySet(), id = { it },
+            fetchPage = { seed, token ->
+                if (token == null) EnhancedRadioPage((1..50).map { "$seed-$it" }, "next")
+                else EnhancedRadioPage((51..100).map { "$seed-$it" } + "TooFar")
+            },
+        ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        assertEquals(listOf(listOf("A", "B", "B-1")), emitted)
+    }
 }

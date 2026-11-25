@@ -5,37 +5,52 @@ import com.maxrave.domain.data.model.streams.YouTubeWatchEndpoint
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.Resource
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.TimeSource
 
+/** No Enhanced-level timeout in this diagnostic Lab; transport timeouts and
+ * coroutine cancellation remain in effect. One semaphore covers every page. */
 internal suspend fun fetchEnhancedRadio(
     song: Track,
     songRepository: SongRepository,
     radioSemaphore: Semaphore,
-): List<Track> =
-        radioSemaphore.withPermit {
-            try {
-                withTimeoutOrNull(8_000L) {
-                    songRepository.getRadioFromEndpoint(
-                        YouTubeWatchEndpoint(
-                            videoId = song.videoId,
-                            playlistId = "RDAMVM${song.videoId}",
-                        ),
-                        anonymous = true,
-                    ).firstOrNull { it is Resource.Success }?.data?.first.orEmpty()
-                }.orEmpty()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                emptyList()
-            }
+    continuation: String? = null,
+): EnhancedRadioPage<Track> {
+    val queued = TimeSource.Monotonic.markNow()
+    return radioSemaphore.withPermit {
+        val waited = queued.elapsedNow().inWholeMilliseconds
+        val started = TimeSource.Monotonic.markNow()
+        try {
+            val result = songRepository.getRadioFromEndpoint(
+                YouTubeWatchEndpoint(
+                    videoId = song.videoId,
+                    playlistId = "RDAMVM${song.videoId}",
+                ),
+                anonymous = true,
+                continuation = continuation,
+            ).firstOrNull { it is Resource.Success || it is Resource.Error }
+            val data = if (result is Resource.Success) result.data else null
+            EnhancedRadioPage(
+                tracks = data?.first.orEmpty(),
+                continuation = data?.second,
+                requestMs = started.elapsedNow().inWholeMilliseconds,
+                semaphoreWaitMs = waited,
+                status = if (result is Resource.Success) "OK" else "Error or no response",
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            EnhancedRadioPage(
+                tracks = emptyList(),
+                requestMs = started.elapsedNow().inWholeMilliseconds,
+                semaphoreWaitMs = waited,
+                status = "Request failed",
+            )
         }
-
+    }
+}
 
 internal const val ENHANCED_LIKED_BATCH_SIZE = 14
 internal const val ENHANCED_PREFETCH_REMAINING = 14
@@ -64,14 +79,41 @@ data class EnhancedRadioDiagnostic(
     val selectedRankA: Int?,
     val selectedRankB: Int?,
     val commonSongs: List<String>,
-)
+    val pageDetails: List<String>,
+    val firstPageMatches: Int,
+    val initialPairMs: Long,
+    val extensionMs: Long,
+    val elapsedMs: Long,
+) {
+    fun asText(): String = buildString {
+        appendLine("Enhanced recommendation")
+        appendLine("A: $songA")
+        appendLine("B: $songB")
+        pageDetails.forEach { appendLine(it) }
+        appendLine("Radio A: $receivedA considered / $eligibleA eligible")
+        appendLine("Radio B: $receivedB considered / $eligibleB eligible")
+        appendLine("Common after page 1: $firstPageMatches")
+        appendLine("Common after optional page 2: ${commonSongs.size}")
+        appendLine("Common with old top 30: $oldTop30Matches")
+        appendLine("Initial A+B phase: ${initialPairMs} ms")
+        appendLine("Extra page phase: ${extensionMs} ms")
+        appendLine("Decision since batch start: ${elapsedMs} ms")
+        appendLine("Source: $source")
+        appendLine("Selected: $selectedSong")
+        appendLine("Eligible rank A: ${selectedRankA ?: "—"} / B: ${selectedRankB ?: "—"}")
+        appendLine("Common songs (eligible ranks):")
+        if (commonSongs.isEmpty()) appendLine("None") else commonSongs.forEach { appendLine(it) }
+    }.trimEnd()
+}
 
 internal fun enhancedRadioDiagnostic(
     pair: List<Track>,
     decision: EnhancedShufflePlanner.RadioSelection<Track>,
+    timing: EnhancedPairTiming<Track>,
 ): EnhancedRadioDiagnostic? {
     val selected = decision.recommendation ?: return null
     if (pair.size != 2) return null
+    fun page(label: String, p: EnhancedRadioPage<Track>?): String = if (p == null) "$label: not requested" else "$label: ${p.tracks.size} received; ${p.requestMs} ms request + ${p.semaphoreWaitMs} ms wait; ${p.status}; next page available: ${!p.continuation.isNullOrBlank()}"
     return EnhancedRadioDiagnostic(
         songA = pair[0].title.orEmpty(),
         songB = pair[1].title.orEmpty(),
@@ -85,6 +127,11 @@ internal fun enhancedRadioDiagnostic(
         selectedRankA = decision.selectedRankA,
         selectedRankB = decision.selectedRankB,
         commonSongs = decision.matches.map { "${it.track.title} (A #${it.rankA}, B #${it.rankB})" },
+        pageDetails = listOf(page("A page 1", timing.firstA), page("B page 1", timing.firstB), page("A page 2", timing.secondA), page("B page 2", timing.secondB)),
+        firstPageMatches = timing.firstMatches,
+        initialPairMs = timing.initialPairMs,
+        extensionMs = timing.extensionMs,
+        elapsedMs = timing.elapsedMs,
     )
 }
 
@@ -100,48 +147,14 @@ internal suspend fun buildEnhancedBatch(
     songRepository: SongRepository,
     excludedIds: Set<String>,
 ): EnhancedBatch {
-    if (likedBatch.isEmpty()) return EnhancedBatch(emptyList(), emptySet())
-    val pairs = likedBatch.chunked(2)
-    val radioSemaphore = Semaphore(4)
-
-    val radioPairs = coroutineScope {
-        pairs.map { pair ->
-            async {
-                if (pair.size != 2) {
-                    emptyList<Track>() to emptyList<Track>()
-                } else {
-                    coroutineScope {
-                        val first = async { fetchEnhancedRadio(pair[0], songRepository, radioSemaphore) }
-                        val second = async { fetchEnhancedRadio(pair[1], songRepository, radioSemaphore) }
-                        first.await() to second.await()
-                    }
-                }
-            }
-        }.awaitAll()
-    }
-
-    // Compare all eligible returned tracks; use B-only fallback if none match.
-    // The progressive startup uses the same selector.
+    val result = mutableListOf<Track>()
+    val recommendations = mutableSetOf<String>()
     val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
-    val selected = EnhancedShufflePlanner.selectForAllPairs(
-        radioPairs = radioPairs,
-        excludedIds = excludedIds,
-        id = { it.videoId },
-        onDecision = { index, decision ->
-            val detail = enhancedRadioDiagnostic(pairs[index], decision)
-            val recommendation = decision.recommendation
-            if (detail != null && recommendation != null) diagnostics[recommendation.videoId] = detail
-        },
-    )
-    val recommendations = hashSetOf<String>()
-    val result = ArrayList<Track>(likedBatch.size + pairs.size)
-    for ((index, pair) in pairs.withIndex()) {
-        result.addAll(pair)
-        if (pair.size != 2) continue
-        selected[index]?.let { pick ->
-            result.add(pick)
-            recommendations.add(pick.videoId)
-        }
+    // The same paged selection path as startup; collect the completed prefetch batch.
+    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds) { chunk ->
+        result.addAll(chunk.tracks)
+        recommendations.addAll(chunk.recommendedIds)
+        diagnostics.putAll(chunk.diagnostics)
     }
     return EnhancedBatch(result, recommendations, diagnostics)
 }

@@ -219,3 +219,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 - User approved removing the local top-30 cap on both A/B returned radio lists. Do not fetch continuation pages yet; keep B-only fallback, anonymity, progressive startup, prefetch and Bluetooth star restoration.
 - Tap the queue recommendation star to see A/B seeds, received and eligible counts, full eligible overlap, old top-30 overlap, selected source and one-based filtered ranks. Diagnostics are process-local and may be unavailable for restored recommendations; no account data is stored. Same Anonymous Radio package; experimental version code 69. Stable remains 68. No merge until user approval and phone testing.
+
+
+### 25 November — conditional continuation experiment (Anonymous Radio)
+
+- Phone screenshot f316c365: first page returned 50 tracks per radio, and one of 5–6 pairs had overlap beyond old top 30 (A24/B37, A32/B44). User approved a second page only for pairs without eligible first-page overlap, up to 100 considered tracks per seed. No Enhanced request time limit for this diagnostic experiment; transport timeouts and cancellation still apply. Keep four concurrent requests, B-only fallback and anonymous flag on every page. Copy and Copy all from the star dialog; include per-page counts, availability, request/semaphore timings and first/final overlap. Version code 70 in same Lab, no stable merge.

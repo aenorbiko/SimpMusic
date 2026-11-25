@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.maxrave.simpmusic.viewModel.SharedViewModel
+import com.maxrave.simpmusic.expect.copyToClipboard
 
 /** Read-only diagnostic for newly generated recommendations in this process. */
 @Composable
@@ -41,22 +43,21 @@ internal fun EnhancedDiagnosticStar(
                     if (details == null) {
                         Text("Radio diagnostics unavailable for this restored track. Start a new Enhanced queue to capture them.")
                     } else {
-                        Text("A: ${details.songA}")
-                        Text("B: ${details.songB}")
-                        Text("Radio A: ${details.receivedA} received / ${details.eligibleA} eligible")
-                        Text("Radio B: ${details.receivedB} received / ${details.eligibleB} eligible")
-                        Text("Common eligible songs: ${details.commonSongs.size}")
-                        Text("Common with old top 30: ${details.oldTop30Matches}")
-                        Text("Source: ${details.source}")
-                        Text("Selected: ${details.selectedSong}")
-                        Text("Eligible rank A: ${details.selectedRankA ?: "—"} / B: ${details.selectedRankB ?: "—"}")
-                        Text("Common songs (eligible ranks):")
-                        if (details.commonSongs.isEmpty()) Text("None")
-                        details.commonSongs.forEach { Text(it) }
+                        SelectionContainer { Text(details.asText()) }
                     }
                 }
             },
             confirmButton = { TextButton(onClick = { open = false }) { Text("Close") } },
+            dismissButton = {
+                if (details != null) {
+                    Column {
+                        TextButton(onClick = { copyToClipboard("Enhanced recommendation", details.asText()) }) { Text("Copy") }
+                        TextButton(onClick = {
+                            copyToClipboard("Enhanced radio diagnostics", diagnostics.values.joinToString("\n\n---\n\n") { it.asText() })
+                        }) { Text("Copy all") }
+                    }
+                }
+            },
         )
     }
 }

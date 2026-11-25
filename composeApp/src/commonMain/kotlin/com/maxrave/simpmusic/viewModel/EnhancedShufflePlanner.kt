@@ -65,7 +65,7 @@ internal object EnhancedShufflePlanner {
     }
 
     /** Compare every eligible track already returned by the two radio requests.
-     * No continuation requests; preserve combined rank and B-only fallback.
+     * The caller may extend its own lists; preserve combined rank and B-only fallback.
      * Positions are one-based ranks after excluding owned/used tracks and duplicate IDs.
      */
     data class RadioMatch<T>(val track: T, val rankA: Int, val rankB: Int)
