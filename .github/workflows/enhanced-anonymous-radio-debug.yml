@@ -149,7 +149,7 @@ jobs:
           cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Anonymous-Radio-arm64.apk"
           if gh release view enhanced-anonymous-radio-latest >/dev/null 2>&1; then
             gh release upload enhanced-anonymous-radio-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Anonymous-Radio-arm64.apk" --clobber
-            gh release edit enhanced-anonymous-radio-latest --notes "Signed Anonymous Radio Lab ARM64 APK: ${GITHUB_SHA}; conditional second radio page (up to 100 candidates), request timing and Copy/Copy all diagnostics."
+            gh release edit enhanced-anonymous-radio-latest --notes "Signed Anonymous Radio Lab ARM64 APK: ${GITHUB_SHA}; conditional second radio page (up to 100 candidates), four nearest pairs / eight concurrent requests, parallel continuation and Copy/Copy all timing diagnostics."
           else
             gh release create enhanced-anonymous-radio-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Anonymous-Radio-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Anonymous Radio Lab (experimental)" --notes "Anonymous YouTube Music seed radio for both source songs A/B; compares all returned eligible candidates with A/B diagnostics and preserves Bluetooth star restoration, separate .dev.anonymousradio app." --prerelease
           fi

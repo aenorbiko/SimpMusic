@@ -224,3 +224,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ### 25 November — conditional continuation experiment (Anonymous Radio)
 
 - Phone screenshot f316c365: first page returned 50 tracks per radio, and one of 5–6 pairs had overlap beyond old top 30 (A24/B37, A32/B44). User approved a second page only for pairs without eligible first-page overlap, up to 100 considered tracks per seed. No Enhanced request time limit for this diagnostic experiment; transport timeouts and cancellation still apply. Keep four concurrent requests, B-only fallback and anonymous flag on every page. Copy and Copy all from the star dialog; include per-page counts, availability, request/semaphore timings and first/final overlap. Version code 70 in same Lab, no stable merge.
+
+
+### 25 November — parallel prioritized radio experiment (Anonymous Radio)
+
+- Build 70 phone test: 7 pairs, 0 first-page overlaps, 2 after continuation; first decision 19.639 s, last 43.049 s. User approved increasing concurrent requests to eight, prioritizing nearest pairs and overlapping continuations. Build 71: FIFO admission of four complete pair workers, two requests each; early continuation if no possible first-page match, recheck exact ordered exclusions for matches consumed by earlier pairs. All results still emitted in order. One shared eight-slot radio semaphore across startup/prefetch; no Enhanced timeout. Added pair admission and ordered-decision waits to diagnostics. Same Lab ID; Stable unchanged, no merge. Phone timing acceptance pending.

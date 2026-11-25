@@ -84,6 +84,8 @@ data class EnhancedRadioDiagnostic(
     val initialPairMs: Long,
     val extensionMs: Long,
     val elapsedMs: Long,
+    val pairAdmissionWaitMs: Long = 0,
+    val orderedDecisionWaitMs: Long = 0,
 ) {
     fun asText(): String = buildString {
         appendLine("Enhanced recommendation")
@@ -95,8 +97,10 @@ data class EnhancedRadioDiagnostic(
         appendLine("Common after page 1: $firstPageMatches")
         appendLine("Common after optional page 2: ${commonSongs.size}")
         appendLine("Common with old top 30: $oldTop30Matches")
+        appendLine("Pair admission wait: ${pairAdmissionWaitMs} ms")
         appendLine("Initial A+B phase: ${initialPairMs} ms")
         appendLine("Extra page phase: ${extensionMs} ms")
+        appendLine("Ordered decision wait: ${orderedDecisionWaitMs} ms")
         appendLine("Decision since batch start: ${elapsedMs} ms")
         appendLine("Source: $source")
         appendLine("Selected: $selectedSong")
@@ -132,6 +136,8 @@ internal fun enhancedRadioDiagnostic(
         initialPairMs = timing.initialPairMs,
         extensionMs = timing.extensionMs,
         elapsedMs = timing.elapsedMs,
+        pairAdmissionWaitMs = timing.pairAdmissionWaitMs,
+        orderedDecisionWaitMs = timing.orderedDecisionWaitMs,
     )
 }
 
@@ -139,7 +145,7 @@ internal fun enhancedRadioDiagnostic(
  * One temporary queue block: 14 liked songs, up to 7 new recommendations.
  *
  * For every pair we query radio for both songs, preferring overlap between the
- * two radios. Calls run at most 4 concurrently; failed radios do not interrupt
+ * two radios. Calls run at most 8 concurrently; failed radios do not interrupt
  * already playing music. Do not treat this as a YouTube Music two-song API.
  */
 internal suspend fun buildEnhancedBatch(

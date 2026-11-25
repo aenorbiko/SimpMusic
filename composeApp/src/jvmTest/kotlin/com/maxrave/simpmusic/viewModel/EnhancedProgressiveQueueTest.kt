@@ -250,4 +250,93 @@ class EnhancedProgressiveQueueTest {
         ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
         assertEquals(listOf(listOf("A", "B", "B-1")), emitted)
     }
+
+    @Test
+    fun firstFourPairsExtendConcurrentlyBeforeLaterPairsCanTakeSlots() = runBlocking {
+        val firstExtraStarted = CompletableDeferred<Unit>()
+        val releaseExtras = CompletableDeferred<Unit>()
+        val initialSeeds = mutableSetOf<String>()
+        val extraSeeds = mutableSetOf<String>()
+        val emitted = mutableListOf<List<String>>()
+        var active = 0
+        var maxActive = 0
+        val seeds = (1..10).map { "S$it" }
+        val worker = async {
+            emitPagedEnhancedPairs(
+                seeds = seeds, excludedIds = seeds.toSet(), id = { it },
+                fetchPage = { seed, token ->
+                    active++
+                    maxActive = maxOf(maxActive, active)
+                    try {
+                        if (token == null) {
+                            initialSeeds.add(seed)
+                            EnhancedRadioPage(listOf("Only-$seed"), "next")
+                        } else {
+                            extraSeeds.add(seed)
+                            if (extraSeeds.size == 8) firstExtraStarted.complete(Unit)
+                            releaseExtras.await()
+                            EnhancedRadioPage(listOf("Extra-$seed"))
+                        }
+                    } finally { active-- }
+                },
+            ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        }
+        withTimeout(2_000) { firstExtraStarted.await() }
+        assertEquals(seeds.take(8).toSet(), initialSeeds)
+        assertEquals(seeds.take(8).toSet(), extraSeeds)
+        assertEquals(8, maxActive)
+        assertTrue(emitted.isEmpty())
+        releaseExtras.complete(Unit)
+        withTimeout(2_000) { worker.await() }
+        assertEquals(seeds.chunked(2).map { it + "Only-${it[1]}" }, emitted)
+        assertTrue(maxActive <= 8)
+    }
+
+    @Test
+    fun laterPairFetchesExtraIfEarlierPairConsumesItsOnlyInitialMatch() = runBlocking {
+        val extraCalls = mutableListOf<String>()
+        val emitted = mutableListOf<List<String>>()
+        val reports = mutableListOf<EnhancedPairTiming<String>>()
+        emitPagedEnhancedPairs(
+            seeds = listOf("A", "B", "C", "D"), excludedIds = setOf("A", "B", "C", "D"), id = { it },
+            fetchPage = { seed, token ->
+                if (token == null) EnhancedRadioPage(listOf("Shared", "Only-$seed"), "next")
+                else {
+                    extraCalls.add(seed)
+                    EnhancedRadioPage(listOf("NextShared"))
+                }
+            },
+            onDecision = { _, _, timing -> reports.add(timing) },
+        ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        assertEquals(listOf(listOf("A", "B", "Shared"), listOf("C", "D", "NextShared")), emitted)
+        assertEquals(setOf("C", "D"), extraCalls.toSet())
+        assertEquals(listOf(1, 0), reports.map { it.firstMatches })
+    }
+
+    @Test
+    fun laterPairCanFinishExtraPagesButCannotEmitBeforeEarlierPair() = runBlocking {
+        val earlyGate = CompletableDeferred<Unit>()
+        val laterReady = CompletableDeferred<Unit>()
+        val emitted = mutableListOf<List<String>>()
+        val worker = async {
+            emitPagedEnhancedPairs(
+                seeds = listOf("A", "B", "C", "D"), excludedIds = emptySet(), id = { it },
+                fetchPage = { seed, token ->
+                    if (token == null) EnhancedRadioPage(listOf("Only-$seed"), "next")
+                    else if (seed in listOf("A", "B")) {
+                        earlyGate.await()
+                        EnhancedRadioPage(listOf("FirstShared"))
+                    } else {
+                        if (seed == "D") laterReady.complete(Unit)
+                        EnhancedRadioPage(listOf("LaterShared"))
+                    }
+                },
+            ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        }
+        withTimeout(2_000) { laterReady.await() }
+        assertTrue(emitted.isEmpty())
+        earlyGate.complete(Unit)
+        withTimeout(2_000) { worker.await() }
+        assertEquals(listOf(listOf("A", "B", "FirstShared"), listOf("C", "D", "LaterShared")), emitted)
+    }
 }

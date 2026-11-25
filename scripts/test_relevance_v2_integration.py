@@ -22,6 +22,11 @@ assert "val neighbours =" not in progressive, "Do not borrow other pairs' radio 
 assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds)" in prefetch, "Prefetch must use the SAME pair selector"
 assert "if (firstDecision.matches.isEmpty())" in progressive
 assert "ENHANCED_RADIO_MAX_TRACKS = 100" in progressive
+assert "ENHANCED_RADIO_MAX_PARALLEL_PAIRS = 4" in progressive
+assert "Semaphore(ENHANCED_RADIO_MAX_PARALLEL_REQUESTS)" in progressive
+assert "async(start = CoroutineStart.UNDISPATCHED)" in progressive
+assert "orderedExclusions[index].await()" in progressive
+assert "if (potential.matches.isEmpty()) loadExtra()" in progressive
 assert "withTimeoutOrNull" not in prefetch
 assert "body = forkRelease.notes," in shared, "Fork update dialog should show clean release body"
 assert "body = forkRelease.notes +" not in shared, "No literal escaped newline or duplicate changelog link"
