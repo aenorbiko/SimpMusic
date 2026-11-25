@@ -74,7 +74,7 @@ class EnhancedProgressiveQueueTest {
     }
 
     @Test
-    fun topThirtyAndSecondRadioFallbackAlsoApplyToProgressiveStartup() = runBlocking {
+    fun fullReturnedListsAndSecondRadioFallbackApplyToProgressiveStartup() = runBlocking {
         val emitted = mutableListOf<List<String>>()
         val first = (1..30).map { "A$it" } + "Beyond30"
         val second = (1..30).map { "B$it" } + "Beyond30"
@@ -93,10 +93,10 @@ class EnhancedProgressiveQueueTest {
         ) { pair, recommendation ->
             emitted += pair + listOfNotNull(recommendation)
         }
-        // Beyond30 is shared but not eligible; pick B1 from B's filtered first 30.
+        // Beyond30 is shared and now eligible; prefer it to B1.
         // Second pair has no common radio candidate, so retain D's radio fallback.
         assertEquals(
-            listOf(listOf("A", "B", "B1"), listOf("C", "D", "FreshFromD")),
+            listOf(listOf("A", "B", "Beyond30"), listOf("C", "D", "FreshFromD")),
             emitted,
         )
     }

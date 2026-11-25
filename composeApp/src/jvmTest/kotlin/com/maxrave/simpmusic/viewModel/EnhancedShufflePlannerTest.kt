@@ -178,6 +178,28 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
+    fun diagnosticsCountAllEligibleMatchesAndOldThirty() {
+        val result = EnhancedShufflePlanner.analyzePair(
+            firstRadio = listOf("Owned", "A1", "A1", "SharedNear") + (1..30).map { "Aextra$it" } + "SharedFar",
+            secondRadio = listOf("Owned", "SharedNear") + (1..30).map { "Bextra$it" } + "SharedFar",
+            usedIds = setOf("Owned"),
+            id = { it },
+        )
+        assertEquals(35, result.receivedA)
+        assertEquals(33, result.eligibleA)
+        assertEquals(2, result.matches.size)
+        assertEquals(1, result.oldTop30Matches)
+        assertEquals("A+B", result.source)
+        assertEquals("SharedNear", result.recommendation)
+        assertEquals(2, result.selectedRankA)
+        assertEquals(1, result.selectedRankB)
+        val fallback = EnhancedShufflePlanner.analyzePair(listOf("A"), listOf("B"), emptySet()) { it }
+        assertEquals("B", fallback.source)
+        assertEquals(0, fallback.matches.size)
+        assertEquals(null, fallback.selectedRankA)
+    }
+
+    @Test
     fun commonCandidateWithinExpandedThirtyBeatsRadioBFallback() {
         val pick = EnhancedShufflePlanner.selectForPair(
             firstRadio = (1..29).map { "A$it" } + "SharedAt30",
@@ -189,18 +211,18 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
-    fun commonCandidateAfterTopThirtyDoesNotCount() {
+    fun commonCandidateAfterTopThirtyWins() {
         val pick = EnhancedShufflePlanner.selectForPair(
             firstRadio = (1..30).map { "A$it" } + "OnlyBeyond30",
             secondRadio = listOf("FreshSecond") + (1..29).map { "B$it" } + "OnlyBeyond30",
             usedIds = emptySet(),
             id = { it },
         )
-        assertEquals("FreshSecond", pick)
+        assertEquals("OnlyBeyond30", pick)
     }
 
     @Test
-    fun sourceTracksExcludedBeforeTakingThirtyFromRadioB() {
+    fun sourceTracksExcludedFromRadioB() {
         val albumTracks = (1..30).map { "Album$it" }
         val pick = EnhancedShufflePlanner.selectForPair(
             firstRadio = emptyList(),

@@ -213,3 +213,9 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 - **MERGED:** PR #1 merged into `feature/enhanced-shuffle` on 2026-11-15 (merge commit `42b19994`). Stable app label remains `SimpMusic Dev`; the Lab-only name is set in the Lab workflow. Stable workflow runs all-playlist source and JVM regression checks. **CI/release status must be verified separately; do not claim the newly merged APK has been published before the stable workflow succeeds.**
 - Keep future improvements isolated in their own branches branched from `main`. Do not combine startup-speed, relevance, radio-preserve, cache and lyrics-profile work in the merge.
+
+
+### 25 November — Anonymous Radio full-list diagnostics (phone test pending)
+
+- User approved removing the local top-30 cap on both A/B returned radio lists. Do not fetch continuation pages yet; keep B-only fallback, anonymity, progressive startup, prefetch and Bluetooth star restoration.
+- Tap the queue recommendation star to see A/B seeds, received and eligible counts, full eligible overlap, old top-30 overlap, selected source and one-based filtered ranks. Diagnostics are process-local and may be unavailable for restored recommendations; no account data is stored. Same Anonymous Radio package; experimental version code 69. Stable remains 68. No merge until user approval and phone testing.

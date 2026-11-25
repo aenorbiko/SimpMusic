@@ -3,6 +3,7 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
 import com.maxrave.simpmusic.ui.component.EnhancedRecommendationBadge
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -282,7 +283,9 @@ internal fun AppleMusicQueueView(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.width(22.dp), contentAlignment = Alignment.Center) {
                                 if (track.videoId in state.recommendedTrackIds) {
-                                    Text("✦", color = activePillContent)
+                                    com.maxrave.simpmusic.ui.component.EnhancedDiagnosticStar(
+                                        track.videoId, activePillContent, MaterialTheme.typography.bodyMedium, koinInject(),
+                                    )
                                 }
                             }
                             SongFullWidthItems(

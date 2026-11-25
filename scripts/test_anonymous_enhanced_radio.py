@@ -21,7 +21,7 @@ assert "ytClient(client, setLogin = !anonymous, anonymousRequest = anonymous)" i
 assert "client.toContext(locale, if (anonymous) null else visitorData)" in transport
 assert "anonymous = true," in enhanced, "Only Enhanced song-radio must explicitly opt into guest mode"
 assert 'playlistId = "RDAMVM${song.videoId}"' in enhanced
-assert "RADIO_CANDIDATE_LIMIT = 30" in planner
+assert "RADIO_CANDIDATE_LIMIT" not in planner
 assert 'isAnonymousRadioExperiment -> ".dev.anonymousradio"' in gradle
-assert "return b.firstOrNull()" in planner, "Keep the user's B-radio fallback"
+assert "best?.track ?: b.firstOrNull()" in planner, "Keep the user's B-radio fallback"
 print("PASS: no signed-in cookie, account header or account visitorData in Enhanced radio; other requests remain signed in.")

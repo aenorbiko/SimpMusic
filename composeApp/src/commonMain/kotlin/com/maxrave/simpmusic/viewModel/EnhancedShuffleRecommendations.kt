@@ -47,7 +47,46 @@ internal fun shouldPrefetchEnhanced(remainingTracks: Int): Boolean =
 internal data class EnhancedBatch(
     val tracks: List<Track>,
     val recommendedIds: Set<String>,
+    val diagnostics: Map<String, EnhancedRadioDiagnostic> = emptyMap(),
 )
+
+/** Session-only diagnostic metadata; never includes cookies or account tokens. */
+data class EnhancedRadioDiagnostic(
+    val songA: String,
+    val songB: String,
+    val selectedSong: String,
+    val source: String,
+    val receivedA: Int,
+    val receivedB: Int,
+    val eligibleA: Int,
+    val eligibleB: Int,
+    val oldTop30Matches: Int,
+    val selectedRankA: Int?,
+    val selectedRankB: Int?,
+    val commonSongs: List<String>,
+)
+
+internal fun enhancedRadioDiagnostic(
+    pair: List<Track>,
+    decision: EnhancedShufflePlanner.RadioSelection<Track>,
+): EnhancedRadioDiagnostic? {
+    val selected = decision.recommendation ?: return null
+    if (pair.size != 2) return null
+    return EnhancedRadioDiagnostic(
+        songA = pair[0].title.orEmpty(),
+        songB = pair[1].title.orEmpty(),
+        selectedSong = selected.title.orEmpty(),
+        source = decision.source,
+        receivedA = decision.receivedA,
+        receivedB = decision.receivedB,
+        eligibleA = decision.eligibleA,
+        eligibleB = decision.eligibleB,
+        oldTop30Matches = decision.oldTop30Matches,
+        selectedRankA = decision.selectedRankA,
+        selectedRankB = decision.selectedRankB,
+        commonSongs = decision.matches.map { "${it.track.title} (A #${it.rankA}, B #${it.rankB})" },
+    )
+}
 
 /**
  * One temporary queue block: 14 liked songs, up to 7 new recommendations.
@@ -81,14 +120,18 @@ internal suspend fun buildEnhancedBatch(
         }.awaitAll()
     }
 
-    // Match only the first 15 tracks in each own pair's radio; if none match,
-    // use only the second seed's radio (top 15). Missing candidates yield
-    // a legitimate A -> B gap rather than borrowing from an unrelated pair.
-    // This same selector is used for progressive startup and later prefetch.
+    // Compare all eligible returned tracks; use B-only fallback if none match.
+    // The progressive startup uses the same selector.
+    val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
     val selected = EnhancedShufflePlanner.selectForAllPairs(
         radioPairs = radioPairs,
         excludedIds = excludedIds,
         id = { it.videoId },
+        onDecision = { index, decision ->
+            val detail = enhancedRadioDiagnostic(pairs[index], decision)
+            val recommendation = decision.recommendation
+            if (detail != null && recommendation != null) diagnostics[recommendation.videoId] = detail
+        },
     )
     val recommendations = hashSetOf<String>()
     val result = ArrayList<Track>(likedBatch.size + pairs.size)
@@ -100,5 +143,5 @@ internal suspend fun buildEnhancedBatch(
             recommendations.add(pick.videoId)
         }
     }
-    return EnhancedBatch(result, recommendations)
+    return EnhancedBatch(result, recommendations, diagnostics)
 }

@@ -238,12 +238,15 @@ class SharedViewModel(
     val smartShuffleSource: StateFlow<String?> = _smartShuffleSource.asStateFlow()
     private val _recommendedTrackIds = MutableStateFlow<Set<String>>(emptySet())
     val recommendedTrackIds: StateFlow<Set<String>> = _recommendedTrackIds.asStateFlow()
+    private val _enhancedRadioDiagnostics = MutableStateFlow<Map<String, EnhancedRadioDiagnostic>>(emptyMap())
+    val enhancedRadioDiagnostics: StateFlow<Map<String, EnhancedRadioDiagnostic>> = _enhancedRadioDiagnostics.asStateFlow()
 
     // Share exact recommendation membership with the Android Media3 notification.
     // Update synchronously BEFORE the new batch becomes a media timeline item,
     // avoiding a race between StateFlow collection and media item creation.
     private fun setRecommendedTrackIds(ids: Set<String>) {
         _recommendedTrackIds.value = ids
+        _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value.filterKeys { it in ids }
         EnhancedMediaBridge.recommendedTrackIds.value = ids
     }
 
@@ -632,6 +635,7 @@ class SharedViewModel(
                                 isAddToQueue = false,
                             )
                         }
+                        _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value + chunk.diagnostics.filterKeys { it in _recommendedTrackIds.value }
                         enhancedUsedRecommendations.addAll(chunk.recommendedIds)
                         saveActiveEnhancedSession()
                     }
@@ -733,6 +737,7 @@ class SharedViewModel(
                 )
                 if (session != enhancedSession) return@launch
                 nextEnhancedLikedIndex = start + nextLiked.size
+                _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value + nextBatch.diagnostics.filterKeys { it in _recommendedTrackIds.value }
                 enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
                 saveActiveEnhancedSession()
             } catch (e: kotlinx.coroutines.CancellationException) {

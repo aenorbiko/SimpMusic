@@ -64,46 +64,62 @@ internal object EnhancedShufflePlanner {
         return result
     }
 
-    /**
-     * First remove source-collection songs, already used recommendations and
-     * duplicate IDs, then take up to 30 remaining tracks from each radio.
-     * If a song appears in both, prefer the smallest combined rank (ties
-     * favour the radio of the second, most recently heard source song).
-     *
-     * When no common track exists, use the first unused candidate from the
-     * second song's radio, not the first song's or another pair's radio.
-     * No suitable candidate => skip this pair's recommendation.
+    /** Compare every eligible track already returned by the two radio requests.
+     * No continuation requests; preserve combined rank and B-only fallback.
+     * Positions are one-based ranks after excluding owned/used tracks and duplicate IDs.
      */
-    private const val RADIO_CANDIDATE_LIMIT = 30
+    data class RadioMatch<T>(val track: T, val rankA: Int, val rankB: Int)
+    data class RadioSelection<T>(
+        val recommendation: T?,
+        val receivedA: Int,
+        val receivedB: Int,
+        val eligibleA: Int,
+        val eligibleB: Int,
+        val matches: List<RadioMatch<T>>,
+        val selectedRankA: Int?,
+        val selectedRankB: Int?,
+    ) {
+        val source: String get() = when {
+            recommendation == null -> "None"
+            selectedRankA != null && selectedRankB != null -> "A+B"
+            else -> "B"
+        }
+        val oldTop30Matches: Int get() = matches.count { it.rankA <= 30 && it.rankB <= 30 }
+    }
+
+    fun <T> analyzePair(
+        firstRadio: List<T>,
+        secondRadio: List<T>,
+        usedIds: Set<String>,
+        id: (T) -> String,
+    ): RadioSelection<T> {
+        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val firstPosition = a.mapIndexed { index, candidate -> id(candidate) to index + 1 }.toMap()
+        val matches = b.mapIndexedNotNull { index, candidate ->
+            val rankA = firstPosition[id(candidate)] ?: return@mapIndexedNotNull null
+            RadioMatch(candidate, rankA, index + 1)
+        }.sortedWith(compareBy<RadioMatch<T>> { it.rankA + it.rankB }.thenBy { it.rankB }.thenBy { it.rankA })
+        val best = matches.firstOrNull()
+        val pick = best?.track ?: b.firstOrNull()
+        return RadioSelection(
+            recommendation = pick,
+            receivedA = firstRadio.size,
+            receivedB = secondRadio.size,
+            eligibleA = a.size,
+            eligibleB = b.size,
+            matches = matches,
+            selectedRankA = best?.rankA,
+            selectedRankB = best?.rankB ?: if (pick != null) 1 else null,
+        )
+    }
 
     fun <T> selectForPair(
         firstRadio: List<T>,
         secondRadio: List<T>,
         usedIds: Set<String>,
         id: (T) -> String,
-    ): T? {
-        val a = firstRadio
-            .filter { id(it) !in usedIds }
-            .distinctBy(id)
-            .take(RADIO_CANDIDATE_LIMIT)
-        val b = secondRadio
-            .filter { id(it) !in usedIds }
-            .distinctBy(id)
-            .take(RADIO_CANDIDATE_LIMIT)
-        val firstPosition = a.mapIndexed { index, candidate -> id(candidate) to index }.toMap()
-        val overlap = b.mapIndexedNotNull { secondPosition, candidate ->
-            val positionA = firstPosition[id(candidate)] ?: return@mapIndexedNotNull null
-            Triple(candidate, positionA, secondPosition)
-        }
-        if (overlap.isNotEmpty()) {
-            return overlap.minWithOrNull(
-                compareBy<Triple<T, Int, Int>> { it.second + it.third }
-                    .thenBy { it.third }
-                    .thenBy { it.second },
-            )?.first
-        }
-        return b.firstOrNull()
-    }
+    ): T? = analyzePair(firstRadio, secondRadio, usedIds, id).recommendation
 
     /**
      * Pick at most one new recommendation for each pair, never duplicating
@@ -114,15 +130,13 @@ internal object EnhancedShufflePlanner {
         radioPairs: List<Pair<List<T>, List<T>>>,
         excludedIds: Set<String>,
         id: (T) -> String,
+        onDecision: (Int, RadioSelection<T>) -> Unit = { _, _ -> },
     ): List<T?> {
         val used = excludedIds.toMutableSet()
-        return radioPairs.map { (first, second) ->
-            selectForPair(
-                firstRadio = first,
-                secondRadio = second,
-                usedIds = used,
-                id = id,
-            )?.also { used.add(id(it)) }
+        return radioPairs.mapIndexed { index, (first, second) ->
+            val decision = analyzePair(first, second, used, id)
+            onDecision(index, decision)
+            decision.recommendation?.also { used.add(id(it)) }
         }
     }
 

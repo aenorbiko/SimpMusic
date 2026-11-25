@@ -11,8 +11,8 @@ import kotlinx.coroutines.sync.Semaphore
  * soon as each block is ready. Unlike awaitAll(), this never waits for the
  * LAST radio lookup before the FIRST recommendation can be displayed.
  *
- * Radio Relevance V2 chooses a suggestion only from its own pair's first
- * 15 radio tracks, falling back exclusively to the second song's radio.
+ * Anonymous Radio compares all returned eligible tracks from its own pair,
+ * falling back exclusively to the second song's radio.
  * No nearby-pair borrowing: this also preserves progressive responsiveness
  * when the current pair's radios return empty.
  * Cancellation propagates to pending radio lookups and prevents late chunks.
@@ -22,6 +22,7 @@ internal suspend fun <T> emitEnhancedPairsProgressively(
     excludedIds: Set<String>,
     id: (T) -> String,
     fetchRadio: suspend (T) -> List<T>,
+    onDecision: (List<T>, EnhancedShufflePlanner.RadioSelection<T>) -> Unit = { _, _ -> },
     onChunk: suspend (sourcePair: List<T>, recommended: T?) -> Unit,
 ) {
     if (seeds.isEmpty()) return
@@ -47,12 +48,9 @@ internal suspend fun <T> emitEnhancedPairsProgressively(
             var recommendation: T? = null
             if (pair.size == 2) {
                 val (first, second) = radios[index].await()
-                recommendation = EnhancedShufflePlanner.selectForPair(
-                    firstRadio = first,
-                    secondRadio = second,
-                    usedIds = used,
-                    id = id,
-                )
+                val decision = EnhancedShufflePlanner.analyzePair(first, second, used, id)
+                onDecision(pair, decision)
+                recommendation = decision.recommendation
             }
             recommendation?.let { used.add(id(it)) }
             onChunk(pair, recommendation)
@@ -67,14 +65,18 @@ internal suspend fun buildEnhancedBatchProgressively(
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = Semaphore(4)
+    var diagnostic: EnhancedRadioDiagnostic? = null
     emitEnhancedPairsProgressively(
         seeds = likedBatch,
         excludedIds = excludedIds,
         id = { it.videoId },
         fetchRadio = { track -> fetchEnhancedRadio(track, songRepository, semaphore) },
+        onDecision = { pair, decision -> diagnostic = enhancedRadioDiagnostic(pair, decision) },
     ) { pair, recommendation ->
         val tracks = if (recommendation == null) pair else pair + recommendation
         val recommendationIds = recommendation?.let { setOf(it.videoId) }.orEmpty()
-        onChunkReady(EnhancedBatch(tracks, recommendationIds))
+        val details = diagnostic?.let { d -> recommendation?.let { mapOf(it.videoId to d) } }.orEmpty()
+        diagnostic = null
+        onChunkReady(EnhancedBatch(tracks, recommendationIds, details))
     }
 }
