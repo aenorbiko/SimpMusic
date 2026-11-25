@@ -167,4 +167,48 @@ class EnhancedRadioMetadataDiagnosticsTest {
         assertTrue(lines.contains("Shared artists before / after: 1 / 1; lost: 0"))
         assertTrue(lines.none { it.startsWith("Removed exact:") })
     }
+
+    private fun choose(a: List<RadioMetadataCandidate>, b: List<RadioMetadataCandidate>, used: Set<String> = emptySet()) =
+        EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, { it.videoId }) { track, rank -> track.copy(rank = rank) }
+
+    @Test
+    fun exactIdWinsEvenWhenTitleOrArtistMatchRanksHigher() {
+        val a = listOf(track("a", "Song"), track("same", "Exact", "Other"))
+        val b = listOf(track("b", "Song"), track("same", "Exact", "Other"))
+        val decision = choose(a, b)
+        assertEquals("same", decision.recommendation?.videoId)
+        assertEquals("A+B", decision.source)
+        assertEquals(1, decision.matches.size)
+    }
+
+    @Test
+    fun normalizedTitleAndArtistWinOverSharedArtistAndBFirst() {
+        val a = listOf(track("a", "Song (Official Video)"))
+        val b = listOf(track("fallback", "Unrelated", "Other"), track("artist", "Another Song"), track("title", "Song"))
+        val decision = choose(a, b)
+        assertEquals("title", decision.recommendation?.videoId)
+        assertEquals("A+B (title + artist)", decision.source)
+        assertEquals(3, decision.selectedRankB)
+        assertTrue(decision.matches.isEmpty())
+    }
+
+    @Test
+    fun sharedArtistDifferentSongWinsOverUnrelatedBFirstButNeverUsesExcludedIds() {
+        val a = listOf(track("a", "One"))
+        val b = listOf(track("fallback", "Unrelated", "Other"), track("owned", "Two"), track("new", "Three"))
+        val decision = choose(a, b, setOf("owned"))
+        assertEquals("new", decision.recommendation?.videoId)
+        assertEquals("A+B (shared artist)", decision.source)
+        assertEquals(2, decision.selectedRankB)
+        assertEquals("fallback", choose(a, b, setOf("a", "owned", "new")).recommendation?.videoId)
+    }
+
+    @Test
+    fun differentVersionAloneDoesNotOverrideFirstBAndNoBDoesNotInventRecommendation() {
+        val a = listOf(track("a", "Song"))
+        val b = listOf(track("fallback", "Unrelated", "Other"), track("remix", "Song (Techno Remix)"))
+        assertEquals("fallback", choose(a, b).recommendation?.videoId)
+        assertEquals("B", choose(a, b).source)
+        assertEquals(null, choose(a, emptyList()).recommendation)
+    }
 }

@@ -29,7 +29,10 @@ assert "orderedExclusions[index].await()" in progressive
 assert "if (potential.matches.isEmpty()) loadExtra()" in progressive
 assert "withTimeoutOrNull" not in prefetch
 assert "EnhancedRadioMetadataDiagnostics.compare(" in prefetch
-assert "EnhancedRadioMetadataDiagnostics" not in progressive, "Metadata must never alter radio scheduling or selection"
+assert "EnhancedRadioMetadataDiagnostics" not in progressive, "Keep diagnostic code out of the radio scheduler"
+assert "val decision = chooseFinal(allA, allB, used, id)" in progressive
+assert "analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata)" in progressive
+assert "if (exact.matches.isNotEmpty() || exact.recommendation == null) return exact" in planner
 assert "eligibleRadioA = allA.filter { id(it) !in used }.distinctBy(id)" in progressive
 assert "body = forkRelease.notes," in shared, "Fork update dialog should show clean release body"
 assert "body = forkRelease.notes +" not in shared, "No literal escaped newline or duplicate changelog link"

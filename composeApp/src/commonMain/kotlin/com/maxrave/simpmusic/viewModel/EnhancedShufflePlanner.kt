@@ -78,9 +78,12 @@ internal object EnhancedShufflePlanner {
         val matches: List<RadioMatch<T>>,
         val selectedRankA: Int?,
         val selectedRankB: Int?,
+        val metadataMethod: String? = null,
+        val metadataEvidence: String? = null,
     ) {
         val source: String get() = when {
             recommendation == null -> "None"
+            metadataMethod != null -> metadataMethod
             selectedRankA != null && selectedRankB != null -> "A+B"
             else -> "B"
         }
@@ -111,6 +114,39 @@ internal object EnhancedShufflePlanner {
             matches = matches,
             selectedRankA = best?.rankA,
             selectedRankB = best?.rankB ?: if (pick != null) 1 else null,
+        )
+    }
+
+    /** Final choice after the existing page-loading policy has run.
+     * The exact videoId overlap remains absolute priority. The two additional
+     * tiers only consider eligible tracks, select the B-side track, and never
+     * promote the looser different-version diagnostic category.
+     */
+    fun <T> analyzePairWithMetadata(
+        firstRadio: List<T>,
+        secondRadio: List<T>,
+        usedIds: Set<String>,
+        id: (T) -> String,
+        metadata: (T, Int) -> RadioMetadataCandidate,
+    ): RadioSelection<T> {
+        val exact = analyzePair(firstRadio, secondRadio, usedIds, id)
+        if (exact.matches.isNotEmpty() || exact.recommendation == null) return exact
+        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            a.mapIndexed { index, track -> metadata(track, index + 1) },
+            b.mapIndexed { index, track -> metadata(track, index + 1) },
+        )
+        val titleMatch = report.sameTitleExamples.firstOrNull()
+        val artist = report.bestDifferentSongArtistExample
+        val match = titleMatch ?: artist?.bestDifferentSong ?: return exact
+        val selected = b.firstOrNull { id(it) == match.b.videoId } ?: return exact
+        return exact.copy(
+            recommendation = selected,
+            selectedRankA = match.a.rank,
+            selectedRankB = match.b.rank,
+            metadataMethod = if (titleMatch != null) "A+B (title + artist)" else "A+B (shared artist)",
+            metadataEvidence = if (titleMatch != null) match.asText() else artist!!.name + " — " + match.asText(),
         )
     }
 

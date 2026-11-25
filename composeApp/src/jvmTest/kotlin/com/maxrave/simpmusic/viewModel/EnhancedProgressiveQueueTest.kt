@@ -339,4 +339,30 @@ class EnhancedProgressiveQueueTest {
         withTimeout(2_000) { worker.await() }
         assertEquals(listOf(listOf("A", "B", "FirstShared"), listOf("C", "D", "LaterShared")), emitted)
     }
+
+    @Test
+    fun finalMetadataSelectorKeepsContinuationPolicyAndDeduplicationAcrossPairs() = runBlocking {
+        val emitted = mutableListOf<List<String>>()
+        val calls = mutableListOf<Pair<String, String?>>()
+        val seeds = listOf("A", "B", "C", "D")
+        emitPagedEnhancedPairs(
+            seeds = seeds,
+            excludedIds = seeds.toSet(),
+            id = { it },
+            fetchPage = { seed, token ->
+                calls.add(seed to token)
+                if (token == null) EnhancedRadioPage(
+                    if (seed in listOf("A", "C")) listOf("Evidence-$seed") else listOf("Fallback-$seed", "Candidate"),
+                    "next",
+                ) else EnhancedRadioPage(emptyList())
+            },
+            chooseFinal = { a, b, used, id ->
+                EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id) { item, rank ->
+                    RadioMetadataCandidate(item, item, listOf(if (item.startsWith("Evidence") || item == "Candidate") "Shared" else "Other"), null, rank)
+                }
+            },
+        ) { pair, recommendation -> emitted.add(pair + listOfNotNull(recommendation)) }
+        assertEquals(listOf(listOf("A", "B", "Candidate"), listOf("C", "D", "Fallback-D")), emitted)
+        assertEquals(4, calls.count { it.second != null })
+    }
 }

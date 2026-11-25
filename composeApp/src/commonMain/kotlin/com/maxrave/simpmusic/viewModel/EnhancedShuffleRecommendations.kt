@@ -65,6 +65,15 @@ internal data class EnhancedBatch(
     val diagnostics: Map<String, EnhancedRadioDiagnostic> = emptyMap(),
 )
 
+internal fun enhancedRadioMetadata(track: Track, rank: Int): RadioMetadataCandidate =
+    RadioMetadataCandidate(
+        videoId = track.videoId,
+        title = track.title,
+        artists = track.artists.orEmpty().map { it.name },
+        durationSeconds = track.durationSeconds,
+        rank = rank,
+    )
+
 /** Session-only diagnostic metadata; never includes cookies or account tokens. */
 data class EnhancedRadioDiagnostic(
     val songA: String,
@@ -95,6 +104,7 @@ data class EnhancedRadioDiagnostic(
     val commonArtistExamples: List<String> = emptyList(),
     val bestDifferentSongArtistExample: String? = null,
     val beforeExclusionsDetails: List<String> = emptyList(),
+    val selectionEvidence: String? = null,
 ) {
     fun asText(): String = buildString {
         appendLine("Enhanced recommendation")
@@ -113,6 +123,7 @@ data class EnhancedRadioDiagnostic(
         appendLine("Decision since batch start: ${elapsedMs} ms")
         appendLine("Source: $source")
         appendLine("Selected: $selectedSong")
+        selectionEvidence?.let { appendLine("Selection evidence: $it") }
         appendLine("Eligible rank A: ${selectedRankA ?: "—"} / B: ${selectedRankB ?: "—"}")
         appendLine("Common songs (eligible ranks):")
         if (commonSongs.isEmpty()) appendLine("None") else commonSongs.forEach { appendLine(it) }
@@ -121,11 +132,11 @@ data class EnhancedRadioDiagnostic(
         metadataSameTitleExamples.forEach { appendLine(it) }
         appendLine("Possible different versions + same artist(s): $metadataVersionCount")
         metadataVersionExamples.forEach { appendLine(it) }
-        appendLine("Up to 5 examples per category, ordered by combined eligible rank. Diagnostic only.")
+        appendLine("Up to 5 examples per category, ordered by combined eligible rank. Different-version matches remain diagnostic only.")
         appendLine("Shared artists (eligible tracks, individually matched names): $commonArtistCount")
         appendLine("Shared artists with different base song titles: $commonArtistDifferentSongCount")
         commonArtistExamples.forEach { appendLine(it) }
-        bestDifferentSongArtistExample?.let { appendLine("Best different-song artist candidate (diagnostic only): $it") }
+        bestDifferentSongArtistExample?.let { appendLine("Best different-song artist candidate: $it") }
         appendLine("Up to 5 shared artists; up to 3 ranked tracks per radio per artist.")
         beforeExclusionsDetails.forEach { appendLine(it) }
     }.trimEnd()
@@ -138,15 +149,7 @@ internal fun enhancedRadioDiagnostic(
 ): EnhancedRadioDiagnostic? {
     val selected = decision.recommendation ?: return null
     if (pair.size != 2) return null
-    fun metadata(tracks: List<Track>) = tracks.mapIndexed { index, track ->
-        RadioMetadataCandidate(
-            videoId = track.videoId,
-            title = track.title,
-            artists = track.artists.orEmpty().map { it.name },
-            durationSeconds = track.durationSeconds,
-            rank = index + 1,
-        )
-    }
+    fun metadata(tracks: List<Track>) = tracks.mapIndexed { index, track -> enhancedRadioMetadata(track, index + 1) }
     val eligibleA = metadata(timing.eligibleRadioA)
     val eligibleB = metadata(timing.eligibleRadioB)
     val metadataReport = EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB)
@@ -161,6 +164,7 @@ internal fun enhancedRadioDiagnostic(
         songB = pair[1].title.orEmpty(),
         selectedSong = selected.title.orEmpty(),
         source = decision.source,
+        selectionEvidence = decision.metadataEvidence,
         receivedA = decision.receivedA,
         receivedB = decision.receivedB,
         eligibleA = decision.eligibleA,

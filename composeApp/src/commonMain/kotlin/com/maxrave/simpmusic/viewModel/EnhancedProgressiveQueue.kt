@@ -58,6 +58,8 @@ internal suspend fun <T> emitPagedEnhancedPairs(
     excludedIds: Set<String>,
     id: (T) -> String,
     fetchPage: suspend (T, String?) -> EnhancedRadioPage<T>,
+    chooseFinal: (List<T>, List<T>, Set<String>, (T) -> String) -> EnhancedShufflePlanner.RadioSelection<T> =
+        { a, b, used, key -> EnhancedShufflePlanner.analyzePair(a, b, used, key) },
     onDecision: (List<T>, EnhancedShufflePlanner.RadioSelection<T>, EnhancedPairTiming<T>) -> Unit = { _, _, _ -> },
     onChunk: suspend (sourcePair: List<T>, recommended: T?) -> Unit,
 ) = coroutineScope {
@@ -119,7 +121,7 @@ internal suspend fun <T> emitPagedEnhancedPairs(
 
                     val allA = (firstA + extraA?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
                     val allB = (firstB + extraB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
-                    val decision = EnhancedShufflePlanner.analyzePair(allA, allB, used, id)
+                    val decision = chooseFinal(allA, allB, used, id)
                     val recommendation = decision.recommendation
                     orderedExclusions[index + 1].complete(
                         if (recommendation == null) used else used + id(recommendation),
@@ -178,6 +180,7 @@ internal suspend fun buildEnhancedBatchProgressively(
         excludedIds = excludedIds,
         id = { it.videoId },
         fetchPage = { track, token -> fetchEnhancedRadio(track, songRepository, semaphore, token) },
+        chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
         onDecision = { pair, decision, timing -> diagnostic = enhancedRadioDiagnostic(pair, decision, timing) },
     ) { pair, recommendation ->
         val tracks = if (recommendation == null) pair else pair + recommendation

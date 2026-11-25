@@ -139,7 +139,8 @@ internal object EnhancedRadioMetadataDiagnostics {
     }
 
     /** Count distinct A/B ID pairs with eligible tracks, excluding exact-ID matches.
-     * Categories are disjoint. Results are diagnostic only, not recommendations.
+     * Categories are disjoint. The final selector may use the best strict title/artist
+     * and different-song shared-artist results; looser version matches remain diagnostic.
      */
     fun compare(
         a: List<RadioMetadataCandidate>,
