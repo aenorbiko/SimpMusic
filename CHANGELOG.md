@@ -23,6 +23,14 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 76 — Anonymous radio and four-tier Enhanced recommendations (2026-11-25)
+
+- Anonymous YouTube Music radio requests for the two Enhanced seeds, with signed-in account operations unchanged.
+- Four-tier selection: exact videoId, normalized title and artist, shared artist with a different song, then the first eligible track from radio B. Random shuffle and 2+1 ordering are preserved.
+- Fetch a second page only when no eligible exact overlap exists on page one; compare up to 100 returned tracks per radio. Four nearest pairs and eight concurrent radio requests, with ordered progressive delivery.
+- Restore recommendation stars before Bluetooth Media3 recovery. Keep session-only blue-star Copy/Copy all diagnostics for field testing. No radio cache or persistent repeat-request statistics yet.
+- Based on phone-tested Anonymous Radio Lab build 75. Shared artist credits may sometimes include soundtrack/project names.
+
 ### Android build 68 — Restore Enhanced after process death and Bluetooth resume (2026-11-21)
 
 - **Enhanced 2+1 resumes after Android process eviction or device reboot**, including the original source queue, recommendation markers and later queue prefetch.
@@ -84,7 +92,7 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 These builds are deliberately separate and **must not be described as shipped Stable features**:
 
-- **Relevance Lab:** compare only the first 15 songs from each radio, and if no common candidate exists, use the second song's radio only. This experiment was tested but not approved for merging due to questionable suggestions on some albums.
+- **Relevance Lab:** the original signed-in, top-15 experiment was superseded by the anonymous four-tier engine in build 76; that older experiment is not the Stable algorithm.
 - **Radio Cache Lab:** temporary in-memory caching of radio metadata. Older experimental branch; not ported to current Stable.
 - **Per-device Lyrics Offset:** earlier unfinished prototype; not yet in Stable.
 

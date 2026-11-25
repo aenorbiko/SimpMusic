@@ -1,6 +1,6 @@
 # SimpMusic Enhanced — feature backlog
 
-Last reviewed: 2026-11-16 (Australia/Brisbane).
+Last reviewed: 2026-11-21 (Australia/Brisbane).
 This is the durable feature and bug tracker for our SimpMusic fork, not an indication that all listed features are implemented.
 
 ## Development and release rules
@@ -59,6 +59,30 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - **USER PRIORITY UPDATE (2026-11-16): Detailed radio-selection diagnostics are LOW PRIORITY / DEFERRED. Do not implement them now.** The user confirmed screenshots were captured using `SimpMusic Lab (Relevance)`; no further confirmation required.
 - **Build identity caveat:** queue screenshots showing footer `SimpMusic v2.5.0` do not distinguish Lab from stable: the fork still uses upstream version metadata. Verify the installed Android app's `SimpMusic Lab (Relevance)` identity when attributing this test to the new algorithm.
 
+
+### 2A. Radio Relevance V2 + updater dialog cleanup — ISOLATED LAB, NOT MERGED
+
+- **2026-11-25 Bluetooth-star fix added by user request:** port the tested-by-compilation (not yet phone-validated) `feature/enhanced-restored-notification-star` restoration patch into Relevance V2. Before Media3 restores the queued item from disk, recover recommended IDs from validated saved Enhanced snapshot, preserving queue, position, like, and source behavior. Run regression tests; the original Star Restore Lab failed only because pinned `core` has pre-existing, unrelated nullable `SyncSupportTest.kt` compilation errors. CI temporarily excludes this *test source only* to execute focused badge tests; do not modify upstream production code for this workaround. PR #11 remains separate and unmerged.
+
+- **2026-11-17 (rebased 2026-11-21):** user explicitly requested revisiting Radio Relevance and combining the small literal `\\n\\n` formatting fix in the **same feature branch**. New `feature/enhanced-radio-relevance-v2` was originally based on Stable build 67; it is now based on **main / Android build 68** including tested Enhanced headless restoration; old `feature/enhanced-radio-relevance` remains unchanged for reference.
+- **2026-11-25 user-requested correction:** For each source-song pair A/B, first exclude tracks already in the original playlist/album, previously used recommendations and duplicate video IDs, **then** take the first 15 remaining candidates from each radio. Previously the top-15 limit was applied *before* exclusions; on single-artist albums this wasted candidate slots. The user wants the existing B-only fallback retained, no artist-based filter, no new video/remix filters, and no deliberate stricter skipping of recommendations. If the radio B returns no usable candidate at all, the existing lack-of-recommendation edge case remains unchanged. The correction may expose more overlap but does not guarantee better relevance; it adds no extra network requests.
+- **2026-11-25 user-requested experiment:** Increase the candidate limit from **15 to 30** for each radio, *after* excluding source-list tracks and previous recommendations and deduplicating. No other selection, filtering, radio request, playback, queue or Bluetooth changes. Explicitly test same-artist album «Весёлая жизнь» and compare the recommended tracks with earlier 15-candidate screenshots. The first-30 change can improve overlap but cannot guarantee musical relevance.
+- The remaining V2 rule is unchanged: choose a common candidate ranked by summed positions (ties favour B), otherwise pick the first unused candidate from B's filtered top 30. No borrow from A's own radio or any neighboring pair; no change to the progressive/batch queue or Bluetooth restoration.
+- **Important:** apply the same selection algorithm both to the **progressive first queue** and to **later near-end prefetch**. Do not discard user-approved progressive loading (~3 seconds to first group on initial 300+ Liked phone test), notification markers, current-song preservation, shuffle state or one-Like behavior. First-30 is a local candidate limit; it does not change radio network fetch size or guarantee better subjective relevance.
+- Fix updater popup's literal `\\n\\nWhat's new` text by using the release body directly without appending escaped newlines and duplicate changelog link. It already links to CHANGELOG.md. No changes to update source/URL/package ID/certificate handling.
+- Separate permanently signed Android Lab app ID `com.maxrave.simpmusic.dev.relevance2` and label `SimpMusic Lab (Relevance V2)`. Stable `main` build 68 is untouched. Builds are published to tag `enhanced-relevance-v2-latest` once CI passes.
+- JVM tests verify top-30 boundary and overlap, rank/tiebreaks, B-only fallback, duplicate exclusion, no nearest-pair borrowing, progressive emission with empty B, cancel/rapid mode changes, and odd final source song. User phone testing and explicit merge approval are still required.
+- **Phone acceptance to request:** compare 2+1 on a mixed Liked playlist and on a single-artist album, note the selected recommendations, verify first partial queue and later near-end prefetch, quickly switch Enhanced→Shuffle and back, and inspect the updater dialog in this Lab only if a suitable newer Lab release exists (the separate Lab does not itself offer Stable APK updates). Formatting can be validated by regression/static tests and later Stable update prompt; no synthetic update to be shown.
+- Before any future Stable release, bump Android `versionCode` and write a new CHANGELOG.md Stable entry after user approves the actual quality on phone.
+
+### 2B. Enhanced Anonymous Radio Lab — ISOLATED EXPERIMENT
+
+- **2026-11-25 user request:** Create separate `feature/enhanced-anonymous-radio` from Relevance V2 *including the Bluetooth notification-star restoration fix*. Keep the source A/B pair radio requests anonymous, without any settings toggle or fallback to the user's authenticated radio.
+- Pass a request-scoped `anonymous = true` only from `fetchEnhancedRadio`; the default for all other calls to `SongRepository.getRadioFromEndpoint` and `YouTube.next` remains signed in. A guest next request must omit the account cookie, SAPISIDHASH, X-Goog-Authuser, X-Goog-Pageid, and saved account visitorData. Preserve guest mode if the automix code recursively follows a playlist pointer.
+- No change to Enhanced 2+1 order, top-30 filter-before-limit and radio-B fallback, shuffle state, local player, Bluetooth session recovery, star metadata recovery, Like, liked playlists or account auth.
+- Separate app ID `com.maxrave.simpmusic.dev.anonymousradio`, a different signed Lab APK from Relevance V2. Do not modify or merge Stable `main`. Compare both Labs on the same Umka album. Guest requests could return fewer/no songs, or still reflect region/IP/language and YouTube's general recommender.
+- Existing upstream pinned `core` nullability fixture error in `SyncSupportTest.kt` is excluded from the temporary CI test checkout, not production code; targeted star tests and normal app JVM tests must still pass.
+- PR should target the V2 feature branch and stay draft until explicit phone approval.
 
 ### 3. Fix Start Radio restarting the currently playing song — NOT IMPLEMENTED
 
@@ -189,3 +213,44 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 
 - **MERGED:** PR #1 merged into `feature/enhanced-shuffle` on 2026-11-15 (merge commit `42b19994`). Stable app label remains `SimpMusic Dev`; the Lab-only name is set in the Lab workflow. Stable workflow runs all-playlist source and JVM regression checks. **CI/release status must be verified separately; do not claim the newly merged APK has been published before the stable workflow succeeds.**
 - Keep future improvements isolated in their own branches branched from `main`. Do not combine startup-speed, relevance, radio-preserve, cache and lyrics-profile work in the merge.
+
+
+### 25 November — Anonymous Radio full-list diagnostics (phone test pending)
+
+- User approved removing the local top-30 cap on both A/B returned radio lists. Do not fetch continuation pages yet; keep B-only fallback, anonymity, progressive startup, prefetch and Bluetooth star restoration.
+- Tap the queue recommendation star to see A/B seeds, received and eligible counts, full eligible overlap, old top-30 overlap, selected source and one-based filtered ranks. Diagnostics are process-local and may be unavailable for restored recommendations; no account data is stored. Same Anonymous Radio package; experimental version code 69. Stable remains 68. No merge until user approval and phone testing.
+
+
+### 25 November — conditional continuation experiment (Anonymous Radio)
+
+- Phone screenshot f316c365: first page returned 50 tracks per radio, and one of 5–6 pairs had overlap beyond old top 30 (A24/B37, A32/B44). User approved a second page only for pairs without eligible first-page overlap, up to 100 considered tracks per seed. No Enhanced request time limit for this diagnostic experiment; transport timeouts and cancellation still apply. Keep four concurrent requests, B-only fallback and anonymous flag on every page. Copy and Copy all from the star dialog; include per-page counts, availability, request/semaphore timings and first/final overlap. Version code 70 in same Lab, no stable merge.
+
+
+### 25 November — parallel prioritized radio experiment (Anonymous Radio)
+
+- Build 70 phone test: 7 pairs, 0 first-page overlaps, 2 after continuation; first decision 19.639 s, last 43.049 s. User approved increasing concurrent requests to eight, prioritizing nearest pairs and overlapping continuations. Build 71: FIFO admission of four complete pair workers, two requests each; early continuation if no possible first-page match, recheck exact ordered exclusions for matches consumed by earlier pairs. All results still emitted in order. One shared eight-slot radio semaphore across startup/prefetch; no Enhanced timeout. Added pair admission and ordered-decision waits to diagnostics. Same Lab ID; Stable unchanged, no merge. Phone timing acceptance pending.
+
+
+### 25 November — metadata overlap diagnostics (Anonymous Radio)
+
+- Build 71 phone test: first decision 10.522 s, final 23.266 s; 26 successful requests, no semaphore waits. User approved diagnostic-only title/artist matching and possible versions, with first five examples. Build 72 compares eligible A/B tracks from the pages already retrieved, excludes equal videoIds, counts distinct cross-radio ID pairs in disjoint categories, shows original titles/artists/ranks/durations for up to five best combined-rank examples per category. Requires matching normalized artist sets; missing artists are not inferred. No new requests, no change to selection, continuation policy, concurrency, timeout, Star Fix, or stable. Same Lab package, version code 72.
+
+
+### 25 November — shared artist diagnostics (Anonymous Radio)
+
+- Build 72 phone test on mobile data: 7 pairs, 1 exact-ID overlap pair; 2 additional metadata pairings within the same seed pair, including one new composition (Training Season). User approved adding artist overlap diagnostics. Build 73 counts unique normalized artist names in both eligible radios, and separately artists with a different base-title / different-videoId track pair. Show up to five artist examples by combined best eligible ranks, up to three tracks per side with counts, and the best different-song candidate separately. Explicit collaborators count individually; missing artist metadata not inferred. No change to selection, continuation, requests, scheduling or stable. Same Lab package.
+
+
+### 25 November — raw radio overlap before exclusions (Anonymous Radio)
+
+- Build 73 phone test: 7 pairs, no common eligible song IDs or title matches, one shared eligible artist (Of The Trees), first decision 11.918 s, final 23.326 s. Build 74 adds diagnostic-only full fetched page comparison before source/owned/used ID exclusion; distinct exact matches, title/version counts, lost shared artists, and up to five examples per category with raw ranks and excluded/eligible labels. Report lost artists still having an eligible B track, plus count for A-only, without changing actual selection or requesting another page. Same Lab package; stable unchanged.
+
+
+### 25 November — activate four-tier selection (Anonymous Radio)
+
+- Build 74 phone test: 7 pairs, 0 exact or title matches, 3 shared artist names in two pairs; none lost by exclusions. First decision 7.595 s, final 19.371 s. User declined grouping shuffle pairs and third pages, approved exact ID > normalized title plus artist > shared artist with different base title > B fallback. Build 75 activates those tiers only for final eligible lists, choosing the B-side track at best combined rank. Exact-only continuation policy, 100-track cap, eight requests, anonymous mode and random shuffle unchanged. Different versions and pre-exclusion matches remain diagnostic only; retain full Copy/Copy all for testing. Shared artist names can occasionally be soundtrack/project credits, not necessarily real artists. No main merge until phone acceptance. Next intended experiment: bounded radio metadata cache, separate branch from accepted stable; old cache branch is outdated (20 min / 64 radios / 40 tracks, signed-in, no continuations).
+
+
+### 25 November — Stable promotion approved
+
+- Build 75 CI run 45589298145 success and signed APK published. Phone acceptance: 14 distinct pairs, 4 exact selections, 1 shared artist, 9 B fallback, no strict title selection encountered; all 50 page requests successful; second batch 6.693 s first and 15.767 s final. User approved Main merge. Stable 76 release preparation retains tested algorithm and session diagnostics, adds stable regression checks and changelog. Next separate feature: persistent aggregate repeat-radio request counter for 20 min / 1 h / 24 h and Copy statistics in About, no audio or radio cache; test before merging it.

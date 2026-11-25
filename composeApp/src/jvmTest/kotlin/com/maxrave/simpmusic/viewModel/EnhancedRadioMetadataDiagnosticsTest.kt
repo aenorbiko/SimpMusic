@@ -1,0 +1,214 @@
+package com.maxrave.simpmusic.viewModel
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class EnhancedRadioMetadataDiagnosticsTest {
+    private fun track(id: String, title: String, artist: String = "Depeche Mode", rank: Int = 1, seconds: Int? = 255) =
+        RadioMetadataCandidate(id, title, listOf(artist), seconds, rank)
+
+    @Test
+    fun presentationLabelsCaseAndPunctuationMatchButVideoIdIsNotCountedTwice() {
+        val a = listOf(track("a", "Enjoy the Silence (Official Video)"), track("same", "Other"))
+        val b = listOf(track("b", "ENJOY THE SILENCE!"), track("same", "Other"))
+        val report = EnhancedRadioMetadataDiagnostics.compare(a, b)
+        assertEquals(1, report.sameTitleCount)
+        assertEquals(0, report.versionCount)
+        assertEquals("b", report.sameTitleExamples.single().b.videoId)
+    }
+
+    @Test
+    fun remixesAndRemastersAreOnlyPossibleVersionMatches() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Enjoy the Silence (2006 Remaster)")),
+            listOf(track("b", "Enjoy the Silence (Techno Remix)"), track("c", "Enjoy the Silence")),
+        )
+        assertEquals(0, report.sameTitleCount)
+        assertEquals(2, report.versionCount)
+    }
+
+    @Test
+    fun sameRemixWithDifferentPresentationMatchesStrictly() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Enjoy the Silence (Techno Remix) [Official Audio]")),
+            listOf(track("b", "Enjoy the Silence (Techno Remix)")),
+        )
+        assertEquals(1, report.sameTitleCount)
+        assertEquals(0, report.versionCount)
+    }
+
+    @Test
+    fun differentOrMissingArtistDoesNotMatchEvenWithSameTitle() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Enjoy the Silence"), track("missing", "Enjoy the Silence", "")),
+            listOf(track("b", "Enjoy the Silence", "Lacuna Coil")),
+        )
+        assertEquals(0, report.sameTitleCount + report.versionCount)
+    }
+
+    @Test
+    fun examplesLimitedToFivePerCategoryButCountsIncludeAllAndBestRanksFirst() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Song", rank = 2)),
+            (1..8).map { track("strict$it", "Song", rank = 9 - it) } +
+                (1..7).map { track("version$it", "Song (Live)", rank = 8 - it) },
+        )
+        assertEquals(8, report.sameTitleCount)
+        assertEquals(7, report.versionCount)
+        assertEquals(5, report.sameTitleExamples.size)
+        assertEquals(5, report.versionExamples.size)
+        assertEquals(1, report.sameTitleExamples.first().b.rank)
+        assertEquals(1, report.versionExamples.first().b.rank)
+    }
+
+    @Test
+    fun originalTitlesArtistsRanksAndDurationDifferenceAreVisible() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Song (Official Video)", rank = 17, seconds = 255)),
+            listOf(track("b", "Song", rank = 54, seconds = 256)),
+        )
+        val text = report.sameTitleExamples.single().asText()
+        assertTrue(text.contains("#17 Song (Official Video) — Depeche Mode [4:15]"))
+        assertTrue(text.contains("#54 Song — Depeche Mode [4:16]"))
+        assertTrue(text.contains("duration difference 1 s"))
+    }
+
+    @Test
+    fun sharedArtistCanHaveDifferentSongsAndCountsDistinctTracks() {
+        val a = listOf(track("a1", "One", "Dua Lipa", 2), track("a2", "Two", "DUA LIPA", 4),
+            track("a1", "One", "Dua Lipa", 7))
+        val b = listOf(track("b1", "Three", "dua lipa", 3), track("b2", "Four", "Dua Lipa", 8),
+            track("b3", "Five", "Someone else", 1))
+        val report = EnhancedRadioMetadataDiagnostics.compare(a, b)
+        assertEquals(1, report.commonArtistCount)
+        assertEquals(1, report.commonArtistDifferentSongCount)
+        val artist = report.commonArtistExamples.single()
+        assertEquals(2, artist.tracksA.size)
+        assertEquals(2, artist.tracksB.size)
+        assertEquals("b1", report.bestDifferentSongArtistExample?.bestDifferentSong?.b?.videoId)
+        assertTrue(artist.asText().contains("#2 One"))
+    }
+
+    @Test
+    fun sameSongOrRemixDoesNotQualifyAsDifferentBaseTitle() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Song"), track("same", "Song (Live)")),
+            listOf(track("same", "Song (Live)"), track("b", "Song (Official Audio)")),
+        )
+        assertEquals(1, report.commonArtistCount)
+        assertEquals(0, report.commonArtistDifferentSongCount)
+        assertEquals(null, report.bestDifferentSongArtistExample)
+    }
+
+    @Test
+    fun individualCollaboratorsCanMatchWithoutIdenticalArtistSets() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(RadioMetadataCandidate("a", "One", listOf("Artist A", "Artist B"), null, 1)),
+            listOf(RadioMetadataCandidate("b", "Two", listOf("ARTIST B", "Artist C"), null, 2)),
+        )
+        assertEquals(1, report.commonArtistCount)
+        assertEquals("Artist B", report.commonArtistExamples.single().name)
+        assertEquals(1, report.commonArtistDifferentSongCount)
+    }
+
+    @Test
+    fun sharedArtistExamplesAreLimitedButTotalCountsAll() {
+        val a = (1..7).map { track("a$it", "One", "Artist $it", it) }
+        val b = (1..7).map { track("b$it", "Two", "Artist $it", it) }
+        val report = EnhancedRadioMetadataDiagnostics.compare(a, b)
+        assertEquals(7, report.commonArtistCount)
+        assertEquals(7, report.commonArtistDifferentSongCount)
+        assertEquals(5, report.commonArtistExamples.size)
+        assertEquals("Artist 1", report.commonArtistExamples.first().name)
+    }
+
+    @Test
+    fun excludedCommonTrackStillProvidesArtistEvidenceForEligibleB() {
+        val a = listOf(track("owned", "Known Song", "Artist", 3))
+        val b = listOf(track("owned", "Known Song", "Artist", 4), track("new", "New Song", "Artist", 8))
+        val eligibleA = emptyList<RadioMetadataCandidate>()
+        val eligibleB = listOf(b[1])
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+            a, b, eligibleA, eligibleB, EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB), 0,
+        )
+        assertTrue(lines.contains("Common videoIds before / after: 1 / 0; removed: 1"))
+        assertTrue(lines.contains("Shared artists before / after: 1 / 0; lost: 1"))
+        assertTrue(lines.contains("Lost shared artists with eligible B track: 1; eligible A only: 0"))
+        val candidate = lines.single { it.startsWith("Potential B candidate") }
+        assertTrue(candidate.contains("#3 Known Song — Artist [excluded]"))
+        assertTrue(candidate.contains("#8 New Song — Artist [eligible]"))
+    }
+
+    @Test
+    fun rawOverlapReportsRemovedMetadataVersionsAndNeverSuggestsExcludedB() {
+        val a = listOf(track("a", "Song", "Artist", 1), track("aa", "Song (Live)", "Artist", 2))
+        val b = listOf(track("b", "Song (Official Audio)", "Artist", 3))
+        val eligibleA = a
+        val eligibleB = emptyList<RadioMetadataCandidate>()
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+            a, b, eligibleA, eligibleB, EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB), 0,
+        )
+        assertTrue(lines.contains("Same title + artist(s) before / after: 1 / 0; removed: 1"))
+        assertTrue(lines.contains("Possible versions before / after: 1 / 0; removed: 1"))
+        assertTrue(lines.contains("Lost shared artists with eligible B track: 0; eligible A only: 1"))
+        assertTrue(lines.none { it.startsWith("Potential B candidate") })
+    }
+
+    @Test
+    fun eligibleOverlapIsNotReportedAsLostAndDuplicateIdsAreCountedOnce() {
+        val a = listOf(track("same", "Song", rank = 1), track("same", "Song", rank = 2))
+        val b = listOf(track("same", "Song", rank = 4))
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+            a, b, a.take(1), b, EnhancedRadioMetadataDiagnostics.compare(a.take(1), b), 1,
+        )
+        assertTrue(lines.contains("Distinct returned IDs A: 1; B: 1"))
+        assertTrue(lines.contains("Common videoIds before / after: 1 / 1; removed: 0"))
+        assertTrue(lines.contains("Shared artists before / after: 1 / 1; lost: 0"))
+        assertTrue(lines.none { it.startsWith("Removed exact:") })
+    }
+
+    private fun choose(a: List<RadioMetadataCandidate>, b: List<RadioMetadataCandidate>, used: Set<String> = emptySet()) =
+        EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, { it.videoId }) { track, rank -> track.copy(rank = rank) }
+
+    @Test
+    fun exactIdWinsEvenWhenTitleOrArtistMatchRanksHigher() {
+        val a = listOf(track("a", "Song"), track("same", "Exact", "Other"))
+        val b = listOf(track("b", "Song"), track("same", "Exact", "Other"))
+        val decision = choose(a, b)
+        assertEquals("same", decision.recommendation?.videoId)
+        assertEquals("A+B", decision.source)
+        assertEquals(1, decision.matches.size)
+    }
+
+    @Test
+    fun normalizedTitleAndArtistWinOverSharedArtistAndBFirst() {
+        val a = listOf(track("a", "Song (Official Video)"))
+        val b = listOf(track("fallback", "Unrelated", "Other"), track("artist", "Another Song"), track("title", "Song"))
+        val decision = choose(a, b)
+        assertEquals("title", decision.recommendation?.videoId)
+        assertEquals("A+B (title + artist)", decision.source)
+        assertEquals(3, decision.selectedRankB)
+        assertTrue(decision.matches.isEmpty())
+    }
+
+    @Test
+    fun sharedArtistDifferentSongWinsOverUnrelatedBFirstButNeverUsesExcludedIds() {
+        val a = listOf(track("a", "One"))
+        val b = listOf(track("fallback", "Unrelated", "Other"), track("owned", "Two"), track("new", "Three"))
+        val decision = choose(a, b, setOf("owned"))
+        assertEquals("new", decision.recommendation?.videoId)
+        assertEquals("A+B (shared artist)", decision.source)
+        assertEquals(2, decision.selectedRankB)
+        assertEquals("fallback", choose(a, b, setOf("a", "owned", "new")).recommendation?.videoId)
+    }
+
+    @Test
+    fun differentVersionAloneDoesNotOverrideFirstBAndNoBDoesNotInventRecommendation() {
+        val a = listOf(track("a", "Song"))
+        val b = listOf(track("fallback", "Unrelated", "Other"), track("remix", "Song (Techno Remix)"))
+        assertEquals("fallback", choose(a, b).recommendation?.videoId)
+        assertEquals("B", choose(a, b).source)
+        assertEquals(null, choose(a, emptyList()).recommendation)
+    }
+}

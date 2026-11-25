@@ -5,36 +5,52 @@ import com.maxrave.domain.data.model.streams.YouTubeWatchEndpoint
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.Resource
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.TimeSource
 
+/** No Enhanced-level timeout in this diagnostic Lab; transport timeouts and
+ * coroutine cancellation remain in effect. One semaphore covers every page. */
 internal suspend fun fetchEnhancedRadio(
     song: Track,
     songRepository: SongRepository,
     radioSemaphore: Semaphore,
-): List<Track> =
-        radioSemaphore.withPermit {
-            try {
-                withTimeoutOrNull(8_000L) {
-                    songRepository.getRadioFromEndpoint(
-                        YouTubeWatchEndpoint(
-                            videoId = song.videoId,
-                            playlistId = "RDAMVM${song.videoId}",
-                        ),
-                    ).firstOrNull { it is Resource.Success }?.data?.first.orEmpty()
-                }.orEmpty()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                emptyList()
-            }
+    continuation: String? = null,
+): EnhancedRadioPage<Track> {
+    val queued = TimeSource.Monotonic.markNow()
+    return radioSemaphore.withPermit {
+        val waited = queued.elapsedNow().inWholeMilliseconds
+        val started = TimeSource.Monotonic.markNow()
+        try {
+            val result = songRepository.getRadioFromEndpoint(
+                YouTubeWatchEndpoint(
+                    videoId = song.videoId,
+                    playlistId = "RDAMVM${song.videoId}",
+                ),
+                anonymous = true,
+                continuation = continuation,
+            ).firstOrNull { it is Resource.Success || it is Resource.Error }
+            val data = if (result is Resource.Success) result.data else null
+            EnhancedRadioPage(
+                tracks = data?.first.orEmpty(),
+                continuation = data?.second,
+                requestMs = started.elapsedNow().inWholeMilliseconds,
+                semaphoreWaitMs = waited,
+                status = if (result is Resource.Success) "OK" else "Error or no response",
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            EnhancedRadioPage(
+                tracks = emptyList(),
+                requestMs = started.elapsedNow().inWholeMilliseconds,
+                semaphoreWaitMs = waited,
+                status = "Request failed",
+            )
         }
-
+    }
+}
 
 internal const val ENHANCED_LIKED_BATCH_SIZE = 14
 internal const val ENHANCED_PREFETCH_REMAINING = 14
@@ -46,13 +62,143 @@ internal fun shouldPrefetchEnhanced(remainingTracks: Int): Boolean =
 internal data class EnhancedBatch(
     val tracks: List<Track>,
     val recommendedIds: Set<String>,
+    val diagnostics: Map<String, EnhancedRadioDiagnostic> = emptyMap(),
 )
+
+internal fun enhancedRadioMetadata(track: Track, rank: Int): RadioMetadataCandidate =
+    RadioMetadataCandidate(
+        videoId = track.videoId,
+        title = track.title,
+        artists = track.artists.orEmpty().map { it.name },
+        durationSeconds = track.durationSeconds,
+        rank = rank,
+    )
+
+/** Session-only diagnostic metadata; never includes cookies or account tokens. */
+data class EnhancedRadioDiagnostic(
+    val songA: String,
+    val songB: String,
+    val selectedSong: String,
+    val source: String,
+    val receivedA: Int,
+    val receivedB: Int,
+    val eligibleA: Int,
+    val eligibleB: Int,
+    val oldTop30Matches: Int,
+    val selectedRankA: Int?,
+    val selectedRankB: Int?,
+    val commonSongs: List<String>,
+    val pageDetails: List<String>,
+    val firstPageMatches: Int,
+    val initialPairMs: Long,
+    val extensionMs: Long,
+    val elapsedMs: Long,
+    val pairAdmissionWaitMs: Long = 0,
+    val orderedDecisionWaitMs: Long = 0,
+    val metadataSameTitleCount: Int = 0,
+    val metadataVersionCount: Int = 0,
+    val metadataSameTitleExamples: List<String> = emptyList(),
+    val metadataVersionExamples: List<String> = emptyList(),
+    val commonArtistCount: Int = 0,
+    val commonArtistDifferentSongCount: Int = 0,
+    val commonArtistExamples: List<String> = emptyList(),
+    val bestDifferentSongArtistExample: String? = null,
+    val beforeExclusionsDetails: List<String> = emptyList(),
+    val selectionEvidence: String? = null,
+) {
+    fun asText(): String = buildString {
+        appendLine("Enhanced recommendation")
+        appendLine("A: $songA")
+        appendLine("B: $songB")
+        pageDetails.forEach { appendLine(it) }
+        appendLine("Radio A: $receivedA considered / $eligibleA eligible")
+        appendLine("Radio B: $receivedB considered / $eligibleB eligible")
+        appendLine("Common after page 1: $firstPageMatches")
+        appendLine("Common after optional page 2: ${commonSongs.size}")
+        appendLine("Common with old top 30: $oldTop30Matches")
+        appendLine("Pair admission wait: ${pairAdmissionWaitMs} ms")
+        appendLine("Initial A+B phase: ${initialPairMs} ms")
+        appendLine("Extra page phase: ${extensionMs} ms")
+        appendLine("Ordered decision wait: ${orderedDecisionWaitMs} ms")
+        appendLine("Decision since batch start: ${elapsedMs} ms")
+        appendLine("Source: $source")
+        appendLine("Selected: $selectedSong")
+        selectionEvidence?.let { appendLine("Selection evidence: $it") }
+        appendLine("Eligible rank A: ${selectedRankA ?: "—"} / B: ${selectedRankB ?: "—"}")
+        appendLine("Common songs (eligible ranks):")
+        if (commonSongs.isEmpty()) appendLine("None") else commonSongs.forEach { appendLine(it) }
+        appendLine("Additional metadata matches (different videoIds; eligible A/B pairs):")
+        appendLine("Same normalized title + artist(s): $metadataSameTitleCount")
+        metadataSameTitleExamples.forEach { appendLine(it) }
+        appendLine("Possible different versions + same artist(s): $metadataVersionCount")
+        metadataVersionExamples.forEach { appendLine(it) }
+        appendLine("Up to 5 examples per category, ordered by combined eligible rank. Different-version matches remain diagnostic only.")
+        appendLine("Shared artists (eligible tracks, individually matched names): $commonArtistCount")
+        appendLine("Shared artists with different base song titles: $commonArtistDifferentSongCount")
+        commonArtistExamples.forEach { appendLine(it) }
+        bestDifferentSongArtistExample?.let { appendLine("Best different-song artist candidate: $it") }
+        appendLine("Up to 5 shared artists; up to 3 ranked tracks per radio per artist.")
+        beforeExclusionsDetails.forEach { appendLine(it) }
+    }.trimEnd()
+}
+
+internal fun enhancedRadioDiagnostic(
+    pair: List<Track>,
+    decision: EnhancedShufflePlanner.RadioSelection<Track>,
+    timing: EnhancedPairTiming<Track>,
+): EnhancedRadioDiagnostic? {
+    val selected = decision.recommendation ?: return null
+    if (pair.size != 2) return null
+    fun metadata(tracks: List<Track>) = tracks.mapIndexed { index, track -> enhancedRadioMetadata(track, index + 1) }
+    val eligibleA = metadata(timing.eligibleRadioA)
+    val eligibleB = metadata(timing.eligibleRadioB)
+    val metadataReport = EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB)
+    val rawA = metadata((timing.firstA.tracks + timing.secondA?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS))
+    val rawB = metadata((timing.firstB.tracks + timing.secondB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS))
+    val beforeExclusions = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+        rawA, rawB, eligibleA, eligibleB, metadataReport, decision.matches.size,
+    )
+    fun page(label: String, p: EnhancedRadioPage<Track>?): String = if (p == null) "$label: not requested" else "$label: ${p.tracks.size} received; ${p.requestMs} ms request + ${p.semaphoreWaitMs} ms wait; ${p.status}; next page available: ${!p.continuation.isNullOrBlank()}"
+    return EnhancedRadioDiagnostic(
+        songA = pair[0].title.orEmpty(),
+        songB = pair[1].title.orEmpty(),
+        selectedSong = selected.title.orEmpty(),
+        source = decision.source,
+        selectionEvidence = decision.metadataEvidence,
+        receivedA = decision.receivedA,
+        receivedB = decision.receivedB,
+        eligibleA = decision.eligibleA,
+        eligibleB = decision.eligibleB,
+        oldTop30Matches = decision.oldTop30Matches,
+        selectedRankA = decision.selectedRankA,
+        selectedRankB = decision.selectedRankB,
+        commonSongs = decision.matches.map { "${it.track.title} (A #${it.rankA}, B #${it.rankB})" },
+        pageDetails = listOf(page("A page 1", timing.firstA), page("B page 1", timing.firstB), page("A page 2", timing.secondA), page("B page 2", timing.secondB)),
+        firstPageMatches = timing.firstMatches,
+        initialPairMs = timing.initialPairMs,
+        extensionMs = timing.extensionMs,
+        elapsedMs = timing.elapsedMs,
+        pairAdmissionWaitMs = timing.pairAdmissionWaitMs,
+        orderedDecisionWaitMs = timing.orderedDecisionWaitMs,
+        metadataSameTitleCount = metadataReport.sameTitleCount,
+        metadataVersionCount = metadataReport.versionCount,
+        metadataSameTitleExamples = metadataReport.sameTitleExamples.map { it.asText() },
+        metadataVersionExamples = metadataReport.versionExamples.map { it.asText() },
+        beforeExclusionsDetails = beforeExclusions,
+        commonArtistCount = metadataReport.commonArtistCount,
+        commonArtistDifferentSongCount = metadataReport.commonArtistDifferentSongCount,
+        commonArtistExamples = metadataReport.commonArtistExamples.map { it.asText() },
+        bestDifferentSongArtistExample = metadataReport.bestDifferentSongArtistExample?.let { artist ->
+            artist.bestDifferentSong?.let { artist.name + " — " + it.asText() }
+        },
+    )
+}
 
 /**
  * One temporary queue block: 14 liked songs, up to 7 new recommendations.
  *
  * For every pair we query radio for both songs, preferring overlap between the
- * two radios. Calls run at most 4 concurrently; failed radios do not interrupt
+ * two radios. Calls run at most 8 concurrently; failed radios do not interrupt
  * already playing music. Do not treat this as a YouTube Music two-song API.
  */
 internal suspend fun buildEnhancedBatch(
@@ -60,44 +206,14 @@ internal suspend fun buildEnhancedBatch(
     songRepository: SongRepository,
     excludedIds: Set<String>,
 ): EnhancedBatch {
-    if (likedBatch.isEmpty()) return EnhancedBatch(emptyList(), emptySet())
-    val pairs = likedBatch.chunked(2)
-    val radioSemaphore = Semaphore(4)
-
-    val radioPairs = coroutineScope {
-        pairs.map { pair ->
-            async {
-                if (pair.size != 2) {
-                    emptyList<Track>() to emptyList<Track>()
-                } else {
-                    coroutineScope {
-                        val first = async { fetchEnhancedRadio(pair[0], songRepository, radioSemaphore) }
-                        val second = async { fetchEnhancedRadio(pair[1], songRepository, radioSemaphore) }
-                        first.await() to second.await()
-                    }
-                }
-            }
-        }.awaitAll()
+    val result = mutableListOf<Track>()
+    val recommendations = mutableSetOf<String>()
+    val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
+    // The same paged selection path as startup; collect the completed prefetch batch.
+    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds) { chunk ->
+        result.addAll(chunk.tracks)
+        recommendations.addAll(chunk.recommendedIds)
+        diagnostics.putAll(chunk.diagnostics)
     }
-
-    // Radios sometimes return no usable results for a particular pair.
-    // Do not turn the opening A -> B -> recommendation slot into A -> B -> C -> D:
-    // borrow a still-unused candidate from a nearby pair's already-fetched radio.
-    // The pair's own suggestions always take priority when available.
-    val selected = EnhancedShufflePlanner.selectForAllPairs(
-        radioPairs = radioPairs,
-        excludedIds = excludedIds,
-        id = { it.videoId },
-    )
-    val recommendations = hashSetOf<String>()
-    val result = ArrayList<Track>(likedBatch.size + pairs.size)
-    for ((index, pair) in pairs.withIndex()) {
-        result.addAll(pair)
-        if (pair.size != 2) continue
-        selected[index]?.let { pick ->
-            result.add(pick)
-            recommendations.add(pick.videoId)
-        }
-    }
-    return EnhancedBatch(result, recommendations)
+    return EnhancedBatch(result, recommendations, diagnostics)
 }

@@ -1254,7 +1254,7 @@ fun QueueBottomSheet(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(Modifier.width(22.dp), contentAlignment = Alignment.Center) {
                                             if (track.videoId in recommendedTrackIds) {
-                                                Text("✦", color = MaterialTheme.colorScheme.primary, style = typo().titleMedium)
+                                                EnhancedDiagnosticStar(track.videoId, MaterialTheme.colorScheme.primary, typo().titleMedium, sharedViewModel)
                                             }
                                         }
                                         SongFullWidthItems(

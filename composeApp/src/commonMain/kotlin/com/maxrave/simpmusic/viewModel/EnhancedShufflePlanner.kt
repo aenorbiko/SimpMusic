@@ -64,67 +64,115 @@ internal object EnhancedShufflePlanner {
         return result
     }
 
-    /**
-     * Prefer tracks recommended by BOTH preceding liked songs, then fall back to
-     * either individual radio. This is a proxy, not a true two-song similarity score.
+    /** Compare every eligible track already returned by the two radio requests.
+     * The caller may extend its own lists; preserve combined rank and B-only fallback.
+     * Positions are one-based ranks after excluding owned/used tracks and duplicate IDs.
      */
+    data class RadioMatch<T>(val track: T, val rankA: Int, val rankB: Int)
+    data class RadioSelection<T>(
+        val recommendation: T?,
+        val receivedA: Int,
+        val receivedB: Int,
+        val eligibleA: Int,
+        val eligibleB: Int,
+        val matches: List<RadioMatch<T>>,
+        val selectedRankA: Int?,
+        val selectedRankB: Int?,
+        val metadataMethod: String? = null,
+        val metadataEvidence: String? = null,
+    ) {
+        val source: String get() = when {
+            recommendation == null -> "None"
+            metadataMethod != null -> metadataMethod
+            selectedRankA != null && selectedRankB != null -> "A+B"
+            else -> "B"
+        }
+        val oldTop30Matches: Int get() = matches.count { it.rankA <= 30 && it.rankB <= 30 }
+    }
+
+    fun <T> analyzePair(
+        firstRadio: List<T>,
+        secondRadio: List<T>,
+        usedIds: Set<String>,
+        id: (T) -> String,
+    ): RadioSelection<T> {
+        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val firstPosition = a.mapIndexed { index, candidate -> id(candidate) to index + 1 }.toMap()
+        val matches = b.mapIndexedNotNull { index, candidate ->
+            val rankA = firstPosition[id(candidate)] ?: return@mapIndexedNotNull null
+            RadioMatch(candidate, rankA, index + 1)
+        }.sortedWith(compareBy<RadioMatch<T>> { it.rankA + it.rankB }.thenBy { it.rankB }.thenBy { it.rankA })
+        val best = matches.firstOrNull()
+        val pick = best?.track ?: b.firstOrNull()
+        return RadioSelection(
+            recommendation = pick,
+            receivedA = firstRadio.size,
+            receivedB = secondRadio.size,
+            eligibleA = a.size,
+            eligibleB = b.size,
+            matches = matches,
+            selectedRankA = best?.rankA,
+            selectedRankB = best?.rankB ?: if (pick != null) 1 else null,
+        )
+    }
+
+    /** Final choice after the existing page-loading policy has run.
+     * The exact videoId overlap remains absolute priority. The two additional
+     * tiers only consider eligible tracks, select the B-side track, and never
+     * promote the looser different-version diagnostic category.
+     */
+    fun <T> analyzePairWithMetadata(
+        firstRadio: List<T>,
+        secondRadio: List<T>,
+        usedIds: Set<String>,
+        id: (T) -> String,
+        metadata: (T, Int) -> RadioMetadataCandidate,
+    ): RadioSelection<T> {
+        val exact = analyzePair(firstRadio, secondRadio, usedIds, id)
+        if (exact.matches.isNotEmpty() || exact.recommendation == null) return exact
+        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            a.mapIndexed { index, track -> metadata(track, index + 1) },
+            b.mapIndexed { index, track -> metadata(track, index + 1) },
+        )
+        val titleMatch = report.sameTitleExamples.firstOrNull()
+        val artist = report.bestDifferentSongArtistExample
+        val match = titleMatch ?: artist?.bestDifferentSong ?: return exact
+        val selected = b.firstOrNull { id(it) == match.b.videoId } ?: return exact
+        return exact.copy(
+            recommendation = selected,
+            selectedRankA = match.a.rank,
+            selectedRankB = match.b.rank,
+            metadataMethod = if (titleMatch != null) "A+B (title + artist)" else "A+B (shared artist)",
+            metadataEvidence = if (titleMatch != null) match.asText() else artist!!.name + " — " + match.asText(),
+        )
+    }
+
     fun <T> selectForPair(
         firstRadio: List<T>,
         secondRadio: List<T>,
         usedIds: Set<String>,
         id: (T) -> String,
-        preferSecondOnFallback: Boolean = false,
-    ): T? {
-        val a = firstRadio.filter { id(it) !in usedIds }.distinctBy(id)
-        val b = secondRadio.filter { id(it) !in usedIds }.distinctBy(id)
-        val secondIds = b.mapTo(hashSetOf(), id)
-        val intersection = a.filter { id(it) in secondIds }
-        if (intersection.isNotEmpty()) return intersection.first()
-
-        val preferred = if (preferSecondOnFallback) b else a
-        val alternative = if (preferSecondOnFallback) a else b
-        return preferred.firstOrNull() ?: alternative.firstOrNull()
-    }
+    ): T? = analyzePair(firstRadio, secondRadio, usedIds, id).recommendation
 
     /**
-     * Do not silently skip a 2+1 slot when both radios for that pair are empty
-     * (or only contain already-liked tracks). Prefer the pair's own radio;
-     * otherwise borrow an UNUSED recommendation from the nearest subsequent
-     * pair's radio. This preserves the 2+1 cadence whenever any candidate exists.
-     *
-     * If every fetched radio is empty, no candidate can safely be invented.
+     * Pick at most one new recommendation for each pair, never duplicating
+     * a source song or another recommendation in the current batch.
+     * A missing second-song radio yields no third song for that pair.
      */
     fun <T> selectForAllPairs(
         radioPairs: List<Pair<List<T>, List<T>>>,
         excludedIds: Set<String>,
         id: (T) -> String,
+        onDecision: (Int, RadioSelection<T>) -> Unit = { _, _ -> },
     ): List<T?> {
         val used = excludedIds.toMutableSet()
         return radioPairs.mapIndexed { index, (first, second) ->
-            var candidate = selectForPair(
-                firstRadio = first,
-                secondRadio = second,
-                usedIds = used,
-                id = id,
-                preferSecondOnFallback = index % 2 == 1,
-            )
-            if (candidate == null) {
-                val neighbours = radioPairs.indices
-                    .filter { it != index }
-                    .sortedWith(compareBy<Int> { kotlin.math.abs(it - index) }.thenBy { it })
-                for (nearby in neighbours) {
-                    val (otherFirst, otherSecond) = radioPairs[nearby]
-                    candidate = selectForPair(
-                        firstRadio = otherFirst,
-                        secondRadio = otherSecond,
-                        usedIds = used,
-                        id = id,
-                        preferSecondOnFallback = index % 2 == 1,
-                    )
-                    if (candidate != null) break
-                }
-            }
-            candidate?.also { used.add(id(it)) }
+            val decision = analyzePair(first, second, used, id)
+            onDecision(index, decision)
+            decision.recommendation?.also { used.add(id(it)) }
         }
     }
 
