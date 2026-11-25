@@ -90,6 +90,10 @@ data class EnhancedRadioDiagnostic(
     val metadataVersionCount: Int = 0,
     val metadataSameTitleExamples: List<String> = emptyList(),
     val metadataVersionExamples: List<String> = emptyList(),
+    val commonArtistCount: Int = 0,
+    val commonArtistDifferentSongCount: Int = 0,
+    val commonArtistExamples: List<String> = emptyList(),
+    val bestDifferentSongArtistExample: String? = null,
 ) {
     fun asText(): String = buildString {
         appendLine("Enhanced recommendation")
@@ -117,6 +121,11 @@ data class EnhancedRadioDiagnostic(
         appendLine("Possible different versions + same artist(s): $metadataVersionCount")
         metadataVersionExamples.forEach { appendLine(it) }
         appendLine("Up to 5 examples per category, ordered by combined eligible rank. Diagnostic only.")
+        appendLine("Shared artists (eligible tracks, individually matched names): $commonArtistCount")
+        appendLine("Shared artists with different base song titles: $commonArtistDifferentSongCount")
+        commonArtistExamples.forEach { appendLine(it) }
+        bestDifferentSongArtistExample?.let { appendLine("Best different-song artist candidate (diagnostic only): $it") }
+        appendLine("Up to 5 shared artists; up to 3 ranked tracks per radio per artist.")
     }.trimEnd()
 }
 
@@ -164,6 +173,12 @@ internal fun enhancedRadioDiagnostic(
         metadataVersionCount = metadataReport.versionCount,
         metadataSameTitleExamples = metadataReport.sameTitleExamples.map { it.asText() },
         metadataVersionExamples = metadataReport.versionExamples.map { it.asText() },
+        commonArtistCount = metadataReport.commonArtistCount,
+        commonArtistDifferentSongCount = metadataReport.commonArtistDifferentSongCount,
+        commonArtistExamples = metadataReport.commonArtistExamples.map { it.asText() },
+        bestDifferentSongArtistExample = metadataReport.bestDifferentSongArtistExample?.let { artist ->
+            artist.bestDifferentSong?.let { artist.name + " — " + it.asText() }
+        },
     )
 }
 

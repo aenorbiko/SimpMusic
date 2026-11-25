@@ -24,11 +24,34 @@ internal data class RadioMetadataMatch(
     }
 }
 
+/** Counts distinct eligible video IDs for each normalized artist, not pair combinations. */
+internal data class RadioArtistMatch(
+    val name: String,
+    val tracksA: List<RadioMetadataCandidate>,
+    val tracksB: List<RadioMetadataCandidate>,
+    val bestDifferentSong: RadioMetadataMatch?,
+) {
+    fun asText(): String {
+        fun examples(tracks: List<RadioMetadataCandidate>): String =
+            tracks.take(3).joinToString("; ") { "#" + it.rank + " " + it.title }
+        val different = bestDifferentSong?.let {
+            " | different titles: A #" + it.a.rank + " " + it.a.title +
+                " / B #" + it.b.rank + " " + it.b.title
+        } ?: " | no distinct base-title pair"
+        return name + " — A: " + tracksA.size + " tracks [" + examples(tracksA) +
+            "] | B: " + tracksB.size + " tracks [" + examples(tracksB) + "]" + different
+    }
+}
+
 internal data class RadioMetadataReport(
     val sameTitleCount: Int,
     val versionCount: Int,
     val sameTitleExamples: List<RadioMetadataMatch>,
     val versionExamples: List<RadioMetadataMatch>,
+    val commonArtistCount: Int,
+    val commonArtistDifferentSongCount: Int,
+    val commonArtistExamples: List<RadioArtistMatch>,
+    val bestDifferentSongArtistExample: RadioArtistMatch?,
 )
 
 internal object EnhancedRadioMetadataDiagnostics {
@@ -77,6 +100,44 @@ internal object EnhancedRadioMetadataDiagnostics {
         return Indexed(candidate, Identity(strict, artists), Identity(base, artists))
     }
 
+    /** Artist names are matched individually, including collaborators explicitly
+     * listed in metadata. Do not split channel names or guess from video titles.
+     */
+    private fun artistGroups(tracks: List<RadioMetadataCandidate>): Map<String, List<RadioMetadataCandidate>> =
+        tracks.distinctBy { it.videoId }.sortedBy { it.rank }
+            .flatMap { track -> track.artists.map(::normalized).filter { it.isNotBlank() }.distinct().map { it to track } }
+            .groupBy({ it.first }, { it.second })
+
+    private fun baseTitle(track: RadioMetadataCandidate): String =
+        normalized(stripSuffixes(stripSuffixes(track.title, presentationSuffix), versionSuffix))
+
+    private fun sharedArtists(a: List<RadioMetadataCandidate>, b: List<RadioMetadataCandidate>): List<RadioArtistMatch> {
+        val groupsA = artistGroups(a)
+        val groupsB = artistGroups(b)
+        val baseTitlesA = a.associate { it.videoId to baseTitle(it) }
+        val baseTitlesB = b.associate { it.videoId to baseTitle(it) }
+        val pairOrder = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
+            .thenBy { it.b.rank }.thenBy { it.a.rank }
+        return groupsA.keys.intersect(groupsB.keys).map { key ->
+            val left = groupsA.getValue(key)
+            val right = groupsB.getValue(key)
+            val displayName = left.first().artists.first { normalized(it) == key }
+            var best: RadioMetadataMatch? = null
+            for (trackA in left) {
+                val titleA = baseTitlesA[trackA.videoId].orEmpty()
+                if (titleA.isBlank()) continue
+                for (trackB in right) {
+                    val titleB = baseTitlesB[trackB.videoId].orEmpty()
+                    if (trackA.videoId == trackB.videoId || titleB.isBlank() || titleA == titleB) continue
+                    val candidate = RadioMetadataMatch(trackA, trackB)
+                    if (best?.let { pairOrder.compare(candidate, it) < 0 } != false) best = candidate
+                }
+            }
+            RadioArtistMatch(displayName, left, right, best)
+        }.sortedWith(compareBy<RadioArtistMatch> { it.tracksA.first().rank + it.tracksB.first().rank }
+            .thenBy { it.tracksB.first().rank }.thenBy { it.tracksA.first().rank }.thenBy { normalized(it.name) })
+    }
+
     /** Count distinct A/B ID pairs with eligible tracks, excluding exact-ID matches.
      * Categories are disjoint. Results are diagnostic only, not recommendations.
      */
@@ -97,11 +158,23 @@ internal object EnhancedRadioMetadataDiagnostics {
         val order = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
             .thenBy { it.b.rank }.thenBy { it.a.rank }
             .thenBy { it.a.videoId }.thenBy { it.b.videoId }
+        val artists = sharedArtists(a, b)
+        val differentSongArtists = artists.filter { it.bestDifferentSong != null }
+        val bestDifferentSongArtist = differentSongArtists.minWithOrNull(
+            compareBy<RadioArtistMatch> { it.bestDifferentSong!!.a.rank + it.bestDifferentSong.b.rank }
+                .thenBy { it.bestDifferentSong!!.b.rank }
+                .thenBy { it.bestDifferentSong!!.a.rank }
+                .thenBy { normalized(it.name) },
+        )
         return RadioMetadataReport(
             sameTitleCount = strict.size,
             versionCount = versions.size,
             sameTitleExamples = strict.sortedWith(order).take(EXAMPLE_LIMIT),
             versionExamples = versions.sortedWith(order).take(EXAMPLE_LIMIT),
+            commonArtistCount = artists.size,
+            commonArtistDifferentSongCount = differentSongArtists.size,
+            commonArtistExamples = artists.take(EXAMPLE_LIMIT),
+            bestDifferentSongArtistExample = bestDifferentSongArtist,
         )
     }
 }

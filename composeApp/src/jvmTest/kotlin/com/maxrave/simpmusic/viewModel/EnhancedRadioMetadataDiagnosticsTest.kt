@@ -73,4 +73,53 @@ class EnhancedRadioMetadataDiagnosticsTest {
         assertTrue(text.contains("#54 Song — Depeche Mode [4:16]"))
         assertTrue(text.contains("duration difference 1 s"))
     }
+
+    @Test
+    fun sharedArtistCanHaveDifferentSongsAndCountsDistinctTracks() {
+        val a = listOf(track("a1", "One", "Dua Lipa", 2), track("a2", "Two", "DUA LIPA", 4),
+            track("a1", "One", "Dua Lipa", 7))
+        val b = listOf(track("b1", "Three", "dua lipa", 3), track("b2", "Four", "Dua Lipa", 8),
+            track("b3", "Five", "Someone else", 1))
+        val report = EnhancedRadioMetadataDiagnostics.compare(a, b)
+        assertEquals(1, report.commonArtistCount)
+        assertEquals(1, report.commonArtistDifferentSongCount)
+        val artist = report.commonArtistExamples.single()
+        assertEquals(2, artist.tracksA.size)
+        assertEquals(2, artist.tracksB.size)
+        assertEquals("b1", report.bestDifferentSongArtistExample?.bestDifferentSong?.b?.videoId)
+        assertTrue(artist.asText().contains("#2 One"))
+    }
+
+    @Test
+    fun sameSongOrRemixDoesNotQualifyAsDifferentBaseTitle() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(track("a", "Song"), track("same", "Song (Live)")),
+            listOf(track("same", "Song (Live)"), track("b", "Song (Official Audio)")),
+        )
+        assertEquals(1, report.commonArtistCount)
+        assertEquals(0, report.commonArtistDifferentSongCount)
+        assertEquals(null, report.bestDifferentSongArtistExample)
+    }
+
+    @Test
+    fun individualCollaboratorsCanMatchWithoutIdenticalArtistSets() {
+        val report = EnhancedRadioMetadataDiagnostics.compare(
+            listOf(RadioMetadataCandidate("a", "One", listOf("Artist A", "Artist B"), null, 1)),
+            listOf(RadioMetadataCandidate("b", "Two", listOf("ARTIST B", "Artist C"), null, 2)),
+        )
+        assertEquals(1, report.commonArtistCount)
+        assertEquals("Artist B", report.commonArtistExamples.single().name)
+        assertEquals(1, report.commonArtistDifferentSongCount)
+    }
+
+    @Test
+    fun sharedArtistExamplesAreLimitedButTotalCountsAll() {
+        val a = (1..7).map { track("a$it", "One", "Artist $it", it) }
+        val b = (1..7).map { track("b$it", "Two", "Artist $it", it) }
+        val report = EnhancedRadioMetadataDiagnostics.compare(a, b)
+        assertEquals(7, report.commonArtistCount)
+        assertEquals(7, report.commonArtistDifferentSongCount)
+        assertEquals(5, report.commonArtistExamples.size)
+        assertEquals("Artist 1", report.commonArtistExamples.first().name)
+    }
 }
