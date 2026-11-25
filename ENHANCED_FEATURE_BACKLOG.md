@@ -249,3 +249,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ### 25 November — activate four-tier selection (Anonymous Radio)
 
 - Build 74 phone test: 7 pairs, 0 exact or title matches, 3 shared artist names in two pairs; none lost by exclusions. First decision 7.595 s, final 19.371 s. User declined grouping shuffle pairs and third pages, approved exact ID > normalized title plus artist > shared artist with different base title > B fallback. Build 75 activates those tiers only for final eligible lists, choosing the B-side track at best combined rank. Exact-only continuation policy, 100-track cap, eight requests, anonymous mode and random shuffle unchanged. Different versions and pre-exclusion matches remain diagnostic only; retain full Copy/Copy all for testing. Shared artist names can occasionally be soundtrack/project credits, not necessarily real artists. No main merge until phone acceptance. Next intended experiment: bounded radio metadata cache, separate branch from accepted stable; old cache branch is outdated (20 min / 64 radios / 40 tracks, signed-in, no continuations).
+
+
+### 25 November — Stable promotion approved
+
+- Build 75 CI run 45589298145 success and signed APK published. Phone acceptance: 14 distinct pairs, 4 exact selections, 1 shared artist, 9 B fallback, no strict title selection encountered; all 50 page requests successful; second batch 6.693 s first and 15.767 s final. User approved Main merge. Stable 76 release preparation retains tested algorithm and session diagnostics, adds stable regression checks and changelog. Next separate feature: persistent aggregate repeat-radio request counter for 20 min / 1 h / 24 h and Copy statistics in About, no audio or radio cache; test before merging it.

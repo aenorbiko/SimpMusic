@@ -62,8 +62,15 @@ jobs:
         run: python3 scripts/test_enhanced_all_playlists.py
       - name: Verify stable release changelog, in-app link and safe merged branch housekeeping
         run: python3 scripts/test_enhanced_changelog.py
+      - name: Verify paired radio integration
+        run: python3 scripts/test_relevance_v2_integration.py
       - name: Apply enhanced controls to pinned core submodule
         run: python3 scripts/apply_enhanced_core_patch.py
+      - name: Verify headless restore and anonymous radio
+        run: |
+          python3 scripts/test_headless_enhanced_restore.py
+          python3 scripts/test_restored_notification_star.py
+          python3 scripts/test_anonymous_enhanced_radio.py
       - name: Generate library definitions
         run: ./gradlew exportLibraryDefinitions
       - name: Load permanent signing key, if configured
@@ -144,8 +151,20 @@ jobs:
             --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
             --tests "com.maxrave.simpmusic.utils.EnhancedBuildIdentityTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedProgressiveQueueTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioMetadataDiagnosticsTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedQueueSessionTest" \
             --tests "com.maxrave.simpmusic.utils.EnhancedForkUpdateTest" \
             --tests "com.maxrave.simpmusic.utils.EnhancedAboutDetailsTest"
+      # Pinned upstream core contains an unrelated source-incompatible legacy test.
+      # Only exclude it in this temporary runner checkout, as in the tested Lab workflow.
+      - name: Test Bluetooth recommendation badge restoration (isolated core tests)
+        run: |
+          set -euo pipefail
+          LEGACY="core/data/src/jvmTest/kotlin/com/maxrave/data/librarysync/SyncSupportTest.kt"
+          test -f "$LEGACY"
+          mv "$LEGACY" "${LEGACY}.disabled"
+          ./gradlew :data:jvmTest --tests "com.maxrave.data.mediaservice.RestoredEnhancedRecommendedIdsTest"
       - name: Publish one ARM64 APK for direct download (no ZIP)
         shell: bash
         env:
