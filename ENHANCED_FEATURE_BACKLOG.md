@@ -75,6 +75,15 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 - **Phone acceptance to request:** compare 2+1 on a mixed Liked playlist and on a single-artist album, note the selected recommendations, verify first partial queue and later near-end prefetch, quickly switch Enhanced→Shuffle and back, and inspect the updater dialog in this Lab only if a suitable newer Lab release exists (the separate Lab does not itself offer Stable APK updates). Formatting can be validated by regression/static tests and later Stable update prompt; no synthetic update to be shown.
 - Before any future Stable release, bump Android `versionCode` and write a new CHANGELOG.md Stable entry after user approves the actual quality on phone.
 
+### 2B. Enhanced Anonymous Radio Lab — ISOLATED EXPERIMENT
+
+- **2026-11-25 user request:** Create separate `feature/enhanced-anonymous-radio` from Relevance V2 *including the Bluetooth notification-star restoration fix*. Keep the source A/B pair radio requests anonymous, without any settings toggle or fallback to the user's authenticated radio.
+- Pass a request-scoped `anonymous = true` only from `fetchEnhancedRadio`; the default for all other calls to `SongRepository.getRadioFromEndpoint` and `YouTube.next` remains signed in. A guest next request must omit the account cookie, SAPISIDHASH, X-Goog-Authuser, X-Goog-Pageid, and saved account visitorData. Preserve guest mode if the automix code recursively follows a playlist pointer.
+- No change to Enhanced 2+1 order, top-30 filter-before-limit and radio-B fallback, shuffle state, local player, Bluetooth session recovery, star metadata recovery, Like, liked playlists or account auth.
+- Separate app ID `com.maxrave.simpmusic.dev.anonymousradio`, a different signed Lab APK from Relevance V2. Do not modify or merge Stable `main`. Compare both Labs on the same Umka album. Guest requests could return fewer/no songs, or still reflect region/IP/language and YouTube's general recommender.
+- Existing upstream pinned `core` nullability fixture error in `SyncSupportTest.kt` is excluded from the temporary CI test checkout, not production code; targeted star tests and normal app JVM tests must still pass.
+- PR should target the V2 feature branch and stay draft until explicit phone approval.
+
 ### 3. Fix Start Radio restarting the currently playing song — NOT IMPLEMENTED
 
 - User confirmed this also occurs in original SimpMusic. In the pinned core Android handler, `toggleRadio()` does `clearMediaItems()`, re-adds current song, and calls `loadPlaylistOrAlbum(0)`.

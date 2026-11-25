@@ -23,6 +23,7 @@ android {
     val isAboutExperiment = providers.gradleProperty("simpmusicAboutExperimental").orNull == "true"
     val isRestoreExperiment = providers.gradleProperty("simpmusicRestoreExperimental").orNull == "true"
     val isRelevanceV2Experiment = providers.gradleProperty("simpmusicRelevanceV2Experimental").orNull == "true"
+    val isAnonymousRadioExperiment = providers.gradleProperty("simpmusicAnonymousRadioExperimental").orNull == "true"
     val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
 
     // Stable signing key comes only from a private GitHub Actions secret.
@@ -136,6 +137,7 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = when {
+                isAnonymousRadioExperiment -> ".dev.anonymousradio"
                 isRelevanceV2Experiment -> ".dev.relevance2"
                 isRestoreExperiment -> ".dev.restore"
                 isAboutExperiment -> ".dev.about"
@@ -146,6 +148,7 @@ android {
                 else -> ".dev"
             }
             versionNameSuffix = when {
+                isAnonymousRadioExperiment -> "-anonymous-radio-lab"
                 isRelevanceV2Experiment -> "-relevance-v2-lab"
                 isRestoreExperiment -> "-restore-lab"
                 isAboutExperiment -> "-about-lab"

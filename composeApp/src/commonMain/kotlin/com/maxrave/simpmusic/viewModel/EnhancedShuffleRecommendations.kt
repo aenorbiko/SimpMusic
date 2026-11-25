@@ -26,6 +26,7 @@ internal suspend fun fetchEnhancedRadio(
                             videoId = song.videoId,
                             playlistId = "RDAMVM${song.videoId}",
                         ),
+                        anonymous = true,
                     ).firstOrNull { it is Resource.Success }?.data?.first.orEmpty()
                 }.orEmpty()
             } catch (e: CancellationException) {
