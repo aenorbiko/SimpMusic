@@ -491,17 +491,46 @@ fun SettingScreen(
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
     var enhancedStatisticsReport by remember { mutableStateOf<String?>(null) }
+    var confirmStatisticsReset by remember { mutableStateOf(false) }
+    var resettingStatistics by remember { mutableStateOf(false) }
+    var resetStatisticsError by remember { mutableStateOf(false) }
     enhancedStatisticsReport?.let { report ->
         AlertDialog(
             onDismissRequest = { enhancedStatisticsReport = null },
             title = { Text("Enhanced statistics") },
-            text = { Text(report) },
+            text = { Text(report + if (resetStatisticsError) "\nReset failed. Please try again." else "") },
             confirmButton = {
                 TextButton(onClick = { enhancedStatisticsReport = null }) { Text("Close") }
             },
             dismissButton = {
-                TextButton(onClick = { copyToClipboard("Enhanced statistics", report) }) { Text("Copy statistics") }
+                Column {
+                    TextButton(onClick = { copyToClipboard("Enhanced statistics", report) }) { Text("Copy statistics") }
+                    TextButton(enabled = !resettingStatistics, onClick = { confirmStatisticsReset = true }) { Text("Reset statistics") }
+                }
             },
+        )
+    }
+
+    if (confirmStatisticsReset) {
+        AlertDialog(
+            onDismissRequest = { confirmStatisticsReset = false },
+            title = { Text("Reset Enhanced statistics?") },
+            text = { Text("Clear only radio request counts and recent request history. Your account, settings, playlists and playback queue are unchanged.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmStatisticsReset = false
+                    resettingStatistics = true
+                    coroutineScope.launch {
+                        try {
+                            resetStatisticsError = !sharedViewModel.resetEnhancedStatistics()
+                            enhancedStatisticsReport = sharedViewModel.enhancedStatisticsReport()
+                        } finally {
+                            resettingStatistics = false
+                        }
+                    }
+                }) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { confirmStatisticsReset = false }) { Text("Cancel") } },
         )
     }
 

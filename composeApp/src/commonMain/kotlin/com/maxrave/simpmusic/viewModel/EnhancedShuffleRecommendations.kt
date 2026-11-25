@@ -74,6 +74,9 @@ internal fun enhancedRadioMetadata(track: Track, rank: Int): RadioMetadataCandid
         rank = rank,
     )
 
+internal fun enhancedSongKey(track: Track): String? =
+    EnhancedRadioMetadataDiagnostics.strictSongKey(enhancedRadioMetadata(track, 0))
+
 /** Session-only diagnostic metadata; never includes cookies or account tokens. */
 data class EnhancedRadioDiagnostic(
     val songA: String,
@@ -206,12 +209,13 @@ internal suspend fun buildEnhancedBatch(
     songRepository: SongRepository,
     excludedIds: Set<String>,
     onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
+    excludedSongKeys: Set<String> = emptySet(),
 ): EnhancedBatch {
     val result = mutableListOf<Track>()
     val recommendations = mutableSetOf<String>()
     val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
     // The same paged selection path as startup; collect the completed prefetch batch.
-    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted) { chunk ->
+    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys) { chunk ->
         result.addAll(chunk.tracks)
         recommendations.addAll(chunk.recommendedIds)
         diagnostics.putAll(chunk.diagnostics)

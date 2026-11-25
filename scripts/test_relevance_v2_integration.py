@@ -19,7 +19,7 @@ assert "best?.track ?: b.firstOrNull()" in planner
 assert "fun <T> selectForAllPairs(" in planner
 assert "analyzePair(" in progressive
 assert "val neighbours =" not in progressive, "Do not borrow other pairs' radio for progressive loading"
-assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted)" in prefetch, "Prefetch must use the SAME pair selector"
+assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys)" in prefetch, "Prefetch must use the SAME pair selector"
 assert "if (firstDecision.matches.isEmpty())" in progressive
 assert "ENHANCED_RADIO_MAX_TRACKS = 100" in progressive
 assert "ENHANCED_RADIO_MAX_PARALLEL_PAIRS = 4" in progressive
@@ -42,3 +42,7 @@ print("PASS: full eligible returned radio lists with B-only fallback in both loa
 
 assert shared.count("onRadioPageCompleted = ::recordEnhancedRadioPage") == 2
 assert "onRadioPageCompleted(track.videoId, token != null," in progressive
+
+assert "excludedSongKeys = enhancedOwnedSongKeys" in shared
+assert "excludedSongKeys = excludedKeys" in shared
+assert "usedRecommendationSongKeys = enhancedUsedSongKeys.toSet()" in shared

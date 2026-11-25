@@ -263,6 +263,8 @@ class SharedViewModel(
     private var nextEnhancedLikedIndex = 0
     private var enhancedSession = 0L
     private var enhancedOwnedIds: Set<String> = emptySet()
+    private var enhancedOwnedSongKeys: Set<String> = emptySet()
+    private val enhancedUsedSongKeys = mutableSetOf<String>()
     private val enhancedUsedRecommendations = mutableSetOf<String>()
 
     // Local persistence has a separate lifetime from Media3's saved track queue.
@@ -283,6 +285,7 @@ class SharedViewModel(
     }
 
     suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report()
+    suspend fun resetEnhancedStatistics(): Boolean = enhancedRadioStatistics.reset()
 
     private val enhancedSessionWriteMutex = Mutex()
     private var enhancedSessionWriteRevision = 0L
@@ -328,6 +331,7 @@ class SharedViewModel(
                 nextSourceIndex = nextEnhancedLikedIndex,
                 recommendedVideoIds = _recommendedTrackIds.value,
                 usedRecommendationIds = enhancedUsedRecommendations.toSet(),
+                usedRecommendationSongKeys = enhancedUsedSongKeys.toSet(),
             ),
         )
     }
@@ -402,6 +406,11 @@ class SharedViewModel(
             enhancedOwnedIds = snapshot.sourceTracks.mapTo(hashSetOf()) { it.videoId }
             enhancedUsedRecommendations.clear()
             enhancedUsedRecommendations.addAll(plan.usedRecommendationIds)
+            enhancedOwnedSongKeys = snapshot.sourceTracks.mapNotNull(::enhancedSongKey).toSet()
+            enhancedUsedSongKeys.clear()
+            enhancedUsedSongKeys.addAll(snapshot.usedRecommendationSongKeys)
+            enhancedUsedSongKeys.addAll(mediaPlayerHandler.queueData.value?.data?.listTracks.orEmpty()
+                .filter { it.videoId in plan.usedRecommendationIds }.mapNotNull(::enhancedSongKey))
             setRecommendedTrackIds(plan.recommendedIds)
             _smartShuffleSource.value = snapshot.sourceId
             _smartShuffleMode.value = SmartShuffleMode.ENHANCED
@@ -427,6 +436,8 @@ class SharedViewModel(
         enhancedLikedOrder = emptyList()
         nextEnhancedLikedIndex = 0
         enhancedOwnedIds = emptySet()
+        enhancedOwnedSongKeys = emptySet()
+        enhancedUsedSongKeys.clear()
         enhancedUsedRecommendations.clear()
     }
 
@@ -558,6 +569,8 @@ class SharedViewModel(
         enhancedLikedOrder = emptyList()
         nextEnhancedLikedIndex = 0
         enhancedOwnedIds = sourceTracks.mapTo(hashSetOf()) { it.videoId }
+        enhancedOwnedSongKeys = sourceTracks.mapNotNull(::enhancedSongKey).toSet()
+        enhancedUsedSongKeys.clear()
         enhancedUsedRecommendations.clear()
         likedSourceTracks = sourceTracks
         likedSourceName = name
@@ -612,6 +625,7 @@ class SharedViewModel(
                         likedBatch = opening.radioSeeds,
                         songRepository = songRepository,
                         excludedIds = enhancedOwnedIds,
+                        excludedSongKeys = enhancedOwnedSongKeys,
                         onRadioPageCompleted = ::recordEnhancedRadioPage,
                     ) { chunk ->
                         // Every callback runs in the original cancelable session.
@@ -654,6 +668,7 @@ class SharedViewModel(
                         }
                         _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value + chunk.diagnostics.filterKeys { it in _recommendedTrackIds.value }
                         enhancedUsedRecommendations.addAll(chunk.recommendedIds)
+                        enhancedUsedSongKeys.addAll(chunk.tracks.filter { it.videoId in chunk.recommendedIds }.mapNotNull(::enhancedSongKey))
                         saveActiveEnhancedSession()
                     }
 
@@ -730,12 +745,14 @@ class SharedViewModel(
         if (nextLiked.isEmpty()) return
         val session = enhancedSession
         val excluded = enhancedOwnedIds + enhancedUsedRecommendations
+        val excludedKeys = enhancedOwnedSongKeys + enhancedUsedSongKeys
         enhancedPrefetchJob = viewModelScope.launch {
             try {
                 val nextBatch = buildEnhancedBatch(
                     likedBatch = nextLiked,
                     songRepository = songRepository,
                     excludedIds = excluded,
+                    excludedSongKeys = excludedKeys,
                     onRadioPageCompleted = ::recordEnhancedRadioPage,
                 )
                 if (session != enhancedSession ||
@@ -757,6 +774,7 @@ class SharedViewModel(
                 nextEnhancedLikedIndex = start + nextLiked.size
                 _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value + nextBatch.diagnostics.filterKeys { it in _recommendedTrackIds.value }
                 enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
+                enhancedUsedSongKeys.addAll(nextBatch.tracks.filter { it.videoId in nextBatch.recommendedIds }.mapNotNull(::enhancedSongKey))
                 saveActiveEnhancedSession()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

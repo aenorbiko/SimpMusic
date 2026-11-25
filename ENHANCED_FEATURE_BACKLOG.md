@@ -264,3 +264,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ### 25 November — statistics Stable promotion approved
 
 - Build 77 CI run 45603066859 succeeded, signed APK published. Phone test: 14 successful first-page requests, 12 continuation requests, no repeats/errors/evictions/clock resets/unrecorded events. All counts persisted unchanged after Force stop and relaunch. User explicitly approved merging. Promote the tested statistics code as Stable 78 with changelog and regression test; no actual cache, no playback code changes. Collect 2–3 days of ordinary listening via Settings > About us > Enhanced statistics > Copy statistics; the separate Lab's prior counters are not transferred to Stable.
+
+
+### 26 November — strict duplicate exclusion and statistics reset Lab
+
+- Build 79: exclude alternate IDs matching normalized strict title and full artist set of source playlist or earlier recommendations (including prior batches and restored session); preserve original source order, remixes/version labels, missing metadata and distinct titles. Existing 2-page policy applies to eligible exact overlap, so some pairs may now request page 2 when page 1 duplicates are excluded. No new API type, no radio cache. Old session snapshots compatible; recover keys from current queue if available. Reset statistics with confirmation; clears local counts/history only. Android backup includes full preferences file, so restoring a newer backup can restore statistics. Use reset after restore. Separate Lab, test before Main merge.

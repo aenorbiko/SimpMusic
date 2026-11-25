@@ -63,4 +63,20 @@ class EnhancedRadioRequestStatisticsTest {
         stats.record("a", false, true, 1000L)
         assertTrue(stats.report().contains("Unrecorded events this process: 1"))
     }
+
+    @Test
+    fun resetClearsCountersAndHistoryAndIgnoresOldPendingEvents() = runBlocking {
+        var saved: String? = null
+        var now = 100_000_000L
+        val stats = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { now })
+        stats.record("old", false, true, now)
+        now += 1000
+        assertTrue(stats.reset())
+        stats.record("old", false, true, now - 1)
+        assertTrue(stats.report().contains("First-page radio requests: 0"))
+        now += 1000
+        stats.record("old", false, true, now)
+        assertTrue(stats.report().contains("First-page radio requests: 1"))
+        assertTrue(stats.report().contains("Repeat within 24 hours: 0 (0.0%)"))
+    }
 }

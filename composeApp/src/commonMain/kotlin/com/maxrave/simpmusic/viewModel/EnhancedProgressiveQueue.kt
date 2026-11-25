@@ -60,14 +60,23 @@ internal suspend fun <T> emitPagedEnhancedPairs(
     fetchPage: suspend (T, String?) -> EnhancedRadioPage<T>,
     chooseFinal: (List<T>, List<T>, Set<String>, (T) -> String) -> EnhancedShufflePlanner.RadioSelection<T> =
         { a, b, used, key -> EnhancedShufflePlanner.analyzePair(a, b, used, key) },
+    excludedSongKeys: Set<String> = emptySet(),
+    songKey: (T) -> String? = { null },
     onDecision: (List<T>, EnhancedShufflePlanner.RadioSelection<T>, EnhancedPairTiming<T>) -> Unit = { _, _, _ -> },
     onChunk: suspend (sourcePair: List<T>, recommended: T?) -> Unit,
 ) = coroutineScope {
     val pairs = seeds.chunked(2)
     val started = TimeSource.Monotonic.markNow()
     val pairSlots = Semaphore(ENHANCED_RADIO_MAX_PARALLEL_PAIRS)
-    val orderedExclusions = List(pairs.size + 1) { CompletableDeferred<Set<String>>() }
-    orderedExclusions.first().complete(excludedIds.toSet())
+    val orderedExclusions = List(pairs.size + 1) { CompletableDeferred<Pair<Set<String>, Set<String>>>() }
+    orderedExclusions.first().complete(excludedIds.toSet() to excludedSongKeys.toSet())
+
+    // Translate strict metadata exclusions to IDs for each fetched list. This
+    // preserves the existing rank calculation and raw-page diagnostics.
+    fun blockedIds(a: List<T>, b: List<T>, ids: Set<String>, keys: Set<String>): Set<String> {
+        if (keys.isEmpty()) return ids
+        return ids + (a + b).filter { songKey(it) in keys }.map(id)
+    }
 
     val workers = pairs.mapIndexed { index, pair ->
         // Enter the fair pair-slot queue in playback order, before launching later work.
@@ -110,21 +119,23 @@ internal suspend fun <T> emitPagedEnhancedPairs(
 
                     // Exclusions only grow. If no match exists with the original
                     // exclusions, later decisions cannot introduce a match.
-                    val potential = EnhancedShufflePlanner.analyzePair(firstA, firstB, excludedIds, id)
+                    val potential = EnhancedShufflePlanner.analyzePair(firstA, firstB, blockedIds(firstA, firstB, excludedIds, excludedSongKeys), id)
                     if (potential.matches.isEmpty()) loadExtra()
 
                     val orderStart = TimeSource.Monotonic.markNow()
-                    val used = orderedExclusions[index].await()
+                    val (usedIds, usedKeys) = orderedExclusions[index].await()
                     val orderWaitMs = orderStart.elapsedNow().inWholeMilliseconds
-                    val firstDecision = EnhancedShufflePlanner.analyzePair(firstA, firstB, used, id)
+                    val firstDecision = EnhancedShufflePlanner.analyzePair(firstA, firstB, blockedIds(firstA, firstB, usedIds, usedKeys), id)
                     if (firstDecision.matches.isEmpty()) loadExtra()
 
                     val allA = (firstA + extraA?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
                     val allB = (firstB + extraB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
+                    val used = blockedIds(allA, allB, usedIds, usedKeys)
                     val decision = chooseFinal(allA, allB, used, id)
                     val recommendation = decision.recommendation
                     orderedExclusions[index + 1].complete(
-                        if (recommendation == null) used else used + id(recommendation),
+                        if (recommendation == null) usedIds to usedKeys else
+                            (usedIds + id(recommendation)) to (usedKeys + listOfNotNull(songKey(recommendation))),
                     )
                     EnhancedPairResult(
                         decision,
@@ -172,6 +183,7 @@ internal suspend fun buildEnhancedBatchProgressively(
     songRepository: SongRepository,
     excludedIds: Set<String>,
     onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
+    excludedSongKeys: Set<String> = emptySet(),
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
@@ -186,6 +198,8 @@ internal suspend fun buildEnhancedBatchProgressively(
             page
         },
         chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
+        excludedSongKeys = excludedSongKeys,
+        songKey = ::enhancedSongKey,
         onDecision = { pair, decision, timing -> diagnostic = enhancedRadioDiagnostic(pair, decision, timing) },
     ) { pair, recommendation ->
         val tracks = if (recommendation == null) pair else pair + recommendation
