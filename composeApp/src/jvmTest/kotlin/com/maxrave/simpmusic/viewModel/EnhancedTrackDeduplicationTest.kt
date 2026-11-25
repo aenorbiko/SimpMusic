@@ -48,7 +48,7 @@ class EnhancedTrackDeduplicationTest {
                 }, "next")
             },
         ) { _, recommendation -> picked.add(recommendation?.videoId) }
-        assertEquals(listOf("remix", "next", "fallback"), picked)
+        assertEquals<List<String?>>(listOf("remix", "next", "fallback"), picked)
         assertEquals(setOf("seed1","seed2"), calls.toSet())
     }
 }
