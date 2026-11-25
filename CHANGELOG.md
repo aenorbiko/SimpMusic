@@ -23,6 +23,12 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 78 — Local Enhanced radio request statistics (2026-11-25)
+
+- Settings → About us → Enhanced statistics → Copy statistics: report completed first-page radio requests, continuation requests, errors/empty results and cumulative repeats within 20 minutes, 1 hour and 24 hours.
+- Local bounded history of recent successful seed IDs and aggregate counters; no titles, IDs, account data or continuation tokens in copied reports. No telemetry or radio cache. Repeat counts estimate potential savings, not actual cache hits.
+- Statistics survive process restart and Force stop, verified on the phone with Radio Statistics Lab build 77. Existing anonymous four-tier selection, queue ordering, playback and signing are unchanged. Abrupt process termination can lose outstanding asynchronous writes.
+
 ### Android build 76 — Anonymous radio and four-tier Enhanced recommendations (2026-11-25)
 
 - Anonymous YouTube Music radio requests for the two Enhanced seeds, with signed-in account operations unchanged.
