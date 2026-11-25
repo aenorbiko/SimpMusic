@@ -268,6 +268,22 @@ class SharedViewModel(
     // Local persistence has a separate lifetime from Media3's saved track queue.
     // The revision + mutex prevent an old in-flight write from resurrecting an
     // Enhanced session after an explicit mode/source switch.
+    private val enhancedRadioStatistics = EnhancedRadioRequestStatistics(
+        read = { dataStoreManager.getString(ENHANCED_RADIO_STATISTICS_KEY).first() },
+        write = { dataStoreManager.putString(ENHANCED_RADIO_STATISTICS_KEY, it) },
+        nowMs = { Clock.System.now().toEpochMilliseconds() },
+    )
+
+    private fun recordEnhancedRadioPage(videoId: String, continuation: Boolean, success: Boolean) {
+        val completedAt = Clock.System.now().toEpochMilliseconds()
+        // Independent of the queue job: no disk I/O on the radio/selection critical path.
+        viewModelScope.launch {
+            enhancedRadioStatistics.record(videoId, continuation, success, completedAt)
+        }
+    }
+
+    suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report()
+
     private val enhancedSessionWriteMutex = Mutex()
     private var enhancedSessionWriteRevision = 0L
     private var abandonStartupEnhancedRestore = false
@@ -596,6 +612,7 @@ class SharedViewModel(
                         likedBatch = opening.radioSeeds,
                         songRepository = songRepository,
                         excludedIds = enhancedOwnedIds,
+                        onRadioPageCompleted = ::recordEnhancedRadioPage,
                     ) { chunk ->
                         // Every callback runs in the original cancelable session.
                         // Switching source/mode cancels all pending radio lookups.
@@ -719,6 +736,7 @@ class SharedViewModel(
                     likedBatch = nextLiked,
                     songRepository = songRepository,
                     excludedIds = excluded,
+                    onRadioPageCompleted = ::recordEnhancedRadioPage,
                 )
                 if (session != enhancedSession ||
                     _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||

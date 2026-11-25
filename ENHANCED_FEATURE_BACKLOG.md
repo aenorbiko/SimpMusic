@@ -254,3 +254,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ### 25 November — Stable promotion approved
 
 - Build 75 CI run 45589298145 success and signed APK published. Phone acceptance: 14 distinct pairs, 4 exact selections, 1 shared artist, 9 B fallback, no strict title selection encountered; all 50 page requests successful; second batch 6.693 s first and 15.767 s final. User approved Main merge. Stable 76 release preparation retains tested algorithm and session diagnostics, adds stable regression checks and changelog. Next separate feature: persistent aggregate repeat-radio request counter for 20 min / 1 h / 24 h and Copy statistics in About, no audio or radio cache; test before merging it.
+
+
+### 25 November — repeat radio statistics Lab
+
+- Stable 76 merged in PR #13, CI succeeded, APK published. Build 77 separate Radio Statistics Lab from main; no cache or radio selection changes. Count completed first-page radio requests, successful non-empty first pages, failed/empty first pages, continuation requests separately and repeats within 20m/1h/24h since previous successful first page. Cumulative windows, refreshed TTL, upper-bound estimates not simulated LRU. Local DataStore key, at most 4096 recent seed IDs, prune after 24h on next recorded event. Aggregate report only, no IDs/titles/tokens. Background-in-process coroutine persists without delaying queue; abrupt termination can lose outstanding writes. Settings > About > Enhanced statistics > Copy statistics. Separate app requires account/playlist setup or backup restore; test before Stable promotion.

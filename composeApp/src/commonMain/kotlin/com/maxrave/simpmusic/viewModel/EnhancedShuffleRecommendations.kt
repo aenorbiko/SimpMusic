@@ -205,12 +205,13 @@ internal suspend fun buildEnhancedBatch(
     likedBatch: List<Track>,
     songRepository: SongRepository,
     excludedIds: Set<String>,
+    onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
 ): EnhancedBatch {
     val result = mutableListOf<Track>()
     val recommendations = mutableSetOf<String>()
     val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
     // The same paged selection path as startup; collect the completed prefetch batch.
-    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds) { chunk ->
+    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted) { chunk ->
         result.addAll(chunk.tracks)
         recommendations.addAll(chunk.recommendedIds)
         diagnostics.putAll(chunk.diagnostics)

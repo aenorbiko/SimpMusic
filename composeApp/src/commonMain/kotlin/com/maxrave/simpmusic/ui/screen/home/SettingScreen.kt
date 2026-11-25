@@ -111,6 +111,7 @@ import com.maxrave.domain.repository.ImportProgress
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.copyToClipboard
 import com.maxrave.simpmusic.expect.ui.DesktopMiniPlayerClearance
 import com.maxrave.simpmusic.expect.ui.LibrarySyncDialog
 import com.maxrave.simpmusic.expect.ui.LoginSyncDialog
@@ -489,6 +490,20 @@ fun SettingScreen(
     val enhancedReleaseDiagnostic by sharedViewModel.enhancedReleaseDiagnostic.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
+    var enhancedStatisticsReport by remember { mutableStateOf<String?>(null) }
+    enhancedStatisticsReport?.let { report ->
+        AlertDialog(
+            onDismissRequest = { enhancedStatisticsReport = null },
+            title = { Text("Enhanced statistics") },
+            text = { Text(report) },
+            confirmButton = {
+                TextButton(onClick = { enhancedStatisticsReport = null }) { Text("Close") }
+            },
+            dismissButton = {
+                TextButton(onClick = { copyToClipboard("Enhanced statistics", report) }) { Text("Copy statistics") }
+            },
+        )
+    }
 
     var width by rememberSaveable { mutableIntStateOf(0) }
 
@@ -2813,6 +2828,17 @@ fun SettingScreen(
                         uriHandler.openUri("https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md")
                     },
                 )
+                if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                    SettingItem(
+                        title = "Enhanced statistics",
+                        subtitle = "Local repeat-radio counts; no radio cache",
+                        onClick = {
+                            coroutineScope.launch {
+                                enhancedStatisticsReport = sharedViewModel.enhancedStatisticsReport()
+                            }
+                        },
+                    )
+                }
                 // Never tell users of our fork to install an upstream or F-Droid APK.
                 if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
                     if (BuildKonfig.enhancedBuildChannel == ENHANCED_STABLE_CHANNEL) {

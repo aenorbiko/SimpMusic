@@ -19,7 +19,7 @@ assert "best?.track ?: b.firstOrNull()" in planner
 assert "fun <T> selectForAllPairs(" in planner
 assert "analyzePair(" in progressive
 assert "val neighbours =" not in progressive, "Do not borrow other pairs' radio for progressive loading"
-assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds)" in prefetch, "Prefetch must use the SAME pair selector"
+assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted)" in prefetch, "Prefetch must use the SAME pair selector"
 assert "if (firstDecision.matches.isEmpty())" in progressive
 assert "ENHANCED_RADIO_MAX_TRACKS = 100" in progressive
 assert "ENHANCED_RADIO_MAX_PARALLEL_PAIRS = 4" in progressive
@@ -39,3 +39,6 @@ assert "body = forkRelease.notes +" not in shared, "No literal escaped newline o
 assert 'isRelevanceV2Experiment -> ".dev.relevance2"' in gradle
 assert "isRelevanceV2Experiment" in gradle
 print("PASS: full eligible returned radio lists with B-only fallback in both loading paths and clean update text")
+
+assert shared.count("onRadioPageCompleted = ::recordEnhancedRadioPage") == 2
+assert "onRadioPageCompleted(track.videoId, token != null," in progressive

@@ -171,6 +171,7 @@ internal suspend fun buildEnhancedBatchProgressively(
     likedBatch: List<Track>,
     songRepository: SongRepository,
     excludedIds: Set<String>,
+    onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
@@ -179,7 +180,11 @@ internal suspend fun buildEnhancedBatchProgressively(
         seeds = likedBatch,
         excludedIds = excludedIds,
         id = { it.videoId },
-        fetchPage = { track, token -> fetchEnhancedRadio(track, songRepository, semaphore, token) },
+        fetchPage = { track, token ->
+            val page = fetchEnhancedRadio(track, songRepository, semaphore, token)
+            onRadioPageCompleted(track.videoId, token != null, page.status == "OK" && page.tracks.isNotEmpty())
+            page
+        },
         chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
         onDecision = { pair, decision, timing -> diagnostic = enhancedRadioDiagnostic(pair, decision, timing) },
     ) { pair, recommendation ->
