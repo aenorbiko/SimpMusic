@@ -141,7 +141,11 @@ internal object EnhancedRadioMetadataDiagnostics {
     /** Count distinct A/B ID pairs with eligible tracks, excluding exact-ID matches.
      * Categories are disjoint. Results are diagnostic only, not recommendations.
      */
-    fun compare(a: List<RadioMetadataCandidate>, b: List<RadioMetadataCandidate>): RadioMetadataReport {
+    fun compare(
+        a: List<RadioMetadataCandidate>,
+        b: List<RadioMetadataCandidate>,
+        metadataPairFilter: (RadioMetadataMatch) -> Boolean = { true },
+    ): RadioMetadataReport {
         val first = a.distinctBy { it.videoId }.mapNotNull(::indexed)
         val second = b.distinctBy { it.videoId }.mapNotNull(::indexed)
         val byBase = second.groupBy { it.base }
@@ -151,6 +155,7 @@ internal object EnhancedRadioMetadataDiagnostics {
             for (right in byBase[left.base].orEmpty()) {
                 if (left.track.videoId == right.track.videoId) continue
                 val match = RadioMetadataMatch(left.track, right.track)
+                if (!metadataPairFilter(match)) continue
                 if (left.strict == right.strict) strict.add(match)
                 else versions.add(match)
             }
@@ -176,5 +181,84 @@ internal object EnhancedRadioMetadataDiagnostics {
             commonArtistExamples = artists.take(EXAMPLE_LIMIT),
             bestDifferentSongArtistExample = bestDifferentSongArtist,
         )
+    }
+
+    /**
+     * Inspect the already fetched pages before the queue exclusions.
+     * Raw positions are positions in those pages, not filtered eligible ranks.
+     * An excluded ID can be an owned/source track or an earlier recommendation.
+     * No result from this method is used for actual playback.
+     */
+    fun beforeExclusions(
+        rawA: List<RadioMetadataCandidate>,
+        rawB: List<RadioMetadataCandidate>,
+        eligibleA: List<RadioMetadataCandidate>,
+        eligibleB: List<RadioMetadataCandidate>,
+        eligibleReport: RadioMetadataReport,
+        eligibleExactCount: Int,
+    ): List<String> {
+        val a = rawA.distinctBy { it.videoId }
+        val b = rawB.distinctBy { it.videoId }
+        val eligibleAIds = eligibleA.map { it.videoId }.toSet()
+        val eligibleBIds = eligibleB.map { it.videoId }.toSet()
+        val raw = compare(a, b)
+        val removed = compare(a, b) { match ->
+            match.a.videoId !in eligibleAIds || match.b.videoId !in eligibleBIds
+        }
+        val bById = b.associateBy { it.videoId }
+        val exact = a.mapNotNull { left -> bById[left.videoId]?.let { RadioMetadataMatch(left, it) } }
+        val matchOrder = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
+            .thenBy { it.b.rank }.thenBy { it.a.rank }
+        val removedExact = exact.filter { it.a.videoId !in eligibleAIds || it.b.videoId !in eligibleBIds }
+            .sortedWith(matchOrder)
+        val rawArtists = sharedArtists(a, b)
+        val eligibleArtistKeys = artistGroups(eligibleA).keys.intersect(artistGroups(eligibleB).keys)
+        val lostArtists = rawArtists.filter { normalized(it.name) !in eligibleArtistKeys }
+
+        fun marked(track: RadioMetadataCandidate, ids: Set<String>): String =
+            "#" + track.rank + " " + track.title + " — " + track.artists.joinToString(", ") +
+                if (track.videoId in ids) " [eligible]" else " [excluded]"
+        fun markedMatch(match: RadioMetadataMatch): String =
+            "A " + marked(match.a, eligibleAIds) + " | B " + marked(match.b, eligibleBIds)
+
+        // A previously excluded track can be useful evidence for an artist.
+        // The candidate must itself still be eligible in B (the existing fallback side).
+        // Count all such artists, and show up to five, using raw ranks for both sides.
+        val bridges = lostArtists.mapNotNull { artist ->
+            val candidateB = artist.tracksB.firstOrNull { it.videoId in eligibleBIds } ?: return@mapNotNull null
+            val evidenceA = artist.tracksA.first()
+            Triple(artist, evidenceA, candidateB)
+        }.sortedWith(compareBy<Triple<RadioArtistMatch, RadioMetadataCandidate, RadioMetadataCandidate>> {
+            it.second.rank + it.third.rank
+        }.thenBy { it.third.rank }.thenBy { it.second.rank }.thenBy { normalized(it.first.name) })
+        val bridgesAOnly = lostArtists.count { artist ->
+            artist.tracksA.any { it.videoId in eligibleAIds } && artist.tracksB.none { it.videoId in eligibleBIds }
+        }
+        return buildList {
+            add("Before exclusions (already fetched pages; original radio ranks):")
+            add("Distinct returned IDs A: ${a.size}; B: ${b.size}")
+            add("Excluded IDs A: ${a.count { it.videoId !in eligibleAIds }}; B: ${b.count { it.videoId !in eligibleBIds }}")
+            add("Common videoIds before / after: ${exact.size} / $eligibleExactCount; removed: ${removedExact.size}")
+            removedExact.take(EXAMPLE_LIMIT).forEach { add("Removed exact: " + markedMatch(it)) }
+            add("Same title + artist(s) before / after: ${raw.sameTitleCount} / ${eligibleReport.sameTitleCount}; removed: ${removed.sameTitleCount}")
+            removed.sameTitleExamples.forEach { add("Removed title match: " + markedMatch(it)) }
+            add("Possible versions before / after: ${raw.versionCount} / ${eligibleReport.versionCount}; removed: ${removed.versionCount}")
+            removed.versionExamples.forEach { add("Removed version match: " + markedMatch(it)) }
+            add("Shared artists before / after: ${raw.commonArtistCount} / ${eligibleReport.commonArtistCount}; lost: ${lostArtists.size}")
+            add("Shared artists with different base titles before / after: ${raw.commonArtistDifferentSongCount} / ${eligibleReport.commonArtistDifferentSongCount}")
+            lostArtists.take(EXAMPLE_LIMIT).forEach { artist ->
+                val newA = artist.tracksA.count { it.videoId in eligibleAIds }
+                val newB = artist.tracksB.count { it.videoId in eligibleBIds }
+                add("Lost artist: ${artist.name} — A: ${artist.tracksA.size} total / $newA eligible; B: ${artist.tracksB.size} total / $newB eligible")
+                add("  A " + artist.tracksA.take(3).joinToString("; ") { marked(it, eligibleAIds) })
+                add("  B " + artist.tracksB.take(3).joinToString("; ") { marked(it, eligibleBIds) })
+            }
+            add("Lost shared artists with eligible B track: ${bridges.size}; eligible A only: $bridgesAOnly")
+            bridges.take(EXAMPLE_LIMIT).forEach { (artist, evidenceA, candidateB) ->
+                add("Potential B candidate (diagnostic only): ${artist.name} — A evidence " +
+                    marked(evidenceA, eligibleAIds) + " | B candidate " + marked(candidateB, eligibleBIds))
+            }
+            add("Up to 5 removed matches/artists/candidates per category. Excluded means source/owned or previously recommended ID; not necessarily a Liked Music track.")
+        }
     }
 }

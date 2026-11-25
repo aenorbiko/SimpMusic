@@ -239,3 +239,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ### 25 November — shared artist diagnostics (Anonymous Radio)
 
 - Build 72 phone test on mobile data: 7 pairs, 1 exact-ID overlap pair; 2 additional metadata pairings within the same seed pair, including one new composition (Training Season). User approved adding artist overlap diagnostics. Build 73 counts unique normalized artist names in both eligible radios, and separately artists with a different base-title / different-videoId track pair. Show up to five artist examples by combined best eligible ranks, up to three tracks per side with counts, and the best different-song candidate separately. Explicit collaborators count individually; missing artist metadata not inferred. No change to selection, continuation, requests, scheduling or stable. Same Lab package.
+
+
+### 25 November — raw radio overlap before exclusions (Anonymous Radio)
+
+- Build 73 phone test: 7 pairs, no common eligible song IDs or title matches, one shared eligible artist (Of The Trees), first decision 11.918 s, final 23.326 s. Build 74 adds diagnostic-only full fetched page comparison before source/owned/used ID exclusion; distinct exact matches, title/version counts, lost shared artists, and up to five examples per category with raw ranks and excluded/eligible labels. Report lost artists still having an eligible B track, plus count for A-only, without changing actual selection or requesting another page. Same Lab package; stable unchanged.

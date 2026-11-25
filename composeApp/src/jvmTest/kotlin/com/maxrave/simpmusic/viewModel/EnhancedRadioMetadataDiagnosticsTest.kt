@@ -122,4 +122,49 @@ class EnhancedRadioMetadataDiagnosticsTest {
         assertEquals(5, report.commonArtistExamples.size)
         assertEquals("Artist 1", report.commonArtistExamples.first().name)
     }
+
+    @Test
+    fun excludedCommonTrackStillProvidesArtistEvidenceForEligibleB() {
+        val a = listOf(track("owned", "Known Song", "Artist", 3))
+        val b = listOf(track("owned", "Known Song", "Artist", 4), track("new", "New Song", "Artist", 8))
+        val eligibleA = emptyList<RadioMetadataCandidate>()
+        val eligibleB = listOf(b[1])
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+            a, b, eligibleA, eligibleB, EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB), 0,
+        )
+        assertTrue(lines.contains("Common videoIds before / after: 1 / 0; removed: 1"))
+        assertTrue(lines.contains("Shared artists before / after: 1 / 0; lost: 1"))
+        assertTrue(lines.contains("Lost shared artists with eligible B track: 1; eligible A only: 0"))
+        val candidate = lines.single { it.startsWith("Potential B candidate") }
+        assertTrue(candidate.contains("#3 Known Song — Artist [excluded]"))
+        assertTrue(candidate.contains("#8 New Song — Artist [eligible]"))
+    }
+
+    @Test
+    fun rawOverlapReportsRemovedMetadataVersionsAndNeverSuggestsExcludedB() {
+        val a = listOf(track("a", "Song", "Artist", 1), track("aa", "Song (Live)", "Artist", 2))
+        val b = listOf(track("b", "Song (Official Audio)", "Artist", 3))
+        val eligibleA = a
+        val eligibleB = emptyList<RadioMetadataCandidate>()
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+            a, b, eligibleA, eligibleB, EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB), 0,
+        )
+        assertTrue(lines.contains("Same title + artist(s) before / after: 1 / 0; removed: 1"))
+        assertTrue(lines.contains("Possible versions before / after: 1 / 0; removed: 1"))
+        assertTrue(lines.contains("Lost shared artists with eligible B track: 0; eligible A only: 1"))
+        assertTrue(lines.none { it.startsWith("Potential B candidate") })
+    }
+
+    @Test
+    fun eligibleOverlapIsNotReportedAsLostAndDuplicateIdsAreCountedOnce() {
+        val a = listOf(track("same", "Song", rank = 1), track("same", "Song", rank = 2))
+        val b = listOf(track("same", "Song", rank = 4))
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+            a, b, a.take(1), b, EnhancedRadioMetadataDiagnostics.compare(a.take(1), b), 1,
+        )
+        assertTrue(lines.contains("Distinct returned IDs A: 1; B: 1"))
+        assertTrue(lines.contains("Common videoIds before / after: 1 / 1; removed: 0"))
+        assertTrue(lines.contains("Shared artists before / after: 1 / 1; lost: 0"))
+        assertTrue(lines.none { it.startsWith("Removed exact:") })
+    }
 }

@@ -94,6 +94,7 @@ data class EnhancedRadioDiagnostic(
     val commonArtistDifferentSongCount: Int = 0,
     val commonArtistExamples: List<String> = emptyList(),
     val bestDifferentSongArtistExample: String? = null,
+    val beforeExclusionsDetails: List<String> = emptyList(),
 ) {
     fun asText(): String = buildString {
         appendLine("Enhanced recommendation")
@@ -126,6 +127,7 @@ data class EnhancedRadioDiagnostic(
         commonArtistExamples.forEach { appendLine(it) }
         bestDifferentSongArtistExample?.let { appendLine("Best different-song artist candidate (diagnostic only): $it") }
         appendLine("Up to 5 shared artists; up to 3 ranked tracks per radio per artist.")
+        beforeExclusionsDetails.forEach { appendLine(it) }
     }.trimEnd()
 }
 
@@ -145,8 +147,13 @@ internal fun enhancedRadioDiagnostic(
             rank = index + 1,
         )
     }
-    val metadataReport = EnhancedRadioMetadataDiagnostics.compare(
-        metadata(timing.eligibleRadioA), metadata(timing.eligibleRadioB),
+    val eligibleA = metadata(timing.eligibleRadioA)
+    val eligibleB = metadata(timing.eligibleRadioB)
+    val metadataReport = EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB)
+    val rawA = metadata((timing.firstA.tracks + timing.secondA?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS))
+    val rawB = metadata((timing.firstB.tracks + timing.secondB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS))
+    val beforeExclusions = EnhancedRadioMetadataDiagnostics.beforeExclusions(
+        rawA, rawB, eligibleA, eligibleB, metadataReport, decision.matches.size,
     )
     fun page(label: String, p: EnhancedRadioPage<Track>?): String = if (p == null) "$label: not requested" else "$label: ${p.tracks.size} received; ${p.requestMs} ms request + ${p.semaphoreWaitMs} ms wait; ${p.status}; next page available: ${!p.continuation.isNullOrBlank()}"
     return EnhancedRadioDiagnostic(
@@ -173,6 +180,7 @@ internal fun enhancedRadioDiagnostic(
         metadataVersionCount = metadataReport.versionCount,
         metadataSameTitleExamples = metadataReport.sameTitleExamples.map { it.asText() },
         metadataVersionExamples = metadataReport.versionExamples.map { it.asText() },
+        beforeExclusionsDetails = beforeExclusions,
         commonArtistCount = metadataReport.commonArtistCount,
         commonArtistDifferentSongCount = metadataReport.commonArtistDifferentSongCount,
         commonArtistExamples = metadataReport.commonArtistExamples.map { it.asText() },
