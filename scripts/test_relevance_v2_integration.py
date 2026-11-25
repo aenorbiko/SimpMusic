@@ -13,7 +13,8 @@ prefetch = (root / "EnhancedShuffleRecommendations.kt").read_text()
 shared = (root / "SharedViewModel.kt").read_text()
 gradle = Path("androidApp/build.gradle.kts").read_text()
 
-assert "RADIO_CANDIDATE_LIMIT = 15" in planner
+assert "RADIO_CANDIDATE_LIMIT = 30" in planner
+assert ".filter { id(it) !in usedIds }\n            .distinctBy(id)\n            .take(RADIO_CANDIDATE_LIMIT)" in planner, "Exclude original and used tracks BEFORE top-30 selection"
 assert "return b.firstOrNull()" in planner
 assert "fun <T> selectForAllPairs(" in planner
 assert "selectForPair(" in progressive
@@ -23,4 +24,4 @@ assert "body = forkRelease.notes," in shared, "Fork update dialog should show cl
 assert "body = forkRelease.notes +" not in shared, "No literal escaped newline or duplicate changelog link"
 assert 'isRelevanceV2Experiment -> ".dev.relevance2"' in gradle
 assert "isRelevanceV2Experiment" in gradle
-print("PASS: top-15 B-only relevance in both loading paths and clean update text")
+print("PASS: filtered top-30 with B-only fallback in both loading paths and clean update text")

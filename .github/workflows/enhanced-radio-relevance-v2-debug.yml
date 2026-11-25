@@ -111,7 +111,7 @@ jobs:
             exit 1
           fi
           echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
-      - name: Verify top-15 relevance, progressive queue and updater regressions
+      - name: Verify filtered top-30 relevance, progressive queue and updater regressions
         run: |
           ./gradlew :composeApp:jvmTest \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
