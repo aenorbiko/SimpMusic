@@ -135,7 +135,7 @@ jobs:
             gh release upload enhanced-relevance-v2-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Relevance-V2-arm64.apk" --clobber
             gh release edit enhanced-relevance-v2-latest --notes "Signed isolated Relevance V2 Lab ARM64 APK: ${GITHUB_SHA}"
           else
-            gh release create enhanced-relevance-v2-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Relevance-V2-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Relevance V2 Lab (experimental)" --notes "Top-15 paired-radio relevance and updater dialog newline cleanup; separate .dev.relevance2 app, does not replace stable SimpMusic Enhanced." --prerelease
+            gh release create enhanced-relevance-v2-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Relevance-V2-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Relevance V2 Lab (experimental)" --notes "Top-30 filtered paired-radio relevance experiment and updater dialog newline cleanup; separate .dev.relevance2 app, does not replace stable SimpMusic Enhanced." --prerelease
           fi
           gh release view enhanced-relevance-v2-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Relevance-V2-arm64.apk'
           echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-relevance-v2-latest/SimpMusic-Enhanced-Relevance-V2-arm64.apk"

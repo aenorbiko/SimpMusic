@@ -178,14 +178,37 @@ class EnhancedShufflePlannerTest {
     }
 
     @Test
-    fun commonCandidateAfterTopFifteenDoesNotCount() {
+    fun commonCandidateWithinExpandedThirtyBeatsRadioBFallback() {
         val pick = EnhancedShufflePlanner.selectForPair(
-            firstRadio = (1..15).map { "A$it" } + "OnlyBeyond15",
-            secondRadio = listOf("FreshSecond") + (1..14).map { "B$it" } + "OnlyBeyond15",
+            firstRadio = (1..29).map { "A$it" } + "SharedAt30",
+            secondRadio = listOf("FreshSecond") + (1..28).map { "B$it" } + "SharedAt30",
+            usedIds = emptySet(),
+            id = { it },
+        )
+        assertEquals("SharedAt30", pick)
+    }
+
+    @Test
+    fun commonCandidateAfterTopThirtyDoesNotCount() {
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = (1..30).map { "A$it" } + "OnlyBeyond30",
+            secondRadio = listOf("FreshSecond") + (1..29).map { "B$it" } + "OnlyBeyond30",
             usedIds = emptySet(),
             id = { it },
         )
         assertEquals("FreshSecond", pick)
+    }
+
+    @Test
+    fun sourceTracksExcludedBeforeTakingThirtyFromRadioB() {
+        val albumTracks = (1..30).map { "Album$it" }
+        val pick = EnhancedShufflePlanner.selectForPair(
+            firstRadio = emptyList(),
+            secondRadio = albumTracks + "FreshAt31",
+            usedIds = albumTracks.toSet(),
+            id = { it },
+        )
+        assertEquals("FreshAt31", pick)
     }
 
     @Test

@@ -66,7 +66,7 @@ internal object EnhancedShufflePlanner {
 
     /**
      * First remove source-collection songs, already used recommendations and
-     * duplicate IDs, then take up to 15 remaining tracks from each radio.
+     * duplicate IDs, then take up to 30 remaining tracks from each radio.
      * If a song appears in both, prefer the smallest combined rank (ties
      * favour the radio of the second, most recently heard source song).
      *
@@ -74,7 +74,7 @@ internal object EnhancedShufflePlanner {
      * second song's radio, not the first song's or another pair's radio.
      * No suitable candidate => skip this pair's recommendation.
      */
-    private const val RADIO_CANDIDATE_LIMIT = 15
+    private const val RADIO_CANDIDATE_LIMIT = 30
 
     fun <T> selectForPair(
         firstRadio: List<T>,
