@@ -74,10 +74,10 @@ class EnhancedProgressiveQueueTest {
     }
 
     @Test
-    fun topFifteenAndSecondRadioFallbackAlsoApplyToProgressiveStartup() = runBlocking {
+    fun topThirtyAndSecondRadioFallbackAlsoApplyToProgressiveStartup() = runBlocking {
         val emitted = mutableListOf<List<String>>()
-        val first = (1..15).map { "A$it" } + "Beyond15"
-        val second = (1..15).map { "B$it" } + "Beyond15"
+        val first = (1..30).map { "A$it" } + "Beyond30"
+        val second = (1..30).map { "B$it" } + "Beyond30"
         emitEnhancedPairsProgressively(
             seeds = listOf("A", "B", "C", "D"),
             excludedIds = setOf("A", "B", "C", "D"),
@@ -93,12 +93,29 @@ class EnhancedProgressiveQueueTest {
         ) { pair, recommendation ->
             emitted += pair + listOfNotNull(recommendation)
         }
-        // Beyond15 is shared but not eligible; pick only B1 from B's top 15.
-        // Second pair has no common radio candidate, so use D's radio.
+        // Beyond30 is shared but not eligible; pick B1 from B's filtered first 30.
+        // Second pair has no common radio candidate, so retain D's radio fallback.
         assertEquals(
             listOf(listOf("A", "B", "B1"), listOf("C", "D", "FreshFromD")),
             emitted,
         )
+    }
+
+    @Test
+    fun commonTrackAtThirtiethCandidateWorksDuringProgressiveStartup() = runBlocking {
+        val emitted = mutableListOf<List<String>>()
+        emitEnhancedPairsProgressively(
+            seeds = listOf("A", "B"),
+            excludedIds = setOf("A", "B"),
+            id = { it },
+            fetchRadio = { seed ->
+                if (seed == "A") (1..29).map { "A$it" } + "SharedAt30"
+                else listOf("B1") + (1..28).map { "B$it" } + "SharedAt30"
+            },
+        ) { pair, recommendation ->
+            emitted += pair + listOfNotNull(recommendation)
+        }
+        assertEquals(listOf(listOf("A", "B", "SharedAt30")), emitted)
     }
 
     @Test
