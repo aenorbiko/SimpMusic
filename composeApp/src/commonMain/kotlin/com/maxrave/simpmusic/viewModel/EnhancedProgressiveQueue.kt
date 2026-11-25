@@ -36,6 +36,8 @@ internal data class EnhancedPairTiming<T>(
     val elapsedMs: Long,
     val pairAdmissionWaitMs: Long = 0,
     val orderedDecisionWaitMs: Long = 0,
+    val eligibleRadioA: List<T> = emptyList(),
+    val eligibleRadioB: List<T> = emptyList(),
 )
 
 private data class EnhancedPairResult<T>(
@@ -129,6 +131,8 @@ internal suspend fun <T> emitPagedEnhancedPairs(
                             extensionMs, started.elapsedNow().inWholeMilliseconds,
                             pairAdmissionWaitMs = admissionMs,
                             orderedDecisionWaitMs = orderWaitMs,
+                            eligibleRadioA = allA.filter { id(it) !in used }.distinctBy(id),
+                            eligibleRadioB = allB.filter { id(it) !in used }.distinctBy(id),
                         ),
                     )
                 }

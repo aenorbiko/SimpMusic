@@ -86,6 +86,10 @@ data class EnhancedRadioDiagnostic(
     val elapsedMs: Long,
     val pairAdmissionWaitMs: Long = 0,
     val orderedDecisionWaitMs: Long = 0,
+    val metadataSameTitleCount: Int = 0,
+    val metadataVersionCount: Int = 0,
+    val metadataSameTitleExamples: List<String> = emptyList(),
+    val metadataVersionExamples: List<String> = emptyList(),
 ) {
     fun asText(): String = buildString {
         appendLine("Enhanced recommendation")
@@ -107,6 +111,12 @@ data class EnhancedRadioDiagnostic(
         appendLine("Eligible rank A: ${selectedRankA ?: "—"} / B: ${selectedRankB ?: "—"}")
         appendLine("Common songs (eligible ranks):")
         if (commonSongs.isEmpty()) appendLine("None") else commonSongs.forEach { appendLine(it) }
+        appendLine("Additional metadata matches (different videoIds; eligible A/B pairs):")
+        appendLine("Same normalized title + artist(s): $metadataSameTitleCount")
+        metadataSameTitleExamples.forEach { appendLine(it) }
+        appendLine("Possible different versions + same artist(s): $metadataVersionCount")
+        metadataVersionExamples.forEach { appendLine(it) }
+        appendLine("Up to 5 examples per category, ordered by combined eligible rank. Diagnostic only.")
     }.trimEnd()
 }
 
@@ -117,6 +127,18 @@ internal fun enhancedRadioDiagnostic(
 ): EnhancedRadioDiagnostic? {
     val selected = decision.recommendation ?: return null
     if (pair.size != 2) return null
+    fun metadata(tracks: List<Track>) = tracks.mapIndexed { index, track ->
+        RadioMetadataCandidate(
+            videoId = track.videoId,
+            title = track.title,
+            artists = track.artists.orEmpty().map { it.name },
+            durationSeconds = track.durationSeconds,
+            rank = index + 1,
+        )
+    }
+    val metadataReport = EnhancedRadioMetadataDiagnostics.compare(
+        metadata(timing.eligibleRadioA), metadata(timing.eligibleRadioB),
+    )
     fun page(label: String, p: EnhancedRadioPage<Track>?): String = if (p == null) "$label: not requested" else "$label: ${p.tracks.size} received; ${p.requestMs} ms request + ${p.semaphoreWaitMs} ms wait; ${p.status}; next page available: ${!p.continuation.isNullOrBlank()}"
     return EnhancedRadioDiagnostic(
         songA = pair[0].title.orEmpty(),
@@ -138,6 +160,10 @@ internal fun enhancedRadioDiagnostic(
         elapsedMs = timing.elapsedMs,
         pairAdmissionWaitMs = timing.pairAdmissionWaitMs,
         orderedDecisionWaitMs = timing.orderedDecisionWaitMs,
+        metadataSameTitleCount = metadataReport.sameTitleCount,
+        metadataVersionCount = metadataReport.versionCount,
+        metadataSameTitleExamples = metadataReport.sameTitleExamples.map { it.asText() },
+        metadataVersionExamples = metadataReport.versionExamples.map { it.asText() },
     )
 }
 

@@ -229,3 +229,8 @@ This is the durable feature and bug tracker for our SimpMusic fork, not an indic
 ### 25 November — parallel prioritized radio experiment (Anonymous Radio)
 
 - Build 70 phone test: 7 pairs, 0 first-page overlaps, 2 after continuation; first decision 19.639 s, last 43.049 s. User approved increasing concurrent requests to eight, prioritizing nearest pairs and overlapping continuations. Build 71: FIFO admission of four complete pair workers, two requests each; early continuation if no possible first-page match, recheck exact ordered exclusions for matches consumed by earlier pairs. All results still emitted in order. One shared eight-slot radio semaphore across startup/prefetch; no Enhanced timeout. Added pair admission and ordered-decision waits to diagnostics. Same Lab ID; Stable unchanged, no merge. Phone timing acceptance pending.
+
+
+### 25 November — metadata overlap diagnostics (Anonymous Radio)
+
+- Build 71 phone test: first decision 10.522 s, final 23.266 s; 26 successful requests, no semaphore waits. User approved diagnostic-only title/artist matching and possible versions, with first five examples. Build 72 compares eligible A/B tracks from the pages already retrieved, excludes equal videoIds, counts distinct cross-radio ID pairs in disjoint categories, shows original titles/artists/ranks/durations for up to five best combined-rank examples per category. Requires matching normalized artist sets; missing artists are not inferred. No new requests, no change to selection, continuation policy, concurrency, timeout, Star Fix, or stable. Same Lab package, version code 72.

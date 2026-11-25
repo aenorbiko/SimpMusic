@@ -28,6 +28,9 @@ assert "async(start = CoroutineStart.UNDISPATCHED)" in progressive
 assert "orderedExclusions[index].await()" in progressive
 assert "if (potential.matches.isEmpty()) loadExtra()" in progressive
 assert "withTimeoutOrNull" not in prefetch
+assert "EnhancedRadioMetadataDiagnostics.compare(" in prefetch
+assert "EnhancedRadioMetadataDiagnostics" not in progressive, "Metadata must never alter radio scheduling or selection"
+assert "eligibleRadioA = allA.filter { id(it) !in used }.distinctBy(id)" in progressive
 assert "body = forkRelease.notes," in shared, "Fork update dialog should show clean release body"
 assert "body = forkRelease.notes +" not in shared, "No literal escaped newline or duplicate changelog link"
 assert 'isRelevanceV2Experiment -> ".dev.relevance2"' in gradle
