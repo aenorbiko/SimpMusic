@@ -1,0 +1,176 @@
+name: SimpMusic Enhanced Complete Source Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-complete-source]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: 'Build without restored Gradle caches (verification)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+# When several commits land close together, build only the newest version.
+concurrency:
+  group: simpmusic-complete-source-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug:
+    timeout-minutes: 40
+    runs-on: ubuntu-latest
+    env:
+      GRADLE_CACHE_ARGS: ${{ inputs.clean_build == true && '--no-build-cache --no-configuration-cache' || '--build-cache' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Restore Gradle dependencies and task output cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: ${{ inputs.clean_build == true }}
+          cache-read-only: false
+          # No encryption key: do not persist Configuration Cache across runners.
+      - name: Verify approved Enhanced icon keeps 24dp shuffle geometry
+        run: python3 scripts/test_enhanced_shuffle_icons.py
+      - name: Verify Enhanced support across playlists and albums
+        run: python3 scripts/test_enhanced_all_playlists.py
+      - name: Verify Relevance V2 integrates both queue paths and clean update notes
+        run: python3 scripts/test_relevance_v2_integration.py
+      - name: Apply enhanced controls to pinned core submodule
+        run: python3 scripts/apply_enhanced_core_patch.py
+      - name: Verify preserved Bluetooth Enhanced headless restoration
+        run: python3 scripts/test_headless_enhanced_restore.py
+      - name: Verify restored notification star before Media3 metadata
+        run: python3 scripts/test_restored_notification_star.py
+      - name: Verify only Enhanced paired radios use anonymous requests
+        run: python3 scripts/test_anonymous_enhanced_radio.py
+      - name: Generate library definitions
+        run: ./gradlew $GRADLE_CACHE_ARGS exportLibraryDefinitions
+      - name: Load permanent signing key, if configured
+        shell: bash
+        env:
+          SIGNING_BUNDLE: ${{ secrets.SIMP_SIGNING_BUNDLE }}
+        run: |
+          if [ -z "$SIGNING_BUNDLE" ]; then
+            echo "::error::Missing SIMP_SIGNING_BUNDLE. Refusing to create an APK with an ephemeral debug key."
+            exit 1
+          else
+            SIGNING_DIR="$RUNNER_TEMP/simpmusic-signing"
+            install -d -m 700 "$SIGNING_DIR"
+            printf '%s' "$SIGNING_BUNDLE" | base64 --decode | tar -xz -C "$SIGNING_DIR"
+            test -s "$SIGNING_DIR/simpmusic-enhanced.jks"
+            test -s "$SIGNING_DIR/signing.properties"
+            echo "SIMP_SIGNING_DIR=$SIGNING_DIR" >> "$GITHUB_ENV"
+            echo "Permanent signing credentials restored from GitHub secret."
+          fi
+      - name: Label isolated test APK
+        run: sed -i 's/SimpMusic Enhanced/SimpMusic Lab (Complete Source)/' androidApp/src/debug/res/values/app_name.xml
+      - name: Build debug APK (separate .dev.fulltrack package)
+        run: ./gradlew $GRADLE_CACHE_ARGS :androidApp:assembleDebug -PsimpmusicFullTrackExperimental=true -PsimpmusicEnhancedBuildChannel="Complete Source Lab"
+      - name: Verify APK uses the permanent signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SIMP_SIGNING_DIR:-}" ]; then
+            echo "::error::Permanent signing directory is missing."
+            exit 1
+          fi
+          APK="androidApp/build/outputs/apk/debug/androidApp-debug.apk"
+          if [ ! -s "$APK" ]; then
+            echo "::error::ARM64 APK not found. Available APKs:"
+            find androidApp/build/outputs -name '*.apk' -print || true
+            exit 1
+          fi
+          echo "ARM64 APK exists."
+          python3 scripts/verify_arm64_only_apk.py "$APK"
+          SIGNING_PROPS="$SIMP_SIGNING_DIR/signing.properties"
+          STORE_PASS="$(sed -n 's/^storePassword=//p' "$SIGNING_PROPS" | tr -d '\r')"
+          KEY_ALIAS="$(sed -n 's/^keyAlias=//p' "$SIGNING_PROPS" | tr -d '\r')"
+          if [ -z "$STORE_PASS" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Signing configuration fields missing."
+            exit 1
+          fi
+          CERT="$RUNNER_TEMP/simpmusic-signing-cert.der"
+          if ! keytool -exportcert -keystore "$SIMP_SIGNING_DIR/simpmusic-enhanced.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" -file "$CERT" >/dev/null 2>&1; then
+            echo "::error::Cannot extract signing certificate from keystore."
+            exit 1
+          fi
+          EXPECTED="$(sha256sum "$CERT" | cut -d' ' -f1)"
+          echo "Expected signing certificate exported successfully."
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+            echo "::error::Android SDK apksigner not found."
+            exit 1
+          fi
+          echo "Android SDK apksigner found."
+          if ! CERT_INFO="$("$APKSIGNER" verify --print-certs "$APK")"; then
+            echo "::error::APK did not pass Android signature verification."
+            exit 1
+          fi
+          # apksigner formatting varies between SDK versions; parse the digest
+          # from any certificate SHA-256 line, not a hardcoded full-line prefix.
+          ACTUAL="$(printf '%s\n' "$CERT_INFO" | tr -d '\r' | grep -i 'certificate.*SHA-256' | head -n 1 | grep -Eo '[0-9a-fA-F]{64}' | head -n 1 | tr '[:upper:]' '[:lower:]' || true)"
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::Could not parse certificate SHA-256 from apksigner output."
+            printf '%s\n' "$CERT_INFO" | head -n 15
+            exit 1
+          fi
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::APK signature does not match the permanent signing key."
+            exit 1
+          fi
+          echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
+      - name: Verify full returned radio relevance, progressive queue and updater regressions
+        run: |
+          ./gradlew $GRADLE_CACHE_ARGS :composeApp:jvmTest --rerun \
+            --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
+            --tests "com.maxrave.simpmusic.utils.EnhancedBuildIdentityTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedProgressiveQueueTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioMetadataDiagnosticsTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioRequestStatisticsTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedTrackDeduplicationTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedCompleteSourceTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedFullTrackTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedBatchGateTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedQueueSessionTest" \
+            --tests "com.maxrave.simpmusic.utils.EnhancedForkUpdateTest" \
+            --tests "com.maxrave.simpmusic.utils.EnhancedAboutDetailsTest"
+      # Pinned upstream core has a pre-existing source-incompatible SyncSupportTest
+      # (null passed to now non-null String). Exclude only that legacy test file
+      # in this temporary runner checkout, so the new targeted core regression
+      # tests can actually compile and run. Production sources are unmodified.
+      - name: Test Bluetooth recommendation badge restoration (isolated core tests)
+        shell: bash
+        run: |
+          set -euo pipefail
+          LEGACY="core/data/src/jvmTest/kotlin/com/maxrave/data/librarysync/SyncSupportTest.kt"
+          test -f "$LEGACY"
+          mv "$LEGACY" "${LEGACY}.disabled"
+          ./gradlew $GRADLE_CACHE_ARGS :data:jvmTest --rerun --tests "com.maxrave.data.mediaservice.RestoredEnhancedRecommendedIdsTest"
+      - name: Publish one ARM64 APK for direct download (no ZIP)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          test -s "$APK"
+          cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Complete-Source-arm64.apk"
+          if gh release view enhanced-complete-source-upgrade-latest >/dev/null 2>&1; then
+            gh release upload enhanced-complete-source-upgrade-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Complete-Source-arm64.apk" --clobber
+            gh release edit enhanced-complete-source-upgrade-latest --notes "Signed Complete Source Lab ARM64 APK: ${GITHUB_SHA}; Complete remote playlist continuation before switching shuffle from player or notification. Includes approved Full Track 87; updates existing Full Track Lab; no radio cache."
+          else
+            gh release create enhanced-complete-source-upgrade-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Complete-Source-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Complete Source Lab (experimental)" --notes "Signed Complete Source Lab ARM64 APK: ${GITHUB_SHA}; Complete remote playlist continuation before switching shuffle from player or notification. Includes approved Full Track 87; updates existing Full Track Lab; no radio cache." --prerelease
+          fi
+          gh release view enhanced-complete-source-upgrade-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Complete-Source-arm64.apk'
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-complete-source-upgrade-latest/SimpMusic-Enhanced-Complete-Source-arm64.apk"
