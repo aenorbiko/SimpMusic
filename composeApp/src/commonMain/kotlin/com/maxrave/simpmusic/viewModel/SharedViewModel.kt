@@ -59,6 +59,7 @@ import com.maxrave.domain.repository.LocalPlaylistRepository
 import com.maxrave.domain.repository.LyricsCanvasRepository
 import com.maxrave.domain.repository.PlaylistRepository
 import com.maxrave.domain.repository.SongRepository
+import com.maxrave.domain.repository.SearchRepository
 import com.maxrave.domain.repository.StreamRepository
 import com.maxrave.domain.repository.UpdateRepository
 import com.maxrave.domain.utils.Resource
@@ -163,6 +164,7 @@ class SharedViewModel(
     var showedUpdateDialog: Boolean = false
 
     private val appIdentity: AppIdentity by inject()
+    private val enhancedFullTrackSearchRepository: SearchRepository by inject()
 
     private val _isCheckingUpdate = MutableStateFlow(false)
     val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate
@@ -630,6 +632,7 @@ class SharedViewModel(
                             excludedIds = enhancedOwnedIds,
                             excludedSongKeys = enhancedOwnedSongKeys,
                             onRadioPageCompleted = ::recordEnhancedRadioPage,
+                             searchRepository = enhancedFullTrackSearchRepository,
                         ) { chunk ->
                             // Every callback runs in the original cancelable session.
                             // Switching source/mode cancels all pending radio lookups.
@@ -767,6 +770,7 @@ class SharedViewModel(
                         excludedIds = excluded,
                         excludedSongKeys = excludedKeys,
                         onRadioPageCompleted = ::recordEnhancedRadioPage,
+                             searchRepository = enhancedFullTrackSearchRepository,
                     )
                     if (session != enhancedSession || start != nextEnhancedLikedIndex ||
                         _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||
