@@ -130,10 +130,12 @@ android {
             )
             splits {
                 abi {
-                    isEnable = true
+                    // AGP rejects the same single ABI in both ndk filters and splits.
+                    // ARM64 development builds use only the NDK filter, no APK splits.
+                    isEnable = allAndroidAbis
                     reset()
                     isUniversalApk = allAndroidAbis
-                    include(*abis)
+                    if (allAndroidAbis) include(*abis)
                 }
             }
         }
