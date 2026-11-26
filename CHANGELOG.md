@@ -23,6 +23,14 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 85 — Enhanced duplicate protection and reliable queue refill (2026-11-26)
+
+- Exclude recommendations with the same video ID or strict normalized title and complete artist set as source tracks or earlier recommendations, including earlier batches and restored sessions. Distinct remixes and versions remain eligible; incomplete or differing metadata can prevent matching.
+- Serialize Enhanced batch generation through queue append and session checkpoint so rapid near-end track selection cannot generate overlapping batches. Retain progressive 2+1 ordering and existing four-pair/eight-request radio concurrency.
+- Reset local Enhanced radio statistics in Settings → About us → Enhanced statistics, with confirmation.
+- Development APKs now build only ARM64; standard Gradle dependency and task-output caching enabled, with a cache-free manual verification option. Existing permanent signing, APK ABI validation and regression tests retained. No radio request cache added.
+- Based on successful signed Lab build 84 (`bcfdcc2f`), tested on the phone: repeated near-end taps added one seven-recommendation block at a time; stars survived restart. Three logged blocks selected 21 distinct titles with no request failures. Strict alternate-ID metadata exclusion is covered by automated tests, not independently established by the phone log.
+
 ### Android build 78 — Local Enhanced radio request statistics (2026-11-25)
 
 - Settings → About us → Enhanced statistics → Copy statistics: report completed first-page radio requests, continuation requests, errors/empty results and cumulative repeats within 20 minutes, 1 hour and 24 hours.
