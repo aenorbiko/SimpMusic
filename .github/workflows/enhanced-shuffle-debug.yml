@@ -107,6 +107,7 @@ jobs:
             exit 1
           fi
           echo "ARM64 APK exists."
+          python3 scripts/verify_arm64_only_apk.py "$APK"
           SIGNING_PROPS="$SIMP_SIGNING_DIR/signing.properties"
           STORE_PASS="$(sed -n 's/^storePassword=//p' "$SIGNING_PROPS" | tr -d '\r')"
           KEY_ALIAS="$(sed -n 's/^keyAlias=//p' "$SIGNING_PROPS" | tr -d '\r')"

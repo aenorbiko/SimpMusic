@@ -26,7 +26,10 @@ android {
     val isAnonymousRadioExperiment = providers.gradleProperty("simpmusicAnonymousRadioExperimental").orNull == "true"
     val isRadioStatisticsExperiment = providers.gradleProperty("simpmusicRadioStatisticsExperimental").orNull == "true"
     val isTrackDeduplicationExperiment = providers.gradleProperty("simpmusicTrackDeduplicationExperimental").orNull == "true"
-    val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
+    // During development, build only the ARM64 APK that we actually test/publish.
+    // Restore every Android ABI and the universal APK with -PsimpmusicAllAndroidAbis=true.
+    val allAndroidAbis = providers.gradleProperty("simpmusicAllAndroidAbis").orNull == "true"
+    val abis = if (allAndroidAbis) arrayOf("armeabi-v7a", "arm64-v8a", "x86_64") else arrayOf("arm64-v8a")
 
     // Stable signing key comes only from a private GitHub Actions secret.
     // A build without that secret remains a temporary-key debug build.
@@ -95,9 +98,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.add("x86_64")
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
+            abiFilters.addAll(abis.toList())
         }
     }
 
@@ -131,7 +132,7 @@ android {
                 abi {
                     isEnable = true
                     reset()
-                    isUniversalApk = true
+                    isUniversalApk = allAndroidAbis
                     include(*abis)
                 }
             }
