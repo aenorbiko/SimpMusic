@@ -27,6 +27,7 @@ internal data class EnhancedRadioStatisticsState(
     val historyEvictions: Long = 0,
     val clockResets: Long = 0,
     val resetAtMs: Long = 0,
+    val fullTrack: EnhancedFullTrackStatistics = EnhancedFullTrackStatistics(),
 ) {
     fun asText(nowMs: Long): String = buildString {
         fun percent(n: Long): String {
@@ -47,7 +48,54 @@ internal data class EnhancedRadioStatisticsState(
         appendLine("History capacity evictions: $historyEvictions; clock resets: $clockResets")
         appendLine("Repeat = previous successful non-empty first page for the same seed. Windows are cumulative, not additive.")
         appendLine("Upper-bound estimates with refreshed TTL; no actual cache or continuation reuse. Cancelled requests not counted.")
-        append("Local statistics only; no song IDs, titles or account data in this report.")
+        appendLine("Local statistics only; no song IDs, titles or account data in this report.")
+        append(fullTrack.asText())
+    }
+}
+
+@Serializable
+internal data class EnhancedFullTrackStatistics(
+    val shortRecommendations: Long = 0,
+    val replaced: Long = 0,
+    val noMatch: Long = 0,
+    val timeout: Long = 0,
+    val error: Long = 0,
+    val missingMetadata: Long = 0,
+    val searchTotalMs: Long = 0,
+    val searchMaxMs: Long = 0,
+    val requestCount: Long = 0,
+    val requestTotalMs: Long = 0,
+    val requestMaxMs: Long = 0,
+) {
+    fun add(d: FullTrackDiagnostic): EnhancedFullTrackStatistics {
+        val attempted = d.outcome != FullTrackOutcome.MISSING_METADATA
+        val request = d.requestMs
+        return copy(
+            shortRecommendations = shortRecommendations + 1,
+            replaced = replaced + if (d.outcome == FullTrackOutcome.REPLACED) 1 else 0,
+            noMatch = noMatch + if (d.outcome == FullTrackOutcome.NO_MATCH) 1 else 0,
+            timeout = timeout + if (d.outcome == FullTrackOutcome.TIMEOUT) 1 else 0,
+            error = error + if (d.outcome == FullTrackOutcome.ERROR) 1 else 0,
+            missingMetadata = missingMetadata + if (attempted) 0 else 1,
+            searchTotalMs = searchTotalMs + if (attempted) d.elapsedMs else 0,
+            searchMaxMs = if (attempted) maxOf(searchMaxMs, d.elapsedMs) else searchMaxMs,
+            requestCount = requestCount + if (request != null) 1 else 0,
+            requestTotalMs = requestTotalMs + (request ?: 0),
+            requestMaxMs = maxOf(requestMaxMs, request ?: 0),
+        )
+    }
+    fun asText(): String = buildString {
+        val attempts = shortRecommendations - missingMetadata
+        appendLine("Full Track statistics")
+        appendLine("Short recommendations: $shortRecommendations")
+        appendLine("Search attempts: $attempts")
+        appendLine("Replaced: $replaced")
+        appendLine("No suitable match: $noMatch")
+        appendLine("Timeouts: $timeout")
+        appendLine("Errors: $error")
+        appendLine("Skipped (missing metadata): $missingMetadata")
+        appendLine("Search incl. slot wait average/max: ${if (attempts == 0L) 0L else searchTotalMs / attempts} / $searchMaxMs ms")
+        append("Search request average/max ($requestCount started): ${if (requestCount == 0L) 0L else requestTotalMs / requestCount} / $requestMaxMs ms")
     }
 }
 
@@ -103,6 +151,20 @@ internal class EnhancedRadioRequestStatistics(
                 throw e
             } catch (_: Exception) {
                 // A statistics failure must not stop playback or erase previous history.
+                unrecorded++
+            }
+        }
+    }
+
+    suspend fun recordFullTrack(diagnostic: FullTrackDiagnostic, completedAtMs: Long) {
+        mutex.withLock {
+            try {
+                val old = load()
+                if (completedAtMs < old.resetAtMs && nowMs() >= old.resetAtMs) return@withLock
+                write(json.encodeToString(old.copy(fullTrack = old.fullTrack.add(diagnostic))))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 unrecorded++
             }
         }

@@ -19,7 +19,7 @@ assert "best?.track ?: b.firstOrNull()" in planner
 assert "fun <T> selectForAllPairs(" in planner
 assert "analyzePair(" in progressive
 assert "val neighbours =" not in progressive, "Do not borrow other pairs' radio for progressive loading"
-assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys)" in prefetch, "Prefetch must use the SAME pair selector"
+assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository, onFullTrackCompleted)" in prefetch, "Prefetch must use the SAME pair selector"
 assert "if (firstDecision.matches.isEmpty())" in progressive
 assert "ENHANCED_RADIO_MAX_TRACKS = 100" in progressive
 assert "ENHANCED_RADIO_MAX_PARALLEL_PAIRS = 4" in progressive
@@ -53,3 +53,8 @@ assert "start == nextEnhancedLikedIndex" in shared
 assert "enhancedPrefetchJob = job\n        job.start()" in shared
 assert "smartShuffleJob = job\n        job.start()" in shared
 assert "if (switchingSmartQueue || enhancedPrefetchJob?.isActive == true" in shared
+
+assert shared.count('searchRepository = enhancedFullTrackSearchRepository') == 2
+assert 'resolveRecommendation = { selected, used ->' in progressive
+
+assert shared.count('onFullTrackCompleted = ::recordEnhancedFullTrack') == 2
