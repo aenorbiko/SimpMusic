@@ -27,6 +27,7 @@ internal data class EnhancedQueueSession(
     val nextSourceIndex: Int,
     val recommendedVideoIds: Set<String>,
     val usedRecommendationIds: Set<String>,
+    val usedRecommendationSongKeys: Set<String> = emptySet(),
 ) {
     val playlistLabel: String get() = "$sourceName · Enhanced 2+1"
 }

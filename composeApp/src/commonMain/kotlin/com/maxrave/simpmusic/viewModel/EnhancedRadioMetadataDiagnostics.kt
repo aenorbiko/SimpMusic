@@ -100,6 +100,13 @@ internal object EnhancedRadioMetadataDiagnostics {
         return Indexed(candidate, Identity(strict, artists), Identity(base, artists))
     }
 
+    /** Same strict identity as the title-match tier; remix/version labels stay intact.
+     * Normalized components cannot contain |, so this key is unambiguous.
+     * Missing artist/title metadata never excludes a track by title alone.
+     */
+    fun strictSongKey(candidate: RadioMetadataCandidate): String? =
+        indexed(candidate)?.strict?.let { (listOf(it.title) + it.artists).joinToString("|") }
+
     /** Artist names are matched individually, including collaborators explicitly
      * listed in metadata. Do not split channel names or guess from video titles.
      */

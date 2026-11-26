@@ -25,7 +25,11 @@ android {
     val isRelevanceV2Experiment = providers.gradleProperty("simpmusicRelevanceV2Experimental").orNull == "true"
     val isAnonymousRadioExperiment = providers.gradleProperty("simpmusicAnonymousRadioExperimental").orNull == "true"
     val isRadioStatisticsExperiment = providers.gradleProperty("simpmusicRadioStatisticsExperimental").orNull == "true"
-    val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
+    val isTrackDeduplicationExperiment = providers.gradleProperty("simpmusicTrackDeduplicationExperimental").orNull == "true"
+    // During development, build only the ARM64 APK that we actually test/publish.
+    // Restore every Android ABI and the universal APK with -PsimpmusicAllAndroidAbis=true.
+    val allAndroidAbis = providers.gradleProperty("simpmusicAllAndroidAbis").orNull == "true"
+    val abis = if (allAndroidAbis) arrayOf("armeabi-v7a", "arm64-v8a", "x86_64") else arrayOf("arm64-v8a")
 
     // Stable signing key comes only from a private GitHub Actions secret.
     // A build without that secret remains a temporary-key debug build.
@@ -94,9 +98,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.add("x86_64")
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
+            abiFilters.addAll(abis.toList())
         }
     }
 
@@ -128,16 +130,19 @@ android {
             )
             splits {
                 abi {
-                    isEnable = true
+                    // AGP rejects the same single ABI in both ndk filters and splits.
+                    // ARM64 development builds use only the NDK filter, no APK splits.
+                    isEnable = allAndroidAbis
                     reset()
-                    isUniversalApk = true
-                    include(*abis)
+                    isUniversalApk = allAndroidAbis
+                    if (allAndroidAbis) include(*abis)
                 }
             }
         }
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = when {
+                isTrackDeduplicationExperiment -> ".dev.trackdedup"
                 isRadioStatisticsExperiment -> ".dev.radiostatistics"
                 isAnonymousRadioExperiment -> ".dev.anonymousradio"
                 isRelevanceV2Experiment -> ".dev.relevance2"
@@ -150,6 +155,7 @@ android {
                 else -> ".dev"
             }
             versionNameSuffix = when {
+                isTrackDeduplicationExperiment -> "-track-dedup-lab"
                 isRadioStatisticsExperiment -> "-radio-statistics-lab"
                 isAnonymousRadioExperiment -> "-anonymous-radio-lab"
                 isRelevanceV2Experiment -> "-relevance-v2-lab"

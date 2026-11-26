@@ -26,6 +26,7 @@ internal data class EnhancedRadioStatisticsState(
     val lastSuccessfulFirstPage: Map<String, Long> = emptyMap(),
     val historyEvictions: Long = 0,
     val clockResets: Long = 0,
+    val resetAtMs: Long = 0,
 ) {
     fun asText(nowMs: Long): String = buildString {
         fun percent(n: Long): String {
@@ -73,6 +74,7 @@ internal class EnhancedRadioRequestStatistics(
         mutex.withLock {
             try {
                 val old = load()
+                if (completedAtMs < old.resetAtMs && nowMs() >= old.resetAtMs) return@withLock
                 val clockBack = old.lastEventAtMs > completedAtMs
                 val now = completedAtMs.coerceAtLeast(1L)
                 val recent = if (clockBack) mutableMapOf() else old.lastSuccessfulFirstPage
@@ -94,6 +96,7 @@ internal class EnhancedRadioRequestStatistics(
                     lastSuccessfulFirstPage = recent,
                     historyEvictions = old.historyEvictions + excess,
                     clockResets = old.clockResets + if (clockBack) 1 else 0,
+                    resetAtMs = if (clockBack) 0 else old.resetAtMs,
                 )
                 write(json.encodeToString(next))
             } catch (e: CancellationException) {
@@ -102,6 +105,19 @@ internal class EnhancedRadioRequestStatistics(
                 // A statistics failure must not stop playback or erase previous history.
                 unrecorded++
             }
+        }
+    }
+
+    suspend fun reset(): Boolean = mutex.withLock {
+        try {
+            val now = nowMs().coerceAtLeast(1L)
+            write(json.encodeToString(EnhancedRadioStatisticsState(startedAtMs = now, resetAtMs = now)))
+            unrecorded = 0
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
         }
     }
 
