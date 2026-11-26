@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.viewModel
 
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.repository.SongRepository
+import com.maxrave.domain.repository.SearchRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -63,6 +64,7 @@ internal suspend fun <T> emitPagedEnhancedPairs(
     excludedSongKeys: Set<String> = emptySet(),
     songKey: (T) -> String? = { null },
     onDecision: (List<T>, EnhancedShufflePlanner.RadioSelection<T>, EnhancedPairTiming<T>) -> Unit = { _, _, _ -> },
+    resolveRecommendation: suspend (T, Set<String>) -> T = { selected, _ -> selected },
     onChunk: suspend (sourcePair: List<T>, recommended: T?) -> Unit,
 ) = coroutineScope {
     val pairs = seeds.chunked(2)
@@ -132,13 +134,20 @@ internal suspend fun <T> emitPagedEnhancedPairs(
                     val allB = (firstB + extraB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
                     val used = blockedIds(allA, allB, usedIds, usedKeys)
                     val decision = chooseFinal(allA, allB, used, id)
-                    val recommendation = decision.recommendation
+                    val original = decision.recommendation
+                    val recommendation = original?.let { resolveRecommendation(it, usedIds) }
+                    val resolvedDecision = if (recommendation != null && original != null && id(recommendation) != id(original)) {
+                        decision.copy(
+                            recommendation = recommendation,
+                            metadataEvidence = listOfNotNull(decision.metadataEvidence, "Full track replacement: ${id(original)} → ${id(recommendation)}").joinToString("; "),
+                        )
+                    } else decision
                     orderedExclusions[index + 1].complete(
                         if (recommendation == null) usedIds to usedKeys else
-                            (usedIds + id(recommendation)) to (usedKeys + listOfNotNull(songKey(recommendation))),
+                            (usedIds + id(recommendation) + listOfNotNull(original?.let(id))) to (usedKeys + listOfNotNull(songKey(recommendation), original?.let(songKey))),
                     )
                     EnhancedPairResult(
-                        decision,
+                        resolvedDecision,
                         EnhancedPairTiming(
                             a, b, extraA, extraB, firstDecision.matches.size, initialMs,
                             extensionMs, started.elapsedNow().inWholeMilliseconds,
@@ -184,6 +193,7 @@ internal suspend fun buildEnhancedBatchProgressively(
     excludedIds: Set<String>,
     onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
     excludedSongKeys: Set<String> = emptySet(),
+    searchRepository: SearchRepository? = null,
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
@@ -200,6 +210,9 @@ internal suspend fun buildEnhancedBatchProgressively(
         chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
         excludedSongKeys = excludedSongKeys,
         songKey = ::enhancedSongKey,
+        resolveRecommendation = { selected, used ->
+            if (searchRepository == null) selected else resolveEnhancedFullTrack(selected, used, searchRepository, semaphore)
+        },
         onDecision = { pair, decision, timing -> diagnostic = enhancedRadioDiagnostic(pair, decision, timing) },
     ) { pair, recommendation ->
         val tracks = if (recommendation == null) pair else pair + recommendation
