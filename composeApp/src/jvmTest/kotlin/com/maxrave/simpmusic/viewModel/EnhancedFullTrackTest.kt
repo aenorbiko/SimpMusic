@@ -39,13 +39,25 @@ class EnhancedFullTrackTest {
             full.copy(title = "Other Song"),
             full.copy(videoId = short.videoId),
             full.copy(durationSeconds = null),
-            full.copy(durationSeconds = 90),
+            full.copy(durationSeconds = 76),
             full.copy(videoId = "owned"),
         )
         assertEquals(short, select(short, candidates, setOf("owned")))
         assertEquals(full, select(short, candidates + full, setOf("owned")))
         assertEquals(short, select(short, emptyList()))
         assertEquals(short.copy(artists = emptyList()), select(short.copy(artists = emptyList()), listOf(full)))
+    }
+
+    @Test
+    fun replacementNeedsOnlyTwentyFivePercentIncreaseWithoutMinimumDuration() {
+        val tiny = song("tiny", 40)
+        val complete = song("complete", 50)
+        assertEquals(complete, select(tiny, listOf(complete)))
+        assertEquals(tiny, select(tiny, listOf(complete.copy(durationSeconds = 49))))
+        val seventyFive = song("short75", 75)
+        val longer = song("longer", 94)
+        assertEquals(longer, select(seventyFive, listOf(longer)))
+        assertEquals(seventyFive, select(seventyFive, listOf(longer.copy(durationSeconds = 93))))
     }
 
     @Test
@@ -58,7 +70,7 @@ class EnhancedFullTrackTest {
             fetchPage = { seed, _ ->
                 EnhancedRadioPage(if (seed in listOf("A", "B")) listOf("short") else listOf("full", "short", "fresh"))
             },
-            resolveRecommendation = { selected, _ -> if (selected == "short") "full" else selected },
+            resolveRecommendation = { selected, _ -> EnhancedResolvedRecommendation(if (selected == "short") "full" else selected) },
         ) { _, selected -> emitted.add(selected) }
         assertEquals(listOf<String?>("full", "fresh"), emitted)
     }
