@@ -288,6 +288,11 @@ class SharedViewModel(
         }
     }
 
+    private fun recordEnhancedFullTrack(diagnostic: FullTrackDiagnostic) {
+        val completedAt = Clock.System.now().toEpochMilliseconds()
+        viewModelScope.launch { enhancedRadioStatistics.recordFullTrack(diagnostic, completedAt) }
+    }
+
     suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report()
     suspend fun resetEnhancedStatistics(): Boolean = enhancedRadioStatistics.reset()
 
@@ -632,7 +637,8 @@ class SharedViewModel(
                             excludedIds = enhancedOwnedIds,
                             excludedSongKeys = enhancedOwnedSongKeys,
                             onRadioPageCompleted = ::recordEnhancedRadioPage,
-                             searchRepository = enhancedFullTrackSearchRepository,
+                            searchRepository = enhancedFullTrackSearchRepository,
+                            onFullTrackCompleted = ::recordEnhancedFullTrack,
                         ) { chunk ->
                             // Every callback runs in the original cancelable session.
                             // Switching source/mode cancels all pending radio lookups.
@@ -770,7 +776,8 @@ class SharedViewModel(
                         excludedIds = excluded,
                         excludedSongKeys = excludedKeys,
                         onRadioPageCompleted = ::recordEnhancedRadioPage,
-                             searchRepository = enhancedFullTrackSearchRepository,
+                        searchRepository = enhancedFullTrackSearchRepository,
+                        onFullTrackCompleted = ::recordEnhancedFullTrack,
                     )
                     if (session != enhancedSession || start != nextEnhancedLikedIndex ||
                         _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||
