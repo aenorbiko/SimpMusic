@@ -65,6 +65,31 @@ class EnhancedRadioRequestStatisticsTest {
     }
 
     @Test
+    fun fullTrackStatisticsPersistAndResetWithoutChangingRadioCounters() = runBlocking {
+        var saved: String? = null
+        val now = 100_000_000L
+        fun store() = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { now })
+        store().record("seed", false, true, now)
+        store().recordFullTrack(FullTrackDiagnostic(61, 177, FullTrackOutcome.REPLACED, 1200, 1000), now)
+        store().recordFullTrack(FullTrackDiagnostic(40, null, FullTrackOutcome.NO_MATCH, 600, 500), now)
+        store().recordFullTrack(FullTrackDiagnostic(50, null, FullTrackOutcome.TIMEOUT, 10000, null), now)
+        store().recordFullTrack(FullTrackDiagnostic(60, null, FullTrackOutcome.ERROR, 200, 150), now)
+        store().recordFullTrack(FullTrackDiagnostic(70, null, FullTrackOutcome.MISSING_METADATA, 0, null), now)
+        val report = store().report()
+        assertTrue(report.contains("First-page radio requests: 1"))
+        assertTrue(report.contains("Short recommendations: 5"))
+        assertTrue(report.contains("Search attempts: 4"))
+        assertTrue(report.contains("Replaced: 1"))
+        assertTrue(report.contains("No suitable match: 1"))
+        assertTrue(report.contains("Timeouts: 1"))
+        assertTrue(report.contains("Errors: 1"))
+        assertTrue(report.contains("Search incl. slot wait average/max: 3000 / 10000 ms"))
+        assertTrue(report.contains("Search request average/max (3 started): 550 / 1000 ms"))
+        assertTrue(store().reset())
+        assertTrue(store().report().contains("Short recommendations: 0"))
+    }
+
+    @Test
     fun resetClearsCountersAndHistoryAndIgnoresOldPendingEvents() = runBlocking {
         var saved: String? = null
         var now = 100_000_000L
