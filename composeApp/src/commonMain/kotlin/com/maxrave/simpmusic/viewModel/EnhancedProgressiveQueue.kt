@@ -39,6 +39,7 @@ internal data class EnhancedPairTiming<T>(
     val orderedDecisionWaitMs: Long = 0,
     val eligibleRadioA: List<T> = emptyList(),
     val eligibleRadioB: List<T> = emptyList(),
+    val fullTrack: FullTrackDiagnostic? = null,
 )
 
 private data class EnhancedPairResult<T>(
@@ -64,7 +65,7 @@ internal suspend fun <T> emitPagedEnhancedPairs(
     excludedSongKeys: Set<String> = emptySet(),
     songKey: (T) -> String? = { null },
     onDecision: (List<T>, EnhancedShufflePlanner.RadioSelection<T>, EnhancedPairTiming<T>) -> Unit = { _, _, _ -> },
-    resolveRecommendation: suspend (T, Set<String>) -> T = { selected, _ -> selected },
+    resolveRecommendation: suspend (T, Set<String>) -> EnhancedResolvedRecommendation<T> = { selected, _ -> EnhancedResolvedRecommendation(selected) },
     onChunk: suspend (sourcePair: List<T>, recommended: T?) -> Unit,
 ) = coroutineScope {
     val pairs = seeds.chunked(2)
@@ -135,7 +136,8 @@ internal suspend fun <T> emitPagedEnhancedPairs(
                     val used = blockedIds(allA, allB, usedIds, usedKeys)
                     val decision = chooseFinal(allA, allB, used, id)
                     val original = decision.recommendation
-                    val recommendation = original?.let { resolveRecommendation(it, usedIds) }
+                    val resolution = original?.let { resolveRecommendation(it, usedIds) }
+                    val recommendation = resolution?.track
                     val resolvedDecision = if (recommendation != null && original != null && id(recommendation) != id(original)) {
                         decision.copy(
                             recommendation = recommendation,
@@ -155,6 +157,7 @@ internal suspend fun <T> emitPagedEnhancedPairs(
                             orderedDecisionWaitMs = orderWaitMs,
                             eligibleRadioA = allA.filter { id(it) !in used }.distinctBy(id),
                             eligibleRadioB = allB.filter { id(it) !in used }.distinctBy(id),
+                            fullTrack = resolution?.fullTrack,
                         ),
                     )
                 }
@@ -194,6 +197,7 @@ internal suspend fun buildEnhancedBatchProgressively(
     onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
     excludedSongKeys: Set<String> = emptySet(),
     searchRepository: SearchRepository? = null,
+    onFullTrackCompleted: (FullTrackDiagnostic) -> Unit = {},
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
@@ -211,7 +215,10 @@ internal suspend fun buildEnhancedBatchProgressively(
         excludedSongKeys = excludedSongKeys,
         songKey = ::enhancedSongKey,
         resolveRecommendation = { selected, used ->
-            if (searchRepository == null) selected else resolveEnhancedFullTrack(selected, used, searchRepository, semaphore)
+            if (searchRepository == null) EnhancedResolvedRecommendation(selected) else
+                resolveEnhancedFullTrack(selected, used, searchRepository, semaphore).also { resolved ->
+                    resolved.fullTrack?.let(onFullTrackCompleted)
+                }
         },
         onDecision = { pair, decision, timing -> diagnostic = enhancedRadioDiagnostic(pair, decision, timing) },
     ) { pair, recommendation ->
