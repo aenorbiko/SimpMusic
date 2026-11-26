@@ -58,6 +58,46 @@ class EnhancedRadioRequestStatisticsTest {
     }
 
     @Test
+    fun delayedCompletionsPreserveObservationAndRepeatHistory() = runBlocking {
+        var saved: String? = null
+        val start = 100_000_000L
+        var wall = start + 10 * 60_000L
+        val stats = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { wall })
+        stats.record("seed", false, true, start)
+        stats.record("other", false, true, start + 5000)
+        stats.record("late", false, true, start + 1000)
+        stats.record("seed", false, true, start + 6000)
+        val report = stats.report()
+        assertTrue(report.contains("Observation period: 0 d 0 h 10 min"))
+        assertTrue(report.contains("First-page radio requests: 4"))
+        assertTrue(report.contains("Repeat within 20 minutes: 1 (25.0%)"))
+        assertTrue(report.contains("clock resets: 0"))
+        assertTrue(report.contains("Observation started (UTC):"))
+    }
+
+    @Test
+    fun genuineWallClockRollbackKeepsCountersAndElapsedObservation() = runBlocking {
+        var saved: String? = null
+        val start = 100_000_000L
+        var wall = start
+        val stats = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { wall })
+        stats.record("seed", false, true, wall)
+        wall += 10 * 60_000L
+        stats.record("other", false, true, wall)
+        wall -= 60 * 60_000L
+        stats.record("seed", false, true, wall)
+        assertTrue(stats.report().contains("Observation period: 0 d 0 h 10 min"))
+        assertTrue(stats.report().contains("First-page radio requests: 3"))
+        assertTrue(stats.report().contains("Repeat within 24 hours: 0 (0.0%)"))
+        assertTrue(stats.report().contains("clock resets: 1"))
+        wall += 60_000L
+        stats.record("seed", false, true, wall)
+        assertTrue(stats.report().contains("Observation period: 0 d 0 h 11 min"))
+        assertTrue(stats.report().contains("Repeat within 20 minutes: 1 (25.0%)"))
+        assertTrue(stats.report().contains("clock resets: 1"))
+    }
+
+    @Test
     fun storageFailureDoesNotThrowIntoPlaybackAndIsReported() = runBlocking {
         val stats = EnhancedRadioRequestStatistics({ null }, { error("disk error") }, { 1000L })
         stats.record("a", false, true, 1000L)
