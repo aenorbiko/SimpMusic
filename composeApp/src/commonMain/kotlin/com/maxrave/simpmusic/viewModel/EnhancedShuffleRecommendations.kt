@@ -109,6 +109,7 @@ data class EnhancedRadioDiagnostic(
     val bestDifferentSongArtistExample: String? = null,
     val beforeExclusionsDetails: List<String> = emptyList(),
     val selectionEvidence: String? = null,
+    val fullTrackDetails: String? = null,
 ) {
     fun asText(): String = buildString {
         appendLine("Enhanced recommendation")
@@ -128,6 +129,7 @@ data class EnhancedRadioDiagnostic(
         appendLine("Source: $source")
         appendLine("Selected: $selectedSong")
         selectionEvidence?.let { appendLine("Selection evidence: $it") }
+        fullTrackDetails?.let { appendLine(it) }
         appendLine("Eligible rank A: ${selectedRankA ?: "—"} / B: ${selectedRankB ?: "—"}")
         appendLine("Common songs (eligible ranks):")
         if (commonSongs.isEmpty()) appendLine("None") else commonSongs.forEach { appendLine(it) }
@@ -169,6 +171,7 @@ internal fun enhancedRadioDiagnostic(
         selectedSong = selected.title.orEmpty(),
         source = decision.source,
         selectionEvidence = decision.metadataEvidence,
+        fullTrackDetails = timing.fullTrack?.asText(),
         receivedA = decision.receivedA,
         receivedB = decision.receivedB,
         eligibleA = decision.eligibleA,
@@ -212,12 +215,13 @@ internal suspend fun buildEnhancedBatch(
     onRadioPageCompleted: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
     excludedSongKeys: Set<String> = emptySet(),
     searchRepository: SearchRepository? = null,
+    onFullTrackCompleted: (FullTrackDiagnostic) -> Unit = {},
 ): EnhancedBatch {
     val result = mutableListOf<Track>()
     val recommendations = mutableSetOf<String>()
     val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
     // The same paged selection path as startup; collect the completed prefetch batch.
-    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository) { chunk ->
+    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository, onFullTrackCompleted) { chunk ->
         result.addAll(chunk.tracks)
         recommendations.addAll(chunk.recommendedIds)
         diagnostics.putAll(chunk.diagnostics)
