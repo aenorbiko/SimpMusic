@@ -23,6 +23,12 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 90 — Complete playlist sources and statistics clock fix (2026-11-27)
+
+- Load remaining remote playlist pages before enabling shuffle/Enhanced from the player or notification, preserving the current track and rejecting incomplete or stale source loads. Phone tests in signed Lab 89 exceeded the previous 100 first-page request limit (182 from player, 168 from notification).
+- Distinguish delayed asynchronous radio completion writes from actual wall-clock rollback. Keep observation start and aggregate counters, retain recent history on late writes, and report the start timestamp in UTC. A genuine clock rollback clears only the repeat history and adjusts elapsed observation by the observed clock change. Late event timestamps are clamped to the history watermark; repeat windows remain estimates. Old lost history cannot be reconstructed.
+- No change to recommendation selection, Full Track, radio concurrency or cache. Stable publication is gated by the existing JVM regressions plus complete-source and clock regression tests. Ordinary listening can verify the new statistics.
+
 ### Android build 87 — Full Track recommendations (2026-11-26)
 
 - Only selected Enhanced recommendations shorter than 90 seconds receive an additional Songs search. A different eligible audio result must have the same normalized title and complete artist set and be at least 25% longer; otherwise the original is retained. Search timeout is 10 seconds including slot wait.
