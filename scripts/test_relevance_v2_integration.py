@@ -46,3 +46,10 @@ assert "onRadioPageCompleted(track.videoId, token != null," in progressive
 assert "excludedSongKeys = enhancedOwnedSongKeys" in shared
 assert "excludedSongKeys = excludedKeys" in shared
 assert "usedRecommendationSongKeys = enhancedUsedSongKeys.toSet()" in shared
+
+# Single batch owner from start of generation through queue commit.
+assert shared.count("enhancedBatchGate.runIfCurrent(") == 2
+assert "start == nextEnhancedLikedIndex" in shared
+assert "enhancedPrefetchJob = job\n        job.start()" in shared
+assert "smartShuffleJob = job\n        job.start()" in shared
+assert "if (switchingSmartQueue || enhancedPrefetchJob?.isActive == true" in shared
