@@ -23,6 +23,12 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 87 — Full Track recommendations (2026-11-26)
+
+- Only selected Enhanced recommendations shorter than 90 seconds receive an additional Songs search. A different eligible audio result must have the same normalized title and complete artist set and be at least 25% longer; otherwise the original is retained. Search timeout is 10 seconds including slot wait.
+- Local diagnostics show result and search duration; aggregate Full Track counters persist with radio statistics. Normal playback and anonymous paired radios are unchanged. No radio cache.
+- Signed Lab 87 (`d7bca8dc`) passed automated tests. Two phone lookups correctly preserved short complete tracks (~2.5 seconds each); a real successful replacement has not yet been observed. Approved for merge by the user. The existing incomplete playlist source bug and clock reset issue remain separate fixes.
+
 ### Android build 85 — Enhanced duplicate protection and reliable queue refill (2026-11-26)
 
 - Exclude recommendations with the same video ID or strict normalized title and complete artist set as source tracks or earlier recommendations, including earlier batches and restored sessions. Distinct remixes and versions remain eligible; incomplete or differing metadata can prevent matching.

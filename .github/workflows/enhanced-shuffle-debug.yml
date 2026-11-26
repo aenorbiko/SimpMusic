@@ -168,6 +168,7 @@ jobs:
             --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioMetadataDiagnosticsTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioRequestStatisticsTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedTrackDeduplicationTest" \
+            --tests "com.maxrave.simpmusic.viewModel.EnhancedFullTrackTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedBatchGateTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedQueueSessionTest" \
             --tests "com.maxrave.simpmusic.utils.EnhancedForkUpdateTest" \
