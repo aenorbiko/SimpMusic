@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      clean_build:
+        description: 'Build without restored Gradle caches (verification)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,6 +22,8 @@ jobs:
   build-debug:
     timeout-minutes: 40
     runs-on: ubuntu-latest
+    env:
+      GRADLE_CACHE_ARGS: ${{ inputs.clean_build == true && '--no-build-cache --no-configuration-cache' || '--build-cache' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,7 +32,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
+      - name: Restore Gradle dependencies and task output cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: ${{ inputs.clean_build == true }}
+          cache-read-only: false
+          # No encryption key: do not persist Configuration Cache across runners.
       - name: Require a new Android versionCode for each Stable main revision
         shell: bash
         env:
@@ -72,7 +84,7 @@ jobs:
           python3 scripts/test_restored_notification_star.py
           python3 scripts/test_anonymous_enhanced_radio.py
       - name: Generate library definitions
-        run: ./gradlew exportLibraryDefinitions
+        run: ./gradlew $GRADLE_CACHE_ARGS exportLibraryDefinitions
       - name: Load permanent signing key, if configured
         shell: bash
         env:
@@ -91,7 +103,7 @@ jobs:
             echo "Permanent signing credentials restored from GitHub secret."
           fi
       - name: Build debug APK (separate .dev package)
-        run: ./gradlew :androidApp:assembleDebug -PsimpmusicEnhancedBuildChannel="Enhanced Stable"
+        run: ./gradlew $GRADLE_CACHE_ARGS :androidApp:assembleDebug -PsimpmusicEnhancedBuildChannel="Enhanced Stable"
       - name: Verify APK uses the permanent signing certificate
         shell: bash
         run: |
@@ -147,7 +159,7 @@ jobs:
           echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
       - name: Verify shuffle ordering and current-track preservation
         run: |
-          ./gradlew :composeApp:jvmTest \
+          ./gradlew $GRADLE_CACHE_ARGS :composeApp:jvmTest --rerun \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
@@ -166,7 +178,7 @@ jobs:
           LEGACY="core/data/src/jvmTest/kotlin/com/maxrave/data/librarysync/SyncSupportTest.kt"
           test -f "$LEGACY"
           mv "$LEGACY" "${LEGACY}.disabled"
-          ./gradlew :data:jvmTest --tests "com.maxrave.data.mediaservice.RestoredEnhancedRecommendedIdsTest"
+          ./gradlew $GRADLE_CACHE_ARGS :data:jvmTest --rerun --tests "com.maxrave.data.mediaservice.RestoredEnhancedRecommendedIdsTest"
       - name: Publish one ARM64 APK for direct download (no ZIP)
         shell: bash
         env:
