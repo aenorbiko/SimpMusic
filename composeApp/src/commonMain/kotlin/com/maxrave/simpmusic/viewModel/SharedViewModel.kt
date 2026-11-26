@@ -117,6 +117,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.getString
 import org.koin.core.component.inject
 import org.simpmusic.lastfm.completeLogin
@@ -251,6 +252,8 @@ class SharedViewModel(
         EnhancedMediaBridge.recommendedTrackIds.value = ids
     }
 
+    private var shuffleSourceLoadJob: Job? = null
+    private var shuffleSourceLoadRevision = 0L
     private var likedSourceTracks: List<Track> = emptyList()
     private var likedSourceName: String? = null
     private var playingSmartQueueName: String? = null
@@ -424,6 +427,7 @@ class SharedViewModel(
     }
 
     private fun forgetSmartShuffle() {
+        cancelShuffleSourceLoad()
         abandonStartupEnhancedRestore = true
         persistEnhancedSnapshot(null)
         enhancedSession++
@@ -543,6 +547,7 @@ class SharedViewModel(
         sourceId: String,
     ) {
         if (liked.isEmpty()) return
+        cancelShuffleSourceLoad()
         abandonStartupEnhancedRestore = true
         persistEnhancedSnapshot(null)
         val oldQueue = mediaPlayerHandler.queueData.value?.data
@@ -802,6 +807,64 @@ class SharedViewModel(
         job.start()
     }
 
+    private fun cancelShuffleSourceLoad() {
+        shuffleSourceLoadRevision++
+        shuffleSourceLoadJob?.cancel()
+        shuffleSourceLoadJob = null
+    }
+
+    private fun cycleRemoteShuffleFromPlayer(queue: QueueData.Data, name: String, sourceId: String) {
+        val playlistId = queue.playlistId ?: return
+        if (queue.continuation.isNullOrBlank()) {
+            cycleSourceShuffle(queue.listTracks, name, sourceId)
+            return
+        }
+        // Ignore repeat taps while the original request is outstanding.
+        if (shuffleSourceLoadJob?.isActive == true) return
+        val initial = queue.listTracks.toList()
+        val token = queue.continuation
+        val firstId = queue.firstPlayedTrack?.videoId
+        val revision = ++shuffleSourceLoadRevision
+        fun stillCurrent(): Boolean {
+            val active = mediaPlayerHandler.queueData.value?.data ?: return false
+            return revision == shuffleSourceLoadRevision &&
+                active.playlistId == playlistId &&
+                active.playlistName == queue.playlistName &&
+                active.playlistType == queue.playlistType &&
+                active.firstPlayedTrack?.videoId == firstId &&
+                shuffleSourceStillMatches(initial, active.listTracks) { it.videoId }
+        }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                makeToast("Loading full playlist…")
+                val all = withTimeoutOrNull(45_000L) {
+                    completeShuffleSource(initial, token, { it.videoId }) { continuation ->
+                        if (!stillCurrent()) throw kotlinx.coroutines.CancellationException("Playlist changed")
+                        songRepository.getContinueTrack(playlistId, continuation, fromPlaylist = true).firstOrNull()
+                    }
+                }
+                if (!stillCurrent()) return@launch
+                if (all == null) {
+                    makeToast("Could not load full playlist; try shuffle again")
+                    return@launch
+                }
+                log("Shuffle source: ${initial.size} loaded, ${all.size} complete", LogLevel.WARN)
+                // Detach before cycleSourceShuffle cancels stale source loads.
+                shuffleSourceLoadJob = null
+                cycleSourceShuffle(all, name, sourceId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (stillCurrent()) makeToast("Could not load full playlist; try shuffle again")
+                log("Shuffle source loading failed: ${e.message}", LogLevel.WARN)
+            } finally {
+                if (revision == shuffleSourceLoadRevision) shuffleSourceLoadJob = null
+            }
+        }
+        shuffleSourceLoadJob = job
+        job.start()
+    }
+
     private fun cycleShuffleFromPlayer() {
         val queue = mediaPlayerHandler.queueData.value?.data
         if (playingSmartQueueName != null && queue?.playlistName == playingSmartQueueName &&
@@ -809,7 +872,7 @@ class SharedViewModel(
         ) {
             cycleSourceShuffle(likedSourceTracks, likedSourceName!!, _smartShuffleSource.value!!)
         } else if (queue != null && queue.listTracks.size >= 2 && queue.playlistId == "LM") {
-            cycleLikedShuffle(queue.listTracks, "Liked Music", "LM")
+            cycleRemoteShuffleFromPlayer(queue, "Liked Music", "LM")
         } else if (queue != null && queue.listTracks.size >= 2 &&
             queue.playlistId != null &&
             queue.playlistType in listOf(PlaylistType.PLAYLIST, PlaylistType.ALBUM, PlaylistType.LOCAL_PLAYLIST)
@@ -821,7 +884,11 @@ class SharedViewModel(
                 PlaylistType.LOCAL_PLAYLIST -> "local:${queue.playlistId}"
                 else -> "playlist:${queue.playlistId}"
             }
-            cycleSourceShuffle(queue.listTracks, queue.playlistName ?: "Playlist", sourceId)
+            if (queue.playlistType == PlaylistType.PLAYLIST) {
+                cycleRemoteShuffleFromPlayer(queue, queue.playlistName ?: "Playlist", sourceId)
+            } else {
+                cycleSourceShuffle(queue.listTracks, queue.playlistName ?: "Playlist", sourceId)
+            }
         } else {
             forgetSmartShuffle()
             viewModelScope.launch { mediaPlayerHandler.onPlayerEvent(PlayerEvent.Shuffle) }
