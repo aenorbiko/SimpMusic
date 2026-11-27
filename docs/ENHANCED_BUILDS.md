@@ -4,7 +4,7 @@ Stable uses `.github/workflows/enhanced-shuffle-debug.yml`. New Labs use `.githu
 
 ## Launcher icons
 
-Enhanced Stable uses the original glass SimpMusic logo with two blue-white sparkles and a blue lower-right wave. Shared Labs use the same original logo and two sparkles, with a purple diagonal corner labelled LAB. Both standard and round adaptive icons have a themed monochrome variant (the Lab variant uses monochrome lettering rather than a colored corner). Gradle chooses the icons by build channel/shared Lab property; existing package IDs, permanent signing, historical Lab artwork and unlabelled upstream builds are unchanged. The common workflow checks both manifest icon resource IDs in the compiled APK.
+Enhanced Stable uses the original glass SimpMusic logo with two solid blue, white-outlined sparkles in the upper-left white area and a subtle blue lower-right wave. Shared Labs use the same original logo and two sparkles, with a purple diagonal corner labelled LAB. Both standard and round adaptive icons have a themed monochrome variant (the Lab variant uses monochrome lettering rather than a colored corner). Gradle chooses the icons by build channel/shared Lab property; existing package IDs, permanent signing, historical Lab artwork and unlabelled upstream builds are unchanged. The common workflow checks both manifest icon resource IDs in the compiled APK.
 
 ## One persistent development app
 

@@ -26,8 +26,13 @@ for kind in ("stable", "lab"):
             f"@mipmap/ic_launcher{suffix}_foreground", f"@drawable/enhanced_{kind}_overlay"
         ]
     overlay = ET.parse(root / "drawable" / f"enhanced_{kind}_overlay.xml").getroot()
-    stars = [p for p in overlay.findall("path") if p.get(ns + "fillColor") == "#FFF1FCFF"]
+    stars = [p for p in overlay.findall("path") if p.get(ns + "fillColor") == "#FF087DE0"]
     assert len(stars) == 2
+    assert stars[0].get(ns + "pathData").startswith("M35,25")
+    assert stars[1].get(ns + "pathData").startswith("M29,40")
+    assert all(p.get(ns + "strokeColor") == "#FFFFFFFF" for p in stars)
+    if kind == "lab":
+        assert overlay.find("path").get(ns + "pathData") == "M36,108 L108,36 L108,108 Z"
     assert (overlay.find("group") is not None) == (kind == "lab")
     assert ET.parse(root / "drawable" / f"enhanced_{kind}_mono.xml").getroot().tag == "layer-list"
 
