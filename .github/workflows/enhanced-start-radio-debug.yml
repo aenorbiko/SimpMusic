@@ -73,7 +73,7 @@ jobs:
             echo "::error::Permanent signing directory is missing."
             exit 1
           fi
-          APK="androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk"
+          APK="androidApp/build/outputs/apk/debug/androidApp-debug.apk"
           if [ ! -s "$APK" ]; then
             echo "::error::ARM64 APK not found. Available APKs:"
             find androidApp/build/outputs -name '*.apk' -print || true
@@ -148,7 +148,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK=androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk
+          APK=androidApp/build/outputs/apk/debug/androidApp-debug.apk
           test -s "$APK"
           cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Start-Radio-arm64.apk"
           if gh release view enhanced-start-radio-latest >/dev/null 2>&1; then
