@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.viewModel
 
 import androidx.lifecycle.viewModelScope
 import com.maxrave.common.Config
+import com.maxrave.common.MERGING_DATA_TYPE
 import com.maxrave.domain.data.entities.DownloadState
 import com.maxrave.domain.data.entities.LocalPlaylistEntity
 import com.maxrave.domain.data.entities.SongEntity
@@ -224,6 +225,16 @@ class NowPlayingBottomSheetViewModel(
     fun onUIEvent(ev: NowPlayingBottomSheetUIEvent) {
         val songUIState = uiState.value.songUIState
         if (songUIState.videoId.isEmpty()) return
+        // Starting radio from the currently playing track must not enter the
+        // generic song-selection path below (which intentionally starts a new track).
+        // Dispatch before launching a UI coroutine so the service captures the
+        // active item at the time of the user's tap.
+        if (ev is NowPlayingBottomSheetUIEvent.StartRadio &&
+            mediaPlayerHandler.getCurrentMediaItem()?.mediaId?.removePrefix(MERGING_DATA_TYPE.VIDEO) == ev.videoId
+        ) {
+            mediaPlayerHandler.toggleRadio()
+            return
+        }
         viewModelScope.launch {
             when (ev) {
                 is NowPlayingBottomSheetUIEvent.DeleteFromPlaylist -> {
