@@ -251,28 +251,27 @@ edit(callback,
 
 
 
-# Start Radio used to clear and recreate the current item before appending the
-# radio queue. Keep the active Media3 item in place so position and pause state
-# survive. Ignore a response that arrives after playback has moved to another song.
+# Start Radio replaces the queue only after the radio response is ready.
+# Snapshot the exact active item and playback state before the request; a stale
+# result must never restart or replace a song selected in the meantime.
 radio_handlers = [
     "data/src/androidMain/kotlin/com/maxrave/data/mediaservice/MediaServiceHandlerImpl.kt",
     "data/src/jvmMain/kotlin/com/maxrave/data/mediaservice/JvmMediaPlayerHandlerImpl.kt",
 ]
+radio_start_anchor = """            val currentSong = nowPlayingState.value.songEntity ?: return@launch
+            Logger.d(TAG, "toggleRadio: ${currentSong.title}")"""
+radio_start_replacement = """            val currentSong = nowPlayingState.value.songEntity ?: return@launch
+            val requestedMediaItem = player.currentMediaItem ?: return@launch
+            val requestedMediaId = requestedMediaItem.mediaId
+            val requestedPositionMs = player.currentPosition
+            val requestedPlayWhenReady = player.playWhenReady
+            Logger.d(TAG, "toggleRadio: ${currentSong.title}")"""
 radio_success_anchor = """                        is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
                             setQueueData("""
 radio_success_replacement = """                        is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
-                            // The radio request is asynchronous. Do not replace the queue if
-                            // playback moved to a different song while it was in flight.
-                            val activeVideoId = player.currentMediaItem?.mediaId
-                                ?.removePrefix(MERGING_DATA_TYPE.VIDEO)
-                            if (activeVideoId != currentSong.videoId) {
+                            // Reject late radio results after the user selected another track.
+                            if (player.currentMediaItem?.mediaId != requestedMediaId) {
                                 Logger.w(TAG, "toggleRadio: active track changed; keeping current queue")
-                                return@collectLatest
-                            }
-                            val activeIndex = player.currentMediaItemIndex
-                            val itemCount = player.mediaItemCount
-                            if (activeIndex !in 0 until itemCount) {
-                                Logger.w(TAG, "toggleRadio: no active queue item; keeping current queue")
                                 return@collectLatest
                             }
                             setQueueData("""
@@ -285,12 +284,24 @@ radio_queue_anchor = """                            clearMediaItems()
 radio_queue_replacement = """                            currentSong.durationSeconds.let {
                                 songRepository.updateDurationSeconds(it, currentSong.videoId)
                             }
-                            // Retain the current item and its position; discard only old history
-                            // and upcoming tracks, then append the radio results.
-                            player.removeMediaItems(activeIndex + 1, itemCount) {}
-                            player.removeMediaItems(0, activeIndex) {}
-                            loadPlaylistOrAlbum(0)"""
+                            // Recreate the active item with its saved position and play/pause intent.
+                            // The previous implementation used ranged removals; the player may refuse
+                            // those while shuffle/crossfade is active, leaving the old queue intact.
+                            player.clearMediaItems()
+                            player.setMediaItem(requestedMediaItem)
+                            player.prepare()
+                            player.playWhenReady = false
+                            player.seekTo(requestedPositionMs)
+                            try {
+                                load(downloaded = 0, index = 0)
+                            } finally {
+                                // Do not change play state if the user switched tracks during loading.
+                                if (player.currentMediaItem?.mediaId == requestedMediaId) {
+                                    player.playWhenReady = requestedPlayWhenReady
+                                }
+                            }"""
 for radio_handler in radio_handlers:
+    edit(radio_handler, radio_start_anchor, radio_start_replacement)
     edit(radio_handler, radio_success_anchor, radio_success_replacement)
     edit(radio_handler, radio_queue_anchor, radio_queue_replacement)
 
