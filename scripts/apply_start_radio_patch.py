@@ -14,6 +14,13 @@ def apply_start_radio_patch(root):
     target = root / "domain/src/commonMain/kotlin/com/maxrave/domain/mediaservice/handler/StartRadioQueuePlan.kt"
     target.write_text((snippets / "StartRadioQueuePlan.kt").read_text())
     radio_body = (snippets / "StartRadioHandler.kt.fragment").read_text()
+    selected_body = (snippets / "SelectedRadioHandler.kt.fragment").read_text()
+    handler_interface = "domain/src/commonMain/kotlin/com/maxrave/domain/mediaservice/handler/MediaPlayerHandler.kt"
+    edit(handler_interface, "    fun toggleRadio()\n",
+         "    fun toggleRadio()\n\n"
+         "    fun captureSelectedRadioRequest(): SelectedRadioRequest\n"
+         "    fun isSelectedRadioRequestCurrent(request: SelectedRadioRequest): Boolean\n"
+         "    suspend fun applySelectedRadioIfCurrent(request: SelectedRadioRequest, queue: QueueData.Data): Boolean\n")
     bridge = "domain/src/commonMain/kotlin/com/maxrave/domain/data/player/EnhancedMediaBridge.kt"
     edit(bridge, "    var onShuffleClick: (() -> Unit)? = null\n",
          "    var onShuffleClick: (() -> Unit)? = null\n"
@@ -56,7 +63,8 @@ def apply_start_radio_patch(root):
     for path in handlers:
         file = root / path
         source = file.read_text()
-        imports = ("import com.maxrave.domain.mediaservice.handler.planStartRadioQueue\n"
+        imports = ("import com.maxrave.domain.mediaservice.handler.SelectedRadioRequest\n"
+                   "import com.maxrave.domain.mediaservice.handler.planStartRadioQueue\n"
                    "import com.maxrave.domain.mediaservice.handler.replaceUpcomingKeepingCurrent\n"
                    "import com.maxrave.domain.mediaservice.handler.startRadioRequestIsCurrent\n")
         if "import com.maxrave.domain.data.player.EnhancedMediaBridge\n" not in source:
@@ -70,7 +78,7 @@ def apply_start_radio_patch(root):
         source = file.read_text()
         start = source.index("    override fun toggleRadio() {")
         end = source.index("    override fun toggleLike()", start)
-        edit(path, source[start:end], radio_body)
+        edit(path, source[start:end], radio_body + selected_body)
         for anchor in (
             "    override fun setQueueData(queueData: QueueData.Data) {\n",
             "    override fun resetSongAndQueue() {\n",
@@ -79,6 +87,15 @@ def apply_start_radio_patch(root):
             "    override fun release() {\n",
         ):
             edit(path, anchor, anchor + "        startRadioRequestRevision.incrementAndGet()\n")
+        # Invalidate at the user's selection, before metadata or queued player operations.
+        for anchor in (
+            "    override suspend fun <T> loadMediaItem(\n        anyTrack: T,\n        type: String,\n        index: Int?,\n    ) {\n",
+            "    override fun playMediaItemInMediaSource(index: Int) {\n",
+        ):
+            edit(path, anchor, anchor + "        startRadioRequestRevision.incrementAndGet()\n")
+        for event in ("Next", "Previous", "SkipToPrevious", "Stop"):
+            anchor = f"            PlayerEvent.{event} -> {{\n"
+            edit(path, anchor, anchor + "                startRadioRequestRevision.incrementAndGet()\n")
         edit(path, "            PlayerEvent.Shuffle -> {\n",
              "            PlayerEvent.Shuffle -> {\n                startRadioRequestRevision.incrementAndGet()\n")
         edit(path, "        if (mediaItem?.mediaId != _nowPlaying.value?.mediaId) {\n",

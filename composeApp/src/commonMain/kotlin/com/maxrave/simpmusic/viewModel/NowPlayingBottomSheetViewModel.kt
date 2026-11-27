@@ -1,7 +1,6 @@
 package com.maxrave.simpmusic.viewModel
 
 import androidx.lifecycle.viewModelScope
-import com.maxrave.common.Config
 import com.maxrave.common.MERGING_DATA_TYPE
 import com.maxrave.domain.data.entities.DownloadState
 import com.maxrave.domain.data.entities.LocalPlaylistEntity
@@ -235,6 +234,9 @@ class NowPlayingBottomSheetViewModel(
             mediaPlayerHandler.toggleRadio()
             return
         }
+        // Capture the intent at the tap, before launching the remote request.
+        val selectedRadioRequest = if (ev is NowPlayingBottomSheetUIEvent.StartRadio)
+            mediaPlayerHandler.captureSelectedRadioRequest() else null
         viewModelScope.launch {
             when (ev) {
                 is NowPlayingBottomSheetUIEvent.DeleteFromPlaylist -> {
@@ -384,6 +386,7 @@ class NowPlayingBottomSheetViewModel(
                 }
 
                 is NowPlayingBottomSheetUIEvent.StartRadio -> {
+                    val request = selectedRadioRequest ?: return@launch
                     songRepository
                         .getRadioFromEndpoint(
                             YouTubeWatchEndpoint(
@@ -391,10 +394,12 @@ class NowPlayingBottomSheetViewModel(
                                 playlistId = "RDAMVM${ev.videoId}",
                             ),
                         ).collectLatest { res ->
+                            if (!mediaPlayerHandler.isSelectedRadioRequestCurrent(request)) return@collectLatest
                             val data = res.data
                             when (res) {
                                 is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
-                                    setQueueData(
+                                    mediaPlayerHandler.applySelectedRadioIfCurrent(
+                                        request,
                                         QueueData.Data(
                                             listTracks = data.first,
                                             firstPlayedTrack = data.first.first(),
@@ -403,11 +408,6 @@ class NowPlayingBottomSheetViewModel(
                                             playlistType = PlaylistType.RADIO,
                                             continuation = data.second,
                                         ),
-                                    )
-                                    loadMediaItem(
-                                        data.first.first(),
-                                        Config.PLAYLIST_CLICK,
-                                        0,
                                     )
                                 }
 

@@ -8,7 +8,7 @@ for path in (
     "data/src/jvmMain/kotlin/com/maxrave/data/mediaservice/JvmMediaPlayerHandlerImpl.kt",
 ):
     text = (root / path).read_text()
-    radio = text.split("    override fun toggleRadio() {", 1)[1].split("    override fun toggleLike()", 1)[0]
+    radio = text.split("    override fun toggleRadio() {", 1)[1].split("    override fun captureSelectedRadioRequest()", 1)[0]
     for required in ("startRadioRequestIsCurrent(", "planStartRadioQueue(", "replaceUpcomingKeepingCurrent(",
                      "removeUpcomingItem = ::removeUpcomingRadioItemOnOwner", "startRadioCommitRevision.incrementAndGet()",
                      "if (!stillCurrent()) return@collectLatest"):
@@ -33,3 +33,22 @@ assert "mediaPlayerHandler.getCurrentMediaItem()?.mediaId?.removePrefix(MERGING_
 assert "mediaPlayerHandler.toggleRadio()\n            return" in dispatch
 assert "loadMediaItem(" not in dispatch and "setQueueData(" not in dispatch
 print("PASS: current-song Start Radio menu routes directly to the protected service handler.")
+
+# The selected-song response must be checked at the menu and again after the
+# suspending metadata writes on the playback owner, before changing the queue.
+assert "mediaPlayerHandler.captureSelectedRadioRequest()" in dispatch
+selected = vm.split("is NowPlayingBottomSheetUIEvent.StartRadio -> {", 1)[1]
+assert "if (!mediaPlayerHandler.isSelectedRadioRequestCurrent(request)) return@collectLatest" in selected
+assert "mediaPlayerHandler.applySelectedRadioIfCurrent(" in selected
+assert "loadMediaItem(" not in selected and "setQueueData(" not in selected
+for path in (
+    "data/src/androidMain/kotlin/com/maxrave/data/mediaservice/MediaServiceHandlerImpl.kt",
+    "data/src/jvmMain/kotlin/com/maxrave/data/mediaservice/JvmMediaPlayerHandlerImpl.kt",
+):
+    source = (root / path).read_text()
+    apply = source.split("override suspend fun applySelectedRadioIfCurrent(", 1)[1].split("override fun toggleLike()", 1)[0]
+    check = "if (!isSelectedRadioRequestCurrent(request)) return@withContext false"
+    assert apply.count(check) == 2
+    assert apply.index("songRepository.updateDurationSeconds(") < apply.rindex(check) < apply.index("reset()") < apply.index("addMediaItem(")
+    assert "withContext(coroutineScope.coroutineContext.minusKey(Job))" in apply
+print("PASS: selected-song radio checks shared request validity immediately before replacing playback.")

@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.viewModel
 
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.mediaservice.handler.PlaylistType
+import com.maxrave.domain.mediaservice.handler.SelectedRadioRequest
 import com.maxrave.domain.mediaservice.handler.planStartRadioQueue
 import com.maxrave.domain.mediaservice.handler.startRadioRequestIsCurrent
 import kotlin.test.Test
@@ -53,5 +54,24 @@ class StartRadioQueuePlanTest {
         assertFalse(startRadioRequestIsCurrent(1, 2, "seed", "seed", 5, 5))
         assertFalse(startRadioRequestIsCurrent(1, 1, "seed", "other", 5, 5))
         assertFalse(startRadioRequestIsCurrent(1, 1, "seed", "seed", 5, 6))
+    }
+
+    @Test
+    fun selectedRadioTicketRejectsLaterPlaybackAndOtherRadioRequests() {
+        val request = SelectedRadioRequest(4, "A", 2)
+        assertTrue(request.isCurrent(4, "A", 2))
+        assertFalse(request.isCurrent(4, "C", 2))
+        assertFalse(request.isCurrent(5, "A", 2))
+        assertFalse(request.isCurrent(4, "A", 3))
+        // Returning to A after selecting C must not revive the old request.
+        assertFalse(request.isCurrent(6, "A", 2))
+    }
+
+    @Test
+    fun selectedRadioCanStartFromEmptyPlayerButNotOverwriteNewPlayback() {
+        val request = SelectedRadioRequest(1, null, 0)
+        assertTrue(request.isCurrent(1, null, 0))
+        assertFalse(request.isCurrent(2, null, 0))
+        assertFalse(request.isCurrent(1, "C", 0))
     }
 }

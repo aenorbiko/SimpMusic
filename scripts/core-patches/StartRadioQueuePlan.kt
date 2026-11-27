@@ -34,9 +34,20 @@ fun planStartRadioQueue(
 fun startRadioRequestIsCurrent(
     requestedRevision: Long,
     currentRevision: Long,
-    requestedMediaId: String,
+    requestedMediaId: String?,
     currentMediaId: String?,
     requestedShuffleIntent: Long,
     currentShuffleIntent: Long,
 ): Boolean = requestedRevision == currentRevision &&
     requestedMediaId == currentMediaId && requestedShuffleIntent == currentShuffleIntent
+
+/** Shared with current-song radio: a newer playback or radio intent invalidates this ticket. */
+data class SelectedRadioRequest(
+    val revision: Long,
+    val activeMediaId: String?,
+    val shuffleIntent: Long,
+) {
+    fun isCurrent(revision: Long, activeMediaId: String?, shuffleIntent: Long): Boolean =
+        startRadioRequestIsCurrent(this.revision, revision, this.activeMediaId, activeMediaId,
+            this.shuffleIntent, shuffleIntent)
+}
