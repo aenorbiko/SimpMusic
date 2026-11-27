@@ -1,0 +1,29 @@
+name: Validate shared Android build (no publication)
+on:
+  push:
+    branches: [refactor/build-workflows]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-build-workflow-validation-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Build Workflow Validation Lab
+      lab_property: simpmusicQueueManagementExperimental
+      expected_package: com.maxrave.simpmusic.dev.queuemanagement
+      release_tag: enhanced-build-workflow-validation-latest
+      asset_name: SimpMusic-Build-Workflow-Validation-arm64.apk
+      expected_branch: refactor/build-workflows
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: false
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}
