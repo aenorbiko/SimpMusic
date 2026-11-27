@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: enhanced-build-workflow-validation-latest-${{ github.ref }}
   cancel-in-progress: true
