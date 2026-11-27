@@ -1,0 +1,29 @@
+name: SimpMusic Queue Management Lab ARM64 APK
+on:
+  push:
+    branches: [refactor/queue-management]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-queue-management-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Queue Management Lab
+      lab_property: simpmusicQueueManagementExperimental
+      expected_package: com.maxrave.simpmusic.dev.queuemanagement
+      release_tag: enhanced-queue-management-latest
+      asset_name: SimpMusic-Queue-Management-arm64.apk
+      expected_branch: refactor/queue-management
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

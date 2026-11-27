@@ -23,7 +23,42 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 92 — Clearer updates and shared build infrastructure (2026-11-27)
+
+**What's new**
+
+- Update messages now explain what has changed in plain language.
+- The full version history includes easy-to-read summaries of earlier updates.
+- Internal build improvements make future updates easier to prepare and verify. Music playback and Enhanced recommendations are unchanged.
+
+**Technical details**
+
+- Generate Stable release notes from the matching changelog entry, retaining the Android build and source commit metadata required by the updater and version gate.
+- Share signed ARM64 assembly, caching, package verification and regression tests between Stable and new Labs; keep release destinations isolated. The signed validation run for PR #23 succeeded without publishing an APK.
+- No changes to Android playback or recommendation logic. Start Radio remains a separate planned fix.
+
+### Android build 91 — Shared queue management (2026-11-27)
+
+**What's new**
+
+- Updated the way the app manages upcoming songs, laying the groundwork for future playback improvements.
+- Enhanced, Shuffle and playback controls continue to work as before.
+
+**Technical details**
+
+- Extract the existing in-place Shuffle/Enhanced queue-tail mutation into a common MediaPlayerHandler extension. Reject mismatched active-track or queue snapshots before removal; preserve played history, current playback, recommendation badges and the existing append sequence.
+- Add JVM behavior tests for ordered removal, queue metadata and continuation, recommendation badge ordering, stale snapshots and empty tails. Signed ARM64 Queue Management Lab 90 (`b2ad6ae6`) passed the existing regression suite and new tests.
+- Phone testing confirmed uninterrupted playback, pause and position preservation, notification Enhanced activation, queue replenishment and restoration with further replenishment after Force stop. One missing recommendation was observed; unchanged code can omit a recommendation when no eligible candidate is found, but the specific cause was not established.
+- No changes to Start Radio, recommendation selection, statistics or the existing asynchronous player operation semantics. Atomic queue replacement and cross-feature cancellation are not part of this refactor.
+
 ### Android build 90 — Complete playlist sources and statistics clock fix (2026-11-27)
+
+**What's new**
+
+- Shuffle and Enhanced now use the complete playlist, including songs beyond the first 100, when started from the player or notification.
+- Fixed a problem that could reset Enhanced radio statistics when requests finished out of order.
+
+**Technical details**
 
 - Load remaining remote playlist pages before enabling shuffle/Enhanced from the player or notification, preserving the current track and rejecting incomplete or stale source loads. Phone tests in signed Lab 89 exceeded the previous 100 first-page request limit (182 from player, 168 from notification).
 - Distinguish delayed asynchronous radio completion writes from actual wall-clock rollback. Keep observation start and aggregate counters, retain recent history on late writes, and report the start timestamp in UTC. A genuine clock rollback clears only the repeat history and adjusts elapsed observation by the observed clock change. Late event timestamps are clamped to the history watermark; repeat windows remain estimates. Old lost history cannot be reconstructed.
@@ -31,11 +66,26 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ### Android build 87 — Full Track recommendations (2026-11-26)
 
+**What's new**
+
+- Enhanced can look for a longer version when it recommends a song shorter than 90 seconds.
+- If no suitable longer version is found, the original recommendation is kept.
+
+**Technical details**
+
 - Only selected Enhanced recommendations shorter than 90 seconds receive an additional Songs search. A different eligible audio result must have the same normalized title and complete artist set and be at least 25% longer; otherwise the original is retained. Search timeout is 10 seconds including slot wait.
 - Local diagnostics show result and search duration; aggregate Full Track counters persist with radio statistics. Normal playback and anonymous paired radios are unchanged. No radio cache.
 - Signed Lab 87 (`d7bca8dc`) passed automated tests. Two phone lookups correctly preserved short complete tracks (~2.5 seconds each); a real successful replacement has not yet been observed. Approved for merge by the user. The existing incomplete playlist source bug and clock reset issue remain separate fixes.
 
 ### Android build 85 — Enhanced duplicate protection and reliable queue refill (2026-11-26)
+
+**What's new**
+
+- Reduced repeated recommendations, including different uploads of the same song.
+- Fixed overlapping queue refills when skipping through songs quickly.
+- Added a reset option for Enhanced radio statistics in Settings.
+
+**Technical details**
 
 - Exclude recommendations with the same video ID or strict normalized title and complete artist set as source tracks or earlier recommendations, including earlier batches and restored sessions. Distinct remixes and versions remain eligible; incomplete or differing metadata can prevent matching.
 - Serialize Enhanced batch generation through queue append and session checkpoint so rapid near-end track selection cannot generate overlapping batches. Retain progressive 2+1 ordering and existing four-pair/eight-request radio concurrency.
@@ -45,11 +95,26 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ### Android build 78 — Local Enhanced radio request statistics (2026-11-25)
 
+**What's new**
+
+- Added Enhanced radio statistics in Settings > About us, including request counts, errors and repeated requests.
+- Statistics are stored locally and survive app restarts.
+
+**Technical details**
+
 - Settings → About us → Enhanced statistics → Copy statistics: report completed first-page radio requests, continuation requests, errors/empty results and cumulative repeats within 20 minutes, 1 hour and 24 hours.
 - Local bounded history of recent successful seed IDs and aggregate counters; no titles, IDs, account data or continuation tokens in copied reports. No telemetry or radio cache. Repeat counts estimate potential savings, not actual cache hits.
 - Statistics survive process restart and Force stop, verified on the phone with Radio Statistics Lab build 77. Existing anonymous four-tier selection, queue ordering, playback and signing are unchanged. Abrupt process termination can lose outstanding asynchronous writes.
 
 ### Android build 76 — Anonymous radio and four-tier Enhanced recommendations (2026-11-25)
+
+**What's new**
+
+- Enhanced now requests radio suggestions anonymously without changing your signed-in account or likes.
+- Improved recommendations by comparing song titles and artists as well as exact matches.
+- Recommendation stars are restored when playback resumes via Bluetooth.
+
+**Technical details**
 
 - Anonymous YouTube Music radio requests for the two Enhanced seeds, with signed-in account operations unchanged.
 - Four-tier selection: exact videoId, normalized title and artist, shared artist with a different song, then the first eligible track from radio B. Random shuffle and 2+1 ordering are preserved.
@@ -59,12 +124,25 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ### Android build 68 — Restore Enhanced after process death and Bluetooth resume (2026-11-21)
 
+**What's new**
+
+- Enhanced remembers its queue and recommendation stars after the app closes or the phone restarts.
+- Music can resume from a Bluetooth play command without opening the app.
+
+**Technical details**
+
 - **Enhanced 2+1 resumes after Android process eviction or device reboot**, including the original source queue, recommendation markers and later queue prefetch.
 - **Bluetooth media resumption can start playback without opening SimpMusic**, as verified by phone testing. The resumed song may restart from the beginning.
 - Preserves original shuffle/Enhanced behavior, playback controls, account, playlists and update channel; recommendation relevance is unchanged and remains a separate experiment.
 - Supersedes the accidental same-version Stable build 67 publication after PR #8. Build 68 allows the existing in-app updater to detect the new APK.
 
 ### Android build 67 — Clear Enhanced and original SimpMusic credits (2026-11-17)
+
+**What's new**
+
+- The About page now identifies the Enhanced version and its build number, with links to its history and the original developer.
+
+**Technical details**
 
 - **About/Credits now clearly identifies SimpMusic Enhanced** with its own Android build number, build channel and short Git revision, separately from the original SimpMusic v2.5.0.
 - **Original developer: maxrave-dev** remains credited with a working link; original project description, links, licence and legal disclaimer are preserved under **About the original SimpMusic**.
@@ -76,6 +154,13 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ### Android build 66 — Enhanced-only update checks (2026-11-17)
 
+**What's new**
+
+- Stable now checks for updates to SimpMusic Enhanced itself rather than the original app.
+- Experimental versions remain separate and do not offer Stable updates.
+
+**Technical details**
+
 - **Fork-aware updates:** Stable SimpMusic Enhanced checks only signed APK releases in [our own GitHub repository](https://github.com/aenorbiko/SimpMusic/releases), never the original SimpMusic GitHub/F-Droid update feeds.
 - **Correct version comparison:** compare Android build numbers (66, 67, ...) instead of treating the original project's version `2.5.0` as a newer or older Enhanced release.
 - **Safer download prompts:** only accept an existing, expected ARM64 APK from our `enhanced-latest` release; the update button opens that APK, and Android verifies its package ID and signing certificate during installation. Nothing is installed silently.
@@ -85,11 +170,24 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ### Android build 65 — Changelog and public release information (2026-11-16)
 
+**What's new**
+
+- Added a What's New link in Settings > About us so you can follow the development of Enhanced.
+
+**Technical details**
+
 - **What's New** link added under **Settings → About us**, opening this maintained changelog.
 - GitHub stable-release notes link directly here so friends who receive the APK can see how the fork differs from original SimpMusic.
 - No change to the Enhanced recommendation algorithm in this release.
 
 ### Android build 64 — Faster Enhanced queue (2026-11-16)
+
+**What's new**
+
+- Enhanced starts adding recommendations sooner, without waiting for the whole first group of songs.
+- More recommendations appear automatically in the correct order.
+
+**Technical details**
 
 - **Progressive 2+1 loading:** the first pair and its recommendation appear without waiting for the entire first batch of 14 source songs.
 - Additional groups append in correct order as each pair's radio results become available.
@@ -98,6 +196,13 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 - First published Stable build identity: `Enhanced Stable · 87ff4de8`.
 
 ### Android build 63 — Stable Enhanced name and screenshot identity (2026-11-16)
+
+**What's new**
+
+- The app is now called SimpMusic Enhanced.
+- The queue screen shows which build you are using.
+
+**Technical details**
 
 - Renamed the stable Android app label from **SimpMusic Dev** to **SimpMusic Enhanced**, without changing its Android app ID or signing key; existing installs can be upgraded.
 - Added a visible **Enhanced Stable · <commit>** build stamp in the queue so screenshots identify exactly which build is being tested.

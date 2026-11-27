@@ -250,62 +250,6 @@ edit(callback,
             }""")
 
 
-
-# Start Radio replaces the queue only after the radio response is ready.
-# Snapshot the exact active item and playback state before the request; a stale
-# result must never restart or replace a song selected in the meantime.
-radio_handlers = [
-    "data/src/androidMain/kotlin/com/maxrave/data/mediaservice/MediaServiceHandlerImpl.kt",
-    "data/src/jvmMain/kotlin/com/maxrave/data/mediaservice/JvmMediaPlayerHandlerImpl.kt",
-]
-radio_start_anchor = """            val currentSong = nowPlayingState.value.songEntity ?: return@launch
-            Logger.d(TAG, "toggleRadio: ${currentSong.title}")"""
-radio_start_replacement = """            val currentSong = nowPlayingState.value.songEntity ?: return@launch
-            val requestedMediaItem = player.currentMediaItem ?: return@launch
-            val requestedMediaId = requestedMediaItem.mediaId
-            val requestedPositionMs = player.currentPosition
-            val requestedPlayWhenReady = player.playWhenReady
-            Logger.d(TAG, "toggleRadio: ${currentSong.title}")"""
-radio_success_anchor = """                        is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
-                            setQueueData("""
-radio_success_replacement = """                        is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
-                            // Reject late radio results after the user selected another track.
-                            if (player.currentMediaItem?.mediaId != requestedMediaId) {
-                                Logger.w(TAG, "toggleRadio: active track changed; keeping current queue")
-                                return@collectLatest
-                            }
-                            setQueueData("""
-radio_queue_anchor = """                            clearMediaItems()
-                            currentSong.durationSeconds.let {
-                                songRepository.updateDurationSeconds(it, currentSong.videoId)
-                            }
-                            addMediaItem(currentSong.toGenericMediaItem(), playWhenReady = true)
-                            loadPlaylistOrAlbum(0)"""
-radio_queue_replacement = """                            currentSong.durationSeconds.let {
-                                songRepository.updateDurationSeconds(it, currentSong.videoId)
-                            }
-                            // Recreate the active item with its saved position and play/pause intent.
-                            // The previous implementation used ranged removals; the player may refuse
-                            // those while shuffle/crossfade is active, leaving the old queue intact.
-                            player.clearMediaItems()
-                            player.setMediaItem(requestedMediaItem)
-                            player.prepare()
-                            player.playWhenReady = false
-                            player.seekTo(requestedPositionMs)
-                            try {
-                                load(downloaded = 0, index = 0)
-                            } finally {
-                                // Do not change play state if the user switched tracks during loading.
-                                if (player.currentMediaItem?.mediaId == requestedMediaId) {
-                                    player.playWhenReady = requestedPlayWhenReady
-                                }
-                            }"""
-for radio_handler in radio_handlers:
-    edit(radio_handler, radio_start_anchor, radio_start_replacement)
-    edit(radio_handler, radio_success_anchor, radio_success_replacement)
-    edit(radio_handler, radio_queue_anchor, radio_queue_replacement)
-
-
 # Android SystemUI owns the Media3 notification layout. We can still mark a
 # recommendation with a one-character prefix in the current Media3 title;
 # this does NOT introduce a new notification or disturb the playback queue.
@@ -430,5 +374,13 @@ edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmus
 edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt", "            append(\"X-Goog-Authuser\", authUser.toString())\n            pageId?.let {\n                append(\"X-Goog-Pageid\", it)\n            }", "            if (!anonymousRequest) {\n                append(\"X-Goog-Authuser\", authUser.toString())\n                pageId?.let {\n                    append(\"X-Goog-Pageid\", it)\n                }\n            }")
 edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt", "            if (setLogin) {\n                val cookie = customCookie ?: this@Ytmusic.cookie", "            if (setLogin && !anonymousRequest) {\n                val cookie = customCookie ?: this@Ytmusic.cookie")
 edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt", "        continuation: String? = null,\n    ) = httpClient.post(\"next\") {\n        ytClient(client, setLogin = true)\n        setBody(\n            NextBody(\n                context = client.toContext(locale, visitorData),", "        continuation: String? = null,\n        anonymous: Boolean = false,\n    ) = httpClient.post(\"next\") {\n        ytClient(client, setLogin = !anonymous, anonymousRequest = anonymous)\n        setBody(\n            NextBody(\n                context = client.toContext(locale, if (anonymous) null else visitorData),")
+
+# Shared queue mutation is real Kotlin source, copied to the pinned core.
+queue_helper = Path(__file__).resolve().parent / "core-patches/UpcomingQueueMutation.kt"
+queue_target = ROOT / "domain/src/commonMain/kotlin/com/maxrave/domain/mediaservice/handler/UpcomingQueueMutation.kt"
+queue_target.write_text(queue_helper.read_text())
+
+from apply_start_radio_patch import apply_start_radio_patch
+apply_start_radio_patch(ROOT)
 
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")
