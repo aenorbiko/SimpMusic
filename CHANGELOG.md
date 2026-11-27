@@ -23,6 +23,21 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 93 — Start Radio without interrupting playback (2026-11-27)
+
+**What's new**
+
+- Start Radio for the currently playing song keeps its playback position and replaces only the upcoming songs.
+- If the song is paused, starting its radio keeps it paused.
+- If you switch songs before radio finishes loading, the outdated response will not interrupt your new song.
+- Starting radio for another song still plays that song. Switching from Enhanced to ordinary radio ends the Enhanced session.
+
+**Technical details**
+
+- Route the current-song menu action through the shared in-place queue mutation used by Enhanced; retain the active track and history.
+- Guard radio requests with shared playback and request revisions, including the final check after metadata loading for a selected song. Android and JVM handlers use the same queue planning and request validity helpers.
+- Regression tests and signed Start Radio Lab build passed. All nine phone checks passed across the two Lab revisions, including the stale-response check on the final revision.
+
 ### Android build 92 — Clearer updates and shared build infrastructure (2026-11-27)
 
 **What's new**

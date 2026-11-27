@@ -1,0 +1,72 @@
+    override fun toggleRadio() {
+        val requestedMediaId = player.currentMediaItem?.mediaId ?: return
+        val currentSong = nowPlayingState.value.songEntity ?: return
+        if (requestedMediaId.removePrefix(MERGING_DATA_TYPE.VIDEO) != currentSong.videoId) return
+        val revision = startRadioRequestRevision.incrementAndGet()
+        val shuffleIntent = EnhancedMediaBridge.queueIntentRevision.value
+        fun stillCurrent(): Boolean =
+            startRadioRequestIsCurrent(revision, startRadioRequestRevision.get(),
+                requestedMediaId, player.currentMediaItem?.mediaId,
+                shuffleIntent, EnhancedMediaBridge.queueIntentRevision.value)
+        coroutineScope.launch {
+            if (!stillCurrent()) return@launch
+            songRepository.getRadioFromEndpoint(
+                YouTubeWatchEndpoint(
+                    videoId = currentSong.videoId,
+                    playlistId = "RDAMVM${currentSong.videoId}",
+                ),
+            ).collectLatest { res ->
+                val data = res.data
+                if (res !is Resource.Success || data == null || !stillCurrent()) return@collectLatest
+                // Resolve missing artist metadata before touching the queue.
+                val candidates = data.first.filterNot { it.videoId == currentSong.videoId }.map { track ->
+                    if (!stillCurrent()) return@collectLatest
+                    if (!track.artists.isNullOrEmpty()) track else {
+                        val info = songRepository.getSongInfo(track.videoId).lastOrNull()
+                        track.copy(artists = listOf(
+                            if (info != null) Artist(info.authorId, info.author ?: "")
+                            else Artist("", "Various Artists"),
+                        ))
+                    }
+                }
+                if (!stillCurrent() || candidates.isEmpty()) return@collectLatest
+                val state = queueData.value
+                if (state.queueState == QueueData.StateSource.STATE_INITIALIZING) {
+                    Logger.w(TAG, "toggleRadio: queue is still loading; try again")
+                    return@collectLatest
+                }
+                val oldTracks = state.data.listTracks.toList()
+                val timeline = player.getCurrentMediaTimeLine().map { it.mediaId.removePrefix(MERGING_DATA_TYPE.VIDEO) }
+                val physicalIndex = player.currentMediaItemIndex
+                val activeIndex = if (player.shuffleModeEnabled) {
+                    timeline.indices.singleOrNull { player.getUnshuffledIndex(it) == physicalIndex } ?: -1
+                } else physicalIndex
+                val plan = planStartRadioQueue(
+                    oldTracks, timeline, activeIndex, currentSong.videoId, currentSong.title,
+                    candidates, data.second,
+                ) ?: run {
+                    Logger.w(TAG, "toggleRadio: queue and player do not match; keeping current playback")
+                    return@collectLatest
+                }
+                if (!stillCurrent()) return@collectLatest
+                // The service coroutine owns the adapter queue. Recalculate shuffled
+                // indices only after each completed single-item removal.
+                val applied = replaceUpcomingKeepingCurrent(
+                    expectedMediaId = requestedMediaId,
+                    expectedTracks = oldTracks,
+                    activeIndex = activeIndex,
+                    preservedQueue = plan.preservedQueue,
+                    upcoming = plan.upcoming,
+                    removeUpcomingItem = ::removeUpcomingRadioItemOnOwner,
+                    beforeAppend = {
+                        startRadioCommitRevision.incrementAndGet()
+                        EnhancedMediaBridge.onRadioQueueCommitted?.invoke()
+                        EnhancedMediaBridge.recommendedTrackIds.value = emptySet()
+                        EnhancedMediaBridge.shuffleMode.value = 0
+                    },
+                )
+                if (!applied) Logger.w(TAG, "toggleRadio: queue changed; keeping current playback")
+            }
+        }
+    }
+

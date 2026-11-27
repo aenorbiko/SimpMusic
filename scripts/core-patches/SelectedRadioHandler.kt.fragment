@@ -1,0 +1,41 @@
+    override fun captureSelectedRadioRequest(): SelectedRadioRequest =
+        SelectedRadioRequest(
+            startRadioRequestRevision.incrementAndGet(),
+            player.currentMediaItem?.mediaId,
+            EnhancedMediaBridge.queueIntentRevision.value,
+        )
+
+    override fun isSelectedRadioRequestCurrent(request: SelectedRadioRequest): Boolean =
+        request.isCurrent(startRadioRequestRevision.get(), player.currentMediaItem?.mediaId,
+            EnhancedMediaBridge.queueIntentRevision.value)
+
+    override suspend fun applySelectedRadioIfCurrent(
+        request: SelectedRadioRequest,
+        queue: QueueData.Data,
+    ): Boolean = withContext(coroutineScope.coroutineContext.minusKey(Job)) {
+        if (!isSelectedRadioRequestCurrent(request)) return@withContext false
+        val track = queue.firstPlayedTrack ?: return@withContext false
+        if (track.isExplicit && dataStoreManager.explicitContentEnabled.first() == FALSE) {
+            showToast(ToastType.ExplicitContent)
+            return@withContext false
+        }
+        // Do all suspending work before the final guard, not after resetting the queue.
+        songRepository.insertSong(track.toSongEntity()).singleOrNull()?.let {
+            Logger.d(TAG, "Inserted song: ${track.title}")
+        }
+        track.durationSeconds?.let {
+            songRepository.updateDurationSeconds(it, track.videoId)
+        }
+        if (!isSelectedRadioRequestCurrent(request)) return@withContext false
+        // Choosing another seed intentionally starts a new song.
+        loadJob?.cancel()
+        startRadioCommitRevision.incrementAndGet()
+        EnhancedMediaBridge.onRadioQueueCommitted?.invoke()
+        EnhancedMediaBridge.recommendedTrackIds.value = emptySet()
+        reset()
+        setQueueData(queue)
+        addMediaItem(track.toGenericMediaItem(), playWhenReady = true)
+        loadPlaylistOrAlbum(0)
+        true
+    }
+

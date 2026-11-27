@@ -380,4 +380,7 @@ queue_helper = Path(__file__).resolve().parent / "core-patches/UpcomingQueueMuta
 queue_target = ROOT / "domain/src/commonMain/kotlin/com/maxrave/domain/mediaservice/handler/UpcomingQueueMutation.kt"
 queue_target.write_text(queue_helper.read_text())
 
+from apply_start_radio_patch import apply_start_radio_patch
+apply_start_radio_patch(ROOT)
+
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")

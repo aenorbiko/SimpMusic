@@ -550,6 +550,7 @@ class SharedViewModel(
         sourceId: String,
     ) {
         if (liked.isEmpty()) return
+        EnhancedMediaBridge.queueIntentRevision.value += 1
         cancelShuffleSourceLoad()
         abandonStartupEnhancedRestore = true
         persistEnhancedSnapshot(null)
@@ -873,6 +874,7 @@ class SharedViewModel(
     }
 
     private fun cycleShuffleFromPlayer() {
+        EnhancedMediaBridge.queueIntentRevision.value += 1
         val queue = mediaPlayerHandler.queueData.value?.data
         if (playingSmartQueueName != null && queue?.playlistName == playingSmartQueueName &&
             likedSourceTracks.isNotEmpty() && likedSourceName != null && _smartShuffleSource.value != null
@@ -977,6 +979,14 @@ class SharedViewModel(
         restoreEnhancedSessionIfSaved()
         // Same shuffle action for media notification and all in-app controls.
         EnhancedMediaBridge.onShuffleClick = { cycleShuffleFromPlayer() }
+        EnhancedMediaBridge.onRadioQueueCommitted = {
+            if (_smartShuffleMode.value != SmartShuffleMode.OFF || switchingSmartQueue ||
+                playingSmartQueueName != null || shuffleSourceLoadJob?.isActive == true
+            ) {
+                forgetSmartShuffle()
+                switchingSmartQueue = false
+            }
+        }
         viewModelScope.launch {
             _smartShuffleMode.collectLatest { state ->
                 EnhancedMediaBridge.shuffleMode.value = when (state) {
@@ -1854,6 +1864,7 @@ class SharedViewModel(
 
     override fun onCleared() {
         EnhancedMediaBridge.onShuffleClick = null
+        EnhancedMediaBridge.onRadioQueueCommitted = null
         Logger.w("Check onCleared", "onCleared")
         super.onCleared()
     }

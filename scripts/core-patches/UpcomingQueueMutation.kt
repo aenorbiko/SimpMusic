@@ -15,6 +15,7 @@ suspend fun MediaPlayerHandler.replaceUpcomingKeepingCurrent(
     activeIndex: Int,
     preservedQueue: QueueData.Data,
     upcoming: List<Track>,
+    removeUpcomingItem: (Int) -> Unit = { removeMediaItem(it) },
     beforeAppend: () -> Unit = {},
 ): Boolean {
     if (activeIndex !in expectedTracks.indices || expectedMediaId.isBlank()) return false
@@ -25,7 +26,7 @@ suspend fun MediaPlayerHandler.replaceUpcomingKeepingCurrent(
     if (expectedMediaId != currentId && !expectedMediaId.endsWith(currentId)) return false
 
     for (position in expectedTracks.lastIndex downTo activeIndex + 1) {
-        removeMediaItem(position)
+        removeUpcomingItem(position)
     }
     setQueueData(preservedQueue)
     // Enhanced badges must be published before Media3 converts the upcoming items.

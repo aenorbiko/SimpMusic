@@ -1,0 +1,29 @@
+name: SimpMusic Start Radio Lab ARM64 APK
+on:
+  push:
+    branches: [feature/start-radio-preserve-position]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-start-radio-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Start Radio Lab
+      lab_property: simpmusicStartRadioExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-start-radio-latest
+      asset_name: SimpMusic-Start-Radio-arm64.apk
+      expected_branch: feature/start-radio-preserve-position
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

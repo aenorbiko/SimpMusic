@@ -67,6 +67,7 @@ runs:
         python3 scripts/test_headless_enhanced_restore.py
         python3 scripts/test_restored_notification_star.py
         python3 scripts/test_anonymous_enhanced_radio.py
+        python3 scripts/test_start_radio_preserves_playback.py
     - name: Generate library definitions
       shell: bash
       run: ./gradlew $GRADLE_CACHE_ARGS exportLibraryDefinitions
@@ -165,6 +166,7 @@ runs:
         ./gradlew $GRADLE_CACHE_ARGS :composeApp:jvmTest --rerun \
           --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
           --tests "com.maxrave.simpmusic.viewModel.UpcomingQueueMutationTest" \
+          --tests "com.maxrave.simpmusic.viewModel.StartRadioQueuePlanTest" \
           --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
           --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
           --tests "com.maxrave.simpmusic.utils.EnhancedBuildIdentityTest" \

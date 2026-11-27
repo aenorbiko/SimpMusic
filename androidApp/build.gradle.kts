@@ -28,6 +28,7 @@ android {
     val isFullTrackExperiment = providers.gradleProperty("simpmusicFullTrackExperimental").orNull == "true"
     val isTrackDeduplicationExperiment = providers.gradleProperty("simpmusicTrackDeduplicationExperimental").orNull == "true"
     val isQueueManagementExperiment = providers.gradleProperty("simpmusicQueueManagementExperimental").orNull == "true"
+    val isStartRadioExperiment = providers.gradleProperty("simpmusicStartRadioExperimental").orNull == "true"
     // During development, build only the ARM64 APK that we actually test/publish.
     // Restore every Android ABI and the universal APK with -PsimpmusicAllAndroidAbis=true.
     val allAndroidAbis = providers.gradleProperty("simpmusicAllAndroidAbis").orNull == "true"
@@ -144,6 +145,7 @@ android {
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = when {
+                isStartRadioExperiment -> ".dev.startradio"
                 isQueueManagementExperiment -> ".dev.queuemanagement"
                 isFullTrackExperiment -> ".dev.fulltrack"
                 isTrackDeduplicationExperiment -> ".dev.trackdedup"
@@ -159,6 +161,7 @@ android {
                 else -> ".dev"
             }
             versionNameSuffix = when {
+                isStartRadioExperiment -> "-start-radio-lab"
                 isQueueManagementExperiment -> "-queue-management-lab"
                 isFullTrackExperiment -> "-full-track-lab"
                 isTrackDeduplicationExperiment -> "-track-dedup-lab"
