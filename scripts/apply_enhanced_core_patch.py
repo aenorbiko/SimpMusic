@@ -375,4 +375,9 @@ edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmus
 edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt", "            if (setLogin) {\n                val cookie = customCookie ?: this@Ytmusic.cookie", "            if (setLogin && !anonymousRequest) {\n                val cookie = customCookie ?: this@Ytmusic.cookie")
 edit("service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt", "        continuation: String? = null,\n    ) = httpClient.post(\"next\") {\n        ytClient(client, setLogin = true)\n        setBody(\n            NextBody(\n                context = client.toContext(locale, visitorData),", "        continuation: String? = null,\n        anonymous: Boolean = false,\n    ) = httpClient.post(\"next\") {\n        ytClient(client, setLogin = !anonymous, anonymousRequest = anonymous)\n        setBody(\n            NextBody(\n                context = client.toContext(locale, if (anonymous) null else visitorData),")
 
+# Shared queue mutation is real Kotlin source, copied to the pinned core.
+queue_helper = Path(__file__).resolve().parent / "core-patches/UpcomingQueueMutation.kt"
+queue_target = ROOT / "domain/src/commonMain/kotlin/com/maxrave/domain/mediaservice/handler/UpcomingQueueMutation.kt"
+queue_target.write_text(queue_helper.read_text())
+
 print("Applied YouTube notification like, three-state shuffle and separated sparkle glyph")
