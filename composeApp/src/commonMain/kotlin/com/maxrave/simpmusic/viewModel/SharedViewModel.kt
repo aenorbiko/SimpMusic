@@ -48,6 +48,7 @@ import com.maxrave.domain.mediaservice.handler.NowPlayingTrackState
 import com.maxrave.domain.mediaservice.handler.PlayerEvent
 import com.maxrave.domain.mediaservice.handler.PlaylistType
 import com.maxrave.domain.mediaservice.handler.QueueData
+import com.maxrave.domain.mediaservice.handler.replaceUpcomingKeepingCurrent
 import com.maxrave.domain.mediaservice.handler.RepeatState
 import com.maxrave.domain.mediaservice.handler.SimpleMediaState
 import com.maxrave.domain.mediaservice.handler.SleepTimerState
@@ -516,12 +517,11 @@ class SharedViewModel(
             id = { it.videoId },
         ) ?: return false
 
-        // No seeks, no reset(), no loadMediaItem(): preserve track, position and pause state.
-        for (position in oldTracks.lastIndex downTo activeIndex + 1) {
-            mediaPlayerHandler.removeMediaItem(position)
-        }
-        mediaPlayerHandler.setQueueData(
-            QueueData.Data(
+        return mediaPlayerHandler.replaceUpcomingKeepingCurrent(
+            expectedMediaId = currentItem.mediaId,
+            expectedTracks = oldTracks,
+            activeIndex = activeIndex,
+            preservedQueue = QueueData.Data(
                 listTracks = plan.preserved,
                 firstPlayedTrack = plan.preserved.firstOrNull(),
                 playlistId = null,
@@ -529,17 +529,13 @@ class SharedViewModel(
                 playlistType = PlaylistType.RADIO,
                 continuation = null,
             ),
+            upcoming = plan.upcoming,
+            beforeAppend = {
+                setRecommendedTrackIds(recommendationIds.intersect(
+                    plan.upcoming.mapTo(hashSetOf()) { it.videoId },
+                ))
+            },
         )
-        setRecommendedTrackIds(recommendationIds.intersect(
-            plan.upcoming.mapTo(hashSetOf()) { it.videoId },
-        ))
-        if (plan.upcoming.isNotEmpty()) {
-            mediaPlayerHandler.loadMoreCatalog(
-                plan.upcoming.toCollection(arrayListOf<Track>()),
-                isAddToQueue = false,
-            )
-        }
-        return true
     }
 
     /**
