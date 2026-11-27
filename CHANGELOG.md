@@ -23,6 +23,20 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 95 — Distinct Stable and Lab icons (2026-11-28)
+
+**What's new**
+
+- The stable app has an updated glass icon with two blue stars and a subtle blue accent.
+- Development builds have a purple LAB corner, making the two apps easy to distinguish.
+- App identities, saved data, accounts and playback behavior are unchanged.
+
+**Technical details**
+
+- Reuse the original launcher artwork with adaptive vector overlays, including round and monochrome variants. Select icons by the existing build channel and shared Lab property.
+- The revised Launcher Icons Lab passed automated checks and was visually accepted on the phone; Stable appearance will be verified after installation.
+- Refresh the feature backlog, including the verified Repeat One behavior, without a separate documentation-only APK build.
+
 ### Android build 94 — Radio button on the player (2026-11-28)
 
 **What's new**

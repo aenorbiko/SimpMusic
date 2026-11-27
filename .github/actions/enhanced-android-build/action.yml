@@ -69,6 +69,7 @@ runs:
         python3 scripts/test_anonymous_enhanced_radio.py
         python3 scripts/test_start_radio_preserves_playback.py
         python3 scripts/test_player_radio_button.py
+        python3 scripts/test_enhanced_launcher_icons.py
     - name: Generate library definitions
       shell: bash
       run: ./gradlew $GRADLE_CACHE_ARGS exportLibraryDefinitions
@@ -195,6 +196,8 @@ runs:
       shell: bash
       env:
         EXPECTED_PACKAGE: ${{ inputs.expected_package }}
+        BUILD_CHANNEL: ${{ inputs.channel }}
+        LAB_PROPERTY: ${{ inputs.lab_property }}
       run: |
         set -euo pipefail
         APK="androidApp/build/outputs/apk/debug/androidApp-debug.apk"
@@ -203,6 +206,7 @@ runs:
         BADGING="$("$AAPT" dump badging "$APK")"
         ACTUAL_PACKAGE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
         test "$ACTUAL_PACKAGE" = "$EXPECTED_PACKAGE"
+        python3 scripts/test_enhanced_launcher_icons.py --apk "$APK" --aapt "$AAPT" --channel "$BUILD_CHANNEL" --lab-property "$LAB_PROPERTY"
         echo "SIMP_VERIFIED_APK=$APK" >> "$GITHUB_ENV"
         echo "Verified application ID: $ACTUAL_PACKAGE"
     - name: Run additional regression tests if provided

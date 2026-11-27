@@ -1,0 +1,29 @@
+name: SimpMusic Launcher Icons Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-launcher-icons]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-launcher-icons-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Launcher Icons Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-launcher-icons-latest
+      asset_name: SimpMusic-Launcher-Icons-arm64.apk
+      expected_branch: feature/enhanced-launcher-icons
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

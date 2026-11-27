@@ -31,6 +31,7 @@ android {
     val isStartRadioExperiment = providers.gradleProperty("simpmusicStartRadioExperimental").orNull == "true"
     // Reuse the installed Start Radio Lab identity for all future development APKs.
     val isSharedLab = providers.gradleProperty("simpmusicSharedLabExperimental").orNull == "true"
+    val isEnhancedStable = providers.gradleProperty("simpmusicEnhancedBuildChannel").orNull == "Enhanced Stable"
     // During development, build only the ARM64 APK that we actually test/publish.
     // Restore every Android ABI and the universal APK with -PsimpmusicAllAndroidAbis=true.
     val allAndroidAbis = providers.gradleProperty("simpmusicAllAndroidAbis").orNull == "true"
@@ -53,6 +54,14 @@ android {
 
     defaultConfig {
         applicationId = "com.maxrave.simpmusic"
+        // Choose the adaptive launcher artwork without changing package identity.
+        val launcherBase = when {
+            isSharedLab -> "enhanced_launcher_lab"
+            isEnhancedStable -> "enhanced_launcher_stable"
+            else -> "ic_launcher"
+        }
+        manifestPlaceholders["enhancedLauncherIcon"] = "@mipmap/$launcherBase"
+        manifestPlaceholders["enhancedLauncherRoundIcon"] = "@mipmap/${launcherBase}_round"
         minSdk = 26
         targetSdk = 36
         versionCode =
