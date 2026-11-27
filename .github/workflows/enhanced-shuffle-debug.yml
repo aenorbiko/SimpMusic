@@ -72,7 +72,7 @@ jobs:
           set -euo pipefail
           VERSION_CODE="$(sed -n 's/^version-code = "\([0-9]*\)"/\1/p' gradle/libs.versions.toml)"
           CHANGELOG_URL="https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md"
-          RELEASE_NOTES="$(printf 'SimpMusic Enhanced Stable (ARM64)\nAndroid build: %s\nSource commit: %s\n\nWhat is new and how this differs from original SimpMusic:\n%s\n\nThis is the Enhanced fork, not the upstream SimpMusic release.' "$VERSION_CODE" "$GITHUB_SHA" "$CHANGELOG_URL")"
+          RELEASE_NOTES="$(python3 scripts/generate_stable_release_notes.py CHANGELOG.md "$VERSION_CODE" "$GITHUB_SHA" "$CHANGELOG_URL")"
           bash scripts/publish_enhanced_apk.sh enhanced-latest SimpMusic-Enhanced-arm64.apk "SimpMusic Enhanced (latest)" "$RELEASE_NOTES"
       - name: Delete all obsolete Actions APK archives after Release succeeds
         shell: bash
