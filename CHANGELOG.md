@@ -23,6 +23,20 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 94 — Radio button on the player (2026-11-28)
+
+**What's new**
+
+- Start radio directly from the Classic player using the new Radio button beside the playlist and queue controls.
+- Song comments are available in the three-dot menu, leaving the main controls less cluttered.
+- Future development builds update the same SimpMusic Lab app, keeping its settings and account separate from Stable.
+
+**Technical details**
+
+- The Radio button calls the existing protected current-song radio handler from build 93. Other player styles and recommendation algorithms are unchanged.
+- Reuse the installed Start Radio Lab package and permanent signing key for future feature Labs; retain branch-specific build labels and APK release destinations.
+- The final signed Player Radio Lab passed automated tests and all six phone checks, including updating the existing Lab without losing its data.
+
 ### Android build 93 — Start Radio without interrupting playback (2026-11-27)
 
 **What's new**
