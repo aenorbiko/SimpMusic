@@ -161,6 +161,7 @@ jobs:
         run: |
           ./gradlew $GRADLE_CACHE_ARGS :composeApp:jvmTest --rerun \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
+            --tests "com.maxrave.simpmusic.viewModel.UpcomingQueueMutationTest" \
             --tests "com.maxrave.simpmusic.viewModel.EnhancedShufflePlannerTest" \
             --tests "com.maxrave.simpmusic.viewModel.SmartShuffleSourceTest" \
             --tests "com.maxrave.simpmusic.utils.EnhancedBuildIdentityTest" \

@@ -23,6 +23,13 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 91 — Shared queue management (2026-11-27)
+
+- Extract the existing in-place Shuffle/Enhanced queue-tail mutation into a common MediaPlayerHandler extension. Reject mismatched active-track or queue snapshots before removal; preserve played history, current playback, recommendation badges and the existing append sequence.
+- Add JVM behavior tests for ordered removal, queue metadata and continuation, recommendation badge ordering, stale snapshots and empty tails. Signed ARM64 Queue Management Lab 90 (`b2ad6ae6`) passed the existing regression suite and new tests.
+- Phone testing confirmed uninterrupted playback, pause and position preservation, notification Enhanced activation, queue replenishment and restoration with further replenishment after Force stop. One missing recommendation was observed; unchanged code can omit a recommendation when no eligible candidate is found, but the specific cause was not established.
+- No changes to Start Radio, recommendation selection, statistics or the existing asynchronous player operation semantics. Atomic queue replacement and cross-feature cancellation are not part of this refactor.
+
 ### Android build 90 — Complete playlist sources and statistics clock fix (2026-11-27)
 
 - Load remaining remote playlist pages before enabling shuffle/Enhanced from the player or notification, preserving the current track and rejecting incomplete or stale source loads. Phone tests in signed Lab 89 exceeded the previous 100 first-page request limit (182 from player, 168 from notification).
