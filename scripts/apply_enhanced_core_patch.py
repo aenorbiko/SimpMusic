@@ -250,6 +250,51 @@ edit(callback,
             }""")
 
 
+
+# Start Radio used to clear and recreate the current item before appending the
+# radio queue. Keep the active Media3 item in place so position and pause state
+# survive. Ignore a response that arrives after playback has moved to another song.
+radio_handlers = [
+    "data/src/androidMain/kotlin/com/maxrave/data/mediaservice/MediaServiceHandlerImpl.kt",
+    "data/src/jvmMain/kotlin/com/maxrave/data/mediaservice/JvmMediaPlayerHandlerImpl.kt",
+]
+radio_success_anchor = """                        is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
+                            setQueueData("""
+radio_success_replacement = """                        is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
+                            // The radio request is asynchronous. Do not replace the queue if
+                            // playback moved to a different song while it was in flight.
+                            val activeVideoId = player.currentMediaItem?.mediaId
+                                ?.removePrefix(MERGING_DATA_TYPE.VIDEO)
+                            if (activeVideoId != currentSong.videoId) {
+                                Logger.w(TAG, "toggleRadio: active track changed; keeping current queue")
+                                return@collectLatest
+                            }
+                            val activeIndex = player.currentMediaItemIndex
+                            val itemCount = player.mediaItemCount
+                            if (activeIndex !in 0 until itemCount) {
+                                Logger.w(TAG, "toggleRadio: no active queue item; keeping current queue")
+                                return@collectLatest
+                            }
+                            setQueueData("""
+radio_queue_anchor = """                            clearMediaItems()
+                            currentSong.durationSeconds.let {
+                                songRepository.updateDurationSeconds(it, currentSong.videoId)
+                            }
+                            addMediaItem(currentSong.toGenericMediaItem(), playWhenReady = true)
+                            loadPlaylistOrAlbum(0)"""
+radio_queue_replacement = """                            currentSong.durationSeconds.let {
+                                songRepository.updateDurationSeconds(it, currentSong.videoId)
+                            }
+                            // Retain the current item and its position; discard only old history
+                            // and upcoming tracks, then append the radio results.
+                            player.removeMediaItems(activeIndex + 1, itemCount)
+                            player.removeMediaItems(0, activeIndex)
+                            loadPlaylistOrAlbum(0)"""
+for radio_handler in radio_handlers:
+    edit(radio_handler, radio_success_anchor, radio_success_replacement)
+    edit(radio_handler, radio_queue_anchor, radio_queue_replacement)
+
+
 # Android SystemUI owns the Media3 notification layout. We can still mark a
 # recommendation with a one-character prefix in the current Media3 title;
 # this does NOT introduce a new notification or disturb the playback queue.
