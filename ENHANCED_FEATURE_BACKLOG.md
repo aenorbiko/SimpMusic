@@ -48,6 +48,16 @@ Last reviewed: 2026-11-28 (Australia/Brisbane).
 - [ ] Use a dedicated integration branch and Lab, regression tests and phone acceptance, then explicit approval. Preserve account, playlists, queue, lyrics, Radio, notifications and Enhanced behavior.
 - [ ] Continue incremental refactoring only when a feature or demonstrated problem justifies it; avoid broad rewrites. Queue management and shared build workflows were already refactored in builds 91–92.
 
+### 7. Lab update channel and concise update dialogs — approved, not implemented
+
+- [ ] Add a permanent Lab update destination independent of feature branch names. Only the current approved-for-testing shared Lab build may publish there; retain branch-specific APKs for history.
+- [ ] Stable checks only the Stable release from main; Lab checks only the shared Lab release, including after a feature is merged and the next feature branch starts. No cross-channel update offers. Preserve package IDs and the existing signing certificate.
+- [ ] Use a strictly increasing Lab update revision across branches and successive builds (including builds with the same base Stable versionCode). Reject stale publication and older builds; do not offer an APK before CI, signing and package checks succeed.
+- [ ] Add Lab update notification, concise What's new and Download, with the same manual installation flow as Stable. Verify switching branches, merge, same-base rebuilds, offline handling, and Stable/Lab isolation on the phone.
+- [ ] Simplify update dialogs in both channels: show only actual changes, one short bullet per change, no unchanged items or redundant explanations. Replace the displayed full changelog URL with clickable “Full version history”; hide source commit and other technical release metadata from the dialog, while retaining it in GitHub releases for verification.
+- [ ] Example of the agreed build 95 wording: “New Enhanced icon with blue stars.” / “Purple LAB badge on the test app icon.” Keep detailed technical notes in the changelog, separate from user-facing summaries.
+- [ ] Implement as a separate feature branch, test, then merge only with explicit approval. No new APK for this backlog entry alone.
+
 ## Completed / shipped
 
 See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
@@ -66,7 +76,7 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 92 | Readable What's New and common build/test/publish infrastructure |
 | 93 | Start Radio preserves current track, position and pause; prevents late radio replies overriding new playback; exits Enhanced correctly |
 | 94 | Classic player Radio shortcut beside Playlist/Queue, comments in three-dot menu, persistent Lab package; phone-tested in final Lab |
-| 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable publication/appearance to verify |
+| 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable published; Stable appearance to verify |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -99,4 +109,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-Launcher Icons Lab is accepted. Build 95 includes the updated backlog; verify the signed Stable publication and launcher appearance after installation. Next work: review radio statistics and agree on a cache design before implementation.
+Launcher Icons Lab is accepted. Stable 95 is published (commit `eb30f7c9`); verify the Stable launcher appearance after installation. Next work: review radio statistics and agree on a cache design before implementation. The independent Lab updater and shorter update dialogs are approved for a future feature branch.
