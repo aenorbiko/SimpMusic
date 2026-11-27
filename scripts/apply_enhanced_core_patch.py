@@ -287,8 +287,8 @@ radio_queue_replacement = """                            currentSong.durationSec
                             }
                             // Retain the current item and its position; discard only old history
                             // and upcoming tracks, then append the radio results.
-                            player.removeMediaItems(activeIndex + 1, itemCount)
-                            player.removeMediaItems(0, activeIndex)
+                            player.removeMediaItems(activeIndex + 1, itemCount) {}
+                            player.removeMediaItems(0, activeIndex) {}
                             loadPlaylistOrAlbum(0)"""
 for radio_handler in radio_handlers:
     edit(radio_handler, radio_success_anchor, radio_success_replacement)
