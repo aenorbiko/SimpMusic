@@ -1,0 +1,29 @@
+name: SimpMusic Player Radio Lab ARM64 APK
+on:
+  push:
+    branches: [feature/player-radio-button]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-player-radio-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Player Radio Lab
+      lab_property: simpmusicPlayerRadioExperimental
+      expected_package: com.maxrave.simpmusic.dev.playerradio
+      release_tag: enhanced-player-radio-latest
+      asset_name: SimpMusic-Player-Radio-arm64.apk
+      expected_branch: feature/player-radio-button
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

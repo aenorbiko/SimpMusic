@@ -68,6 +68,7 @@ runs:
         python3 scripts/test_restored_notification_star.py
         python3 scripts/test_anonymous_enhanced_radio.py
         python3 scripts/test_start_radio_preserves_playback.py
+        python3 scripts/test_player_radio_button.py
     - name: Generate library definitions
       shell: bash
       run: ./gradlew $GRADLE_CACHE_ARGS exportLibraryDefinitions
