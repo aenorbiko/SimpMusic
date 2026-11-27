@@ -84,6 +84,8 @@ import com.maxrave.simpmusic.utils.LyricsPromo
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.utils.EnhancedForkUpdateClient
 import com.maxrave.simpmusic.utils.isEnhancedStablePackage
+import com.maxrave.simpmusic.utils.isSharedEnhancedLab
+import com.maxrave.simpmusic.utils.enhancedUserNotes
 import com.maxrave.simpmusic.utils.decodeLyricsPromos
 import com.maxrave.simpmusic.utils.decodePromos
 import com.maxrave.simpmusic.utils.shownPromoIds
@@ -1997,6 +1999,8 @@ class SharedViewModel(
 
     private var _updateResponse = MutableStateFlow<UpdateData?>(null)
     val updateResponse: StateFlow<UpdateData?> = _updateResponse
+    var forkUpdateDownloadUrl: String? = null
+        private set
 
     /** A safe end-to-end network test for the separate Update Lab package. */
     fun inspectEnhancedReleaseInLab() {
@@ -2022,22 +2026,26 @@ class SharedViewModel(
                 "CheckForUpdateAt",
                 System.currentTimeMillis().toString(),
             )
-            // A fork app must NEVER check the upstream SimpMusic or F-Droid update feeds.
-            // Lab packages have a different Android application ID, so cannot install Stable.
-            // Only the signed Stable channel checks our own known GitHub release.
+            // Fork packages never check upstream or the other fork channel.
             if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
                 _updateResponse.value = null
                 showedUpdateDialog = false
-                if (getPlatform() == Platform.Android &&
-                    isEnhancedStablePackage(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId)
-                ) {
-                    val forkRelease = EnhancedForkUpdateClient.check()
-                    if (forkRelease != null && forkRelease.buildCode > BuildKonfig.versionCode) {
+                forkUpdateDownloadUrl = null
+                if (getPlatform() == Platform.Android) {
+                    val revision = BuildKonfig.enhancedLabRevision.toLongOrNull() ?: 0L
+                    val forkRelease = when {
+                        isEnhancedStablePackage(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId) ->
+                            EnhancedForkUpdateClient.check()?.takeIf { it.buildCode > BuildKonfig.versionCode }
+                        isSharedEnhancedLab(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId, revision) ->
+                            EnhancedForkUpdateClient.checkLab(BuildKonfig.versionCode, revision)
+                        else -> null
+                    }
+                    if (forkRelease != null) {
+                        forkUpdateDownloadUrl = forkRelease.downloadUrl
                         _updateResponse.value = UpdateData(
-                            tagName = "Enhanced build ${forkRelease.buildCode}",
+                            tagName = if (forkRelease.labRevision > 0) "Lab build ${forkRelease.buildCode}" else "Enhanced build ${forkRelease.buildCode}",
                             releaseTime = forkRelease.releaseTime,
-                            // GitHub release notes already link to the Enhanced changelog.
-                            body = forkRelease.notes,
+                            body = enhancedUserNotes(forkRelease.notes),
                         )
                         showedUpdateDialog = true
                     }

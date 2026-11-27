@@ -27,9 +27,8 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 **What's new**
 
-- The stable app has an updated glass icon with two blue stars and a subtle blue accent.
-- Development builds have a purple LAB corner, making the two apps easy to distinguish.
-- App identities, saved data, accounts and playback behavior are unchanged.
+- New Enhanced icon with blue stars.
+- Purple LAB badge on the test app icon.
 
 **Technical details**
 

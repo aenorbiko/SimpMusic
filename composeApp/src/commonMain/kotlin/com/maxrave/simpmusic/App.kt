@@ -108,9 +108,6 @@ import com.maxrave.simpmusic.ui.theme.fontFamily
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.utils.VersionManager
-import com.maxrave.simpmusic.utils.ENHANCED_STABLE_APK_URL
-import com.maxrave.simpmusic.utils.ENHANCED_STABLE_CHANNEL
-import com.maxrave.simpmusic.utils.isNewerEnhancedBuild
 import com.maxrave.simpmusic.utils.isAppLinkAvailable
 import com.maxrave.simpmusic.utils.libraryTabOf
 import com.maxrave.simpmusic.viewModel.SharedViewModel
@@ -456,8 +453,7 @@ fun App(
         // F-Droid-channel user to update on each launch: that channel's tag carries no leading "v".
         val newer = if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
             // Fork builds are NOT comparable to original SimpMusic 2.x.x tags.
-            BuildKonfig.enhancedBuildChannel == ENHANCED_STABLE_CHANNEL &&
-                isNewerEnhancedBuild(BuildKonfig.versionCode, response.tagName)
+            viewModel.forkUpdateDownloadUrl != null
         } else {
             VersionManager.isBehind(response.tagName)
         }
@@ -931,13 +927,11 @@ fun App(
                                 onClick = {
                                     shouldShowUpdateDialog = false
                                     viewModel.showedUpdateDialog = false
-                                    openUrl(
-                                        if (BuildKonfig.enhancedBuildChannel == ENHANCED_STABLE_CHANNEL) {
-                                            ENHANCED_STABLE_APK_URL
-                                        } else {
-                                            "https://simpmusic.org/download"
-                                        },
-                                    )
+                                    if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                                        viewModel.forkUpdateDownloadUrl?.let { openUrl(it) }
+                                    } else {
+                                        openUrl("https://simpmusic.org/download")
+                                    }
                                 },
                             ) {
                                 Text(
@@ -1011,7 +1005,7 @@ fun App(
                                     ),
                             ) {
                                 Text(
-                                    text = updateMessage,
+                                    text = if (BuildKonfig.enhancedBuildChannel.isNotBlank()) "What's new" else updateMessage,
                                     style = typo().labelMedium,
                                     modifier =
                                         Modifier.padding(
@@ -1039,6 +1033,11 @@ fun App(
                                                 ),
                                         ),
                                 )
+                                if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                                    TextButton(onClick = { openUrl("https://github.com/aenorbiko/SimpMusic/blob/main/CHANGELOG.md") }) {
+                                        Text("Full version history", style = typo().bodySmall)
+                                    }
+                                }
                             }
                         },
                     )

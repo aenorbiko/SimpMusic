@@ -34,7 +34,7 @@ assert "val decision = chooseFinal(allA, allB, used, id)" in progressive
 assert "analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata)" in progressive
 assert "if (exact.matches.isNotEmpty() || exact.recommendation == null) return exact" in planner
 assert "eligibleRadioA = allA.filter { id(it) !in used }.distinctBy(id)" in progressive
-assert "body = forkRelease.notes," in shared, "Fork update dialog should show clean release body"
+assert "body = enhancedUserNotes(forkRelease.notes)," in shared, "Fork update dialog should show clean release body"
 assert "body = forkRelease.notes +" not in shared, "No literal escaped newline or duplicate changelog link"
 assert 'isRelevanceV2Experiment -> ".dev.relevance2"' in gradle
 assert "isRelevanceV2Experiment" in gradle
