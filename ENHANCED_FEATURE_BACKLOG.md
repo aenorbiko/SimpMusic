@@ -37,18 +37,13 @@ Stable Android CI run [46016353638](https://github.com/aenorbiko/SimpMusic/actio
 - [ ] Review current backup contents, restoration behavior and protection of account credentials. Existing YouTube Music authorization restoration works according to phone testing; do not rebuild it unnecessarily.
 - [ ] Add compatibility coverage for future Bluetooth offset profiles and relevant settings; test across Lab upgrades. Review old prototype separately from other features.
 
-### 5. Repeat One / Next — verify before changing code
-
-- [ ] Verify manual Next while Repeat One is enabled: requested behavior is to advance to the next track and turn Repeat One off; a natural track ending should still repeat the track.
-- [ ] Check current implementation before proposing changes. No active defect has been established.
-
-### 6. Prepare for wider distribution — later
+### 5. Prepare for wider distribution — later
 
 - [ ] Ko-fi/donation link, final icon and public-facing description/credits; confirm scope before implementation.
 - [ ] Review release packaging for other CPU architectures and public distribution; keep ARM64-only development builds for now.
 - [ ] Consider immutable versioned release tags and a verified update manifest if useful. Current stable-only updater works.
 
-### 7. Upstream integration — later, independent
+### 6. Upstream integration — later, independent
 
 - [ ] Compare new official SimpMusic releases and pinned `core` submodule against our latest Stable. Adopt needed fixes selectively; do not overwrite Enhanced or automatically merge upstream.
 - [ ] Use a dedicated integration branch and Lab, regression tests and phone acceptance, then explicit approval. Preserve account, playlists, queue, lyrics, Radio, notifications and Enhanced behavior.
@@ -72,6 +67,8 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 92 | Readable What's New and common build/test/publish infrastructure |
 | 93 | Start Radio preserves current track, position and pause; prevents late radio replies overriding new playback; exits Enhanced correctly |
 | 94 | Classic player Radio shortcut beside Playlist/Queue, comments in three-dot menu, persistent Lab package; phone-tested in final Lab |
+
+Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
 Do not reopen confirmed fixes absent a regression. The previously discussed Like/swipe idea is not an active task: the existing one YouTube Music Like in the player and notification is sufficient; a separate gesture has not been confirmed.
 
