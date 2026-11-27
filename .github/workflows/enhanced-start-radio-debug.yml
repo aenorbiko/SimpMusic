@@ -117,7 +117,7 @@ jobs:
             exit 1
           fi
           echo "Verified: APK signing certificate matches the private GitHub Actions keystore."
-      - name: Verify full returned radio relevance, progressive queue and updater regressions
+      - name: Verify Enhanced queue and statistics regressions
         run: |
           ./gradlew :composeApp:jvmTest \
             --tests "com.maxrave.simpmusic.viewModel.UpcomingQueuePlannerTest" \
@@ -150,12 +150,12 @@ jobs:
           set -euo pipefail
           APK=androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk
           test -s "$APK"
-          cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Radio-Statistics-arm64.apk"
+          cp "$APK" "$RUNNER_TEMP/SimpMusic-Enhanced-Start-Radio-arm64.apk"
           if gh release view enhanced-start-radio-latest >/dev/null 2>&1; then
-            gh release upload enhanced-start-radio-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Radio-Statistics-arm64.apk" --clobber
-            gh release edit enhanced-start-radio-latest --notes "Signed Start Radio Lab ARM64 APK: ${GITHUB_SHA}; local persistent aggregate first-page repeat statistics; Settings > About > Enhanced statistics > Copy statistics. No cache."
+            gh release upload enhanced-start-radio-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Start-Radio-arm64.apk" --clobber
+            gh release edit enhanced-start-radio-latest --notes "Signed Start Radio Lab ARM64 APK: ${GITHUB_SHA}; preserving the currently playing song, its position and pause state when Start Radio replaces the upcoming queue; ignores stale radio responses."
           else
-            gh release create enhanced-start-radio-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Radio-Statistics-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Start Radio Lab (experimental)" --notes "Signed Start Radio Lab ARM64 APK: ${GITHUB_SHA}; local persistent aggregate first-page repeat statistics; Settings > About > Enhanced statistics > Copy statistics. No cache." --prerelease
+            gh release create enhanced-start-radio-latest "$RUNNER_TEMP/SimpMusic-Enhanced-Start-Radio-arm64.apk" --target "$GITHUB_SHA" --title "SimpMusic Enhanced Start Radio Lab (experimental)" --notes "Signed Start Radio Lab ARM64 APK: ${GITHUB_SHA}; preserving the currently playing song, its position and pause state when Start Radio replaces the upcoming queue; ignores stale radio responses." --prerelease
           fi
-          gh release view enhanced-start-radio-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Radio-Statistics-arm64.apk'
-          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-start-radio-latest/SimpMusic-Enhanced-Radio-Statistics-arm64.apk"
+          gh release view enhanced-start-radio-latest --json assets --jq '.assets[].name' | grep -Fx 'SimpMusic-Enhanced-Start-Radio-arm64.apk'
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/enhanced-start-radio-latest/SimpMusic-Enhanced-Start-Radio-arm64.apk"
