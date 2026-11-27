@@ -101,7 +101,7 @@ runs:
         if [ -n "$LAB_PROPERTY" ]; then
           [[ "$LAB_PROPERTY" =~ ^simpmusic[A-Za-z0-9]+Experimental$ ]]
           [[ "$EXPECTED_PACKAGE" =~ ^com\.maxrave\.simpmusic\.dev\.[a-z0-9]+$ ]]
-          python3 -c 'from pathlib import Path; import sys, xml.etree.ElementTree as ET; p=Path("androidApp/src/debug/res/values/app_name.xml"); tree=ET.parse(p); node=tree.find("./string[@name=\x27app_name\x27]"); assert node is not None; node.text="SimpMusic Lab ("+sys.argv[1].removesuffix(" Lab")+")"; tree.write(p, encoding="unicode")' "$BUILD_CHANNEL"
+          python3 -c 'from pathlib import Path; import sys, xml.etree.ElementTree as ET; p=Path("androidApp/src/debug/res/values/app_name.xml"); tree=ET.parse(p); node=tree.find("./string[@name=\x27app_name\x27]"); assert node is not None; node.text="SimpMusic Lab" if sys.argv[2]=="simpmusicSharedLabExperimental" else "SimpMusic Lab ("+sys.argv[1].removesuffix(" Lab")+")"; tree.write(p, encoding="unicode")' "$BUILD_CHANNEL" "$LAB_PROPERTY"
           args+=("-P$LAB_PROPERTY=true")
         else
           test "$EXPECTED_PACKAGE" = "com.maxrave.simpmusic.dev"

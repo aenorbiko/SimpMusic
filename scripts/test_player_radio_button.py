@@ -21,3 +21,17 @@ row = menu.split("if (onShowComments != null) {", 1)[1].split("icon = SimpIcons.
 assert "SimpIcons.CommentOutline" in row and "Res.string.comments" in row
 assert row.index("modelBottomSheetState.hide()") < row.index("onDismiss()") < row.index("onShowComments()")
 print("PASS: Classic Radio goes directly to the protected handler; comments remain in the current-song menu.")
+
+# New development builds share the installed Start Radio Lab identity and key.
+gradle = Path("androidApp/build.gradle.kts").read_text()
+workflow = Path(".github/workflows/enhanced-player-radio-debug.yml").read_text()
+action = Path(".github/actions/enhanced-android-build/action.yml").read_text()
+assert 'providers.gradleProperty("simpmusicSharedLabExperimental")' in gradle
+assert 'isSharedLab -> ".dev.startradio"' in gradle
+assert 'else -> ".dev"' in gradle
+assert 'lab_property: simpmusicSharedLabExperimental' in workflow
+assert 'expected_package: com.maxrave.simpmusic.dev.startradio' in workflow
+assert 'node.text="SimpMusic Lab" if sys.argv[2]=="simpmusicSharedLabExperimental"' in action
+assert 'import com.maxrave.simpmusic.ui.icon.Sensors' in spotify
+assert 'import com.maxrave.simpmusic.ui.icon.CommentOutline' in menu
+print("PASS: shared Lab uses the existing Start Radio package, not the Stable package.")

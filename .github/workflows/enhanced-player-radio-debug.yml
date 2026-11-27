@@ -18,8 +18,8 @@ jobs:
     uses: ./.github/workflows/enhanced-lab-build.yml
     with:
       channel: Player Radio Lab
-      lab_property: simpmusicPlayerRadioExperimental
-      expected_package: com.maxrave.simpmusic.dev.playerradio
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
       release_tag: enhanced-player-radio-latest
       asset_name: SimpMusic-Player-Radio-arm64.apk
       expected_branch: feature/player-radio-button
