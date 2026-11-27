@@ -172,6 +172,7 @@ import com.maxrave.simpmusic.ui.icon.PlaylistAdd
 import com.maxrave.simpmusic.ui.icon.QueueMusic
 import com.maxrave.simpmusic.ui.icon.Remove
 import com.maxrave.simpmusic.ui.icon.Search
+import com.maxrave.simpmusic.ui.icon.CommentOutline
 import com.maxrave.simpmusic.ui.icon.Sensors
 import com.maxrave.simpmusic.ui.icon.Share
 import com.maxrave.simpmusic.ui.icon.SimpIcons
@@ -291,6 +292,7 @@ import simpmusic.composeapp.generated.resources.sleep_timer_set_error
 import simpmusic.composeapp.generated.resources.sleep_timer_warning
 import simpmusic.composeapp.generated.resources.sort_by
 import simpmusic.composeapp.generated.resources.start_radio
+import simpmusic.composeapp.generated.resources.comments
 import simpmusic.composeapp.generated.resources.sync
 import simpmusic.composeapp.generated.resources.sync_first
 import simpmusic.composeapp.generated.resources.synced
@@ -1391,6 +1393,8 @@ fun NowPlayingBottomSheet(
     /** Called with the videoId of the track this sheet shows. */
     onYouTubeDislike: (videoId: String) -> Unit = {},
     dataStoreManager: DataStoreManager = koinInject<DataStoreManager>(),
+    /** Only the active player's menu can open its comments sheet. */
+    onShowComments: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
@@ -1863,6 +1867,19 @@ fun NowPlayingBottomSheet(
                         uiState.songUIState.album?.id?.let { id ->
                             onNavigateToOtherScreen()
                             navController.navigate(AlbumDestination(browseId = id))
+                        }
+                    }
+                    if (onShowComments != null) {
+                        ActionButton(
+                            icon = SimpIcons.CommentOutline,
+                            text = Res.string.comments,
+                        ) {
+                            // Close this modal first so the comments sheet opens above the player.
+                            coroutineScope.launch {
+                                modelBottomSheetState.hide()
+                                onDismiss()
+                                onShowComments()
+                            }
                         }
                     }
                     ActionButton(

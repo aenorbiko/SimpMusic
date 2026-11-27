@@ -713,6 +713,7 @@ fun NowPlayingScreenContent(
             onAddToYouTubeLiked = { sharedViewModel.addToYouTubeLiked() },
             onShowMoreSheet = { showSheet = true },
             onShowQueue = { showQueueBottomSheet = true },
+            onStartRadio = { mediaPlayerHandler.toggleRadio() },
             onShowInfo = { showInfoBottomSheet = true },
             onShowAddToPlaylist = { showAddToPlaylistDirectly = true },
             onShowComments = {
@@ -861,6 +862,7 @@ fun NowPlayingScreenContent(
                     else -> YouTubeDislikeState.DISLIKE
                 },
             onYouTubeDislike = { videoId -> sharedViewModel.addToYouTubeDisliked(videoId) },
+            onShowComments = actions.onShowComments,
         )
     }
 

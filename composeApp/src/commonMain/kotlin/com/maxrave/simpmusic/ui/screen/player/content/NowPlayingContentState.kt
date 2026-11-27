@@ -174,6 +174,8 @@ class NowPlayingContentActions(
     val onAddToYouTubeLiked: () -> Unit,
     val onShowMoreSheet: () -> Unit,
     val onShowQueue: () -> Unit,
+    /** Start ordinary radio for the active track through the protected service path. */
+    val onStartRadio: () -> Unit,
     val onShowInfo: () -> Unit,
     val onShowAddToPlaylist: () -> Unit,
     /** Opens the comments sheet for the track playing. */
