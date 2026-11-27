@@ -1,0 +1,79 @@
+name: Shared Enhanced Lab build
+on:
+  workflow_call:
+    inputs:
+      channel:
+        type: string
+        required: true
+      lab_property:
+        type: string
+        required: true
+      expected_package:
+        type: string
+        required: true
+      release_tag:
+        type: string
+        required: true
+      asset_name:
+        type: string
+        required: true
+      expected_branch:
+        type: string
+        required: true
+      clean_build:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: true
+      extra_tests:
+        type: string
+        default: ''
+    secrets:
+      signing_bundle:
+        required: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Validate Lab isolation
+        shell: bash
+        env:
+          EXPECTED_BRANCH: ${{ inputs.expected_branch }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          LAB_PROPERTY: ${{ inputs.lab_property }}
+          EXPECTED_PACKAGE: ${{ inputs.expected_package }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          test "$EXPECTED_BRANCH" != main
+          [[ "$RELEASE_TAG" =~ ^enhanced-[a-z0-9-]+-latest$ ]]
+          [[ "$ASSET_NAME" =~ ^SimpMusic-[A-Za-z0-9-]+-arm64\.apk$ ]]
+          test "$ASSET_NAME" != SimpMusic-Enhanced-arm64.apk
+          [[ "$LAB_PROPERTY" =~ ^simpmusic[A-Za-z0-9]+Experimental$ ]]
+          [[ "$EXPECTED_PACKAGE" =~ ^com\.maxrave\.simpmusic\.dev\.[a-z0-9]+$ ]]
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build and test signed Lab APK
+        uses: ./.github/actions/enhanced-android-build
+        with:
+          channel: ${{ inputs.channel }}
+          lab_property: ${{ inputs.lab_property }}
+          expected_package: ${{ inputs.expected_package }}
+          clean_build: ${{ inputs.clean_build }}
+          signing_bundle: ${{ secrets.signing_bundle }}
+          extra_tests: ${{ inputs.extra_tests }}
+      - name: Publish isolated signed ARM64 APK
+        if: inputs.publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+          ASSET: ${{ inputs.asset_name }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          bash scripts/publish_enhanced_apk.sh "$TAG" "$ASSET" "SimpMusic $CHANNEL" "Signed $CHANNEL ARM64 APK. Source commit: $GITHUB_SHA."
