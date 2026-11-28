@@ -302,6 +302,17 @@ class SharedViewModel(
         viewModelScope.launch { enhancedRadioStatistics.recordFullTrack(diagnostic, completedAt) }
     }
 
+    private fun recordEnhancedPair(missingReason: String?) {
+        val completedAt = Clock.System.now().toEpochMilliseconds()
+        viewModelScope.launch { enhancedRadioStatistics.recordPair(missingReason, completedAt) }
+    }
+
+    // Independent of a cancelled queue job, just like completed request events.
+    // No timer or NonCancellable work that could delay the playback switch.
+    private fun flushEnhancedStatistics() {
+        viewModelScope.launch { enhancedRadioStatistics.flush() }
+    }
+
     suspend fun enhancedStatisticsReport(): String {
         val radio = enhancedRadioStatistics.report()
         val cache = enhancedRadioCache.report()
@@ -664,6 +675,7 @@ class SharedViewModel(
                             onFullTrackCompleted = ::recordEnhancedFullTrack,
                             radioCache = enhancedRadioCache,
                             performance = enhancedPerformance,
+                            onPairDecided = ::recordEnhancedPair,
                         ) { chunk ->
                             // Every callback runs in the original cancelable session.
                             // Switching source/mode cancels all pending radio lookups.
@@ -757,6 +769,7 @@ class SharedViewModel(
                     }
                 }
             } finally {
+                if (requestedMode == SmartShuffleMode.ENHANCED) flushEnhancedStatistics()
                 if (thisSession == enhancedSession) switchingSmartQueue = false
             }
         }
@@ -806,6 +819,7 @@ class SharedViewModel(
                         onFullTrackCompleted = ::recordEnhancedFullTrack,
                             radioCache = enhancedRadioCache,
                             performance = enhancedPerformance,
+                            onPairDecided = ::recordEnhancedPair,
                     )
                     if (session != enhancedSession || start != nextEnhancedLikedIndex ||
                         _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||
@@ -834,6 +848,8 @@ class SharedViewModel(
                 throw e
             } catch (e: Exception) {
                 log("Enhanced prefetch failed: ${e.message}", LogLevel.WARN)
+            } finally {
+                flushEnhancedStatistics()
             }
         }
         // Main.immediate can start launch inline. Assign before any queue

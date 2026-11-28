@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertEquals
 
 class EnhancedRadioRequestStatisticsTest {
     @Test
@@ -32,10 +33,10 @@ class EnhancedRadioRequestStatisticsTest {
         var saved: String? = null
         val start = 100_000_000L
         fun store() = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { start + 1000 })
-        store().record("a", false, false, start)
-        store().record("a", false, true, start + 100)
-        store().record("a", false, false, start + 200)
-        store().record("b", false, true, start + 300)
+        store().apply { record("a", false, false, start); flush() }
+        store().apply { record("a", false, true, start + 100); flush() }
+        store().apply { record("a", false, false, start + 200); flush() }
+        store().apply { record("b", false, true, start + 300); flush() }
         val report = store().report()
         assertTrue(report.contains("First-page radio requests: 4"))
         assertTrue(report.contains("Successful non-empty first pages: 2"))
@@ -101,7 +102,9 @@ class EnhancedRadioRequestStatisticsTest {
     fun storageFailureDoesNotThrowIntoPlaybackAndIsReported() = runBlocking {
         val stats = EnhancedRadioRequestStatistics({ null }, { error("disk error") }, { 1000L })
         stats.record("a", false, true, 1000L)
-        assertTrue(stats.report().contains("Unrecorded events this process: 1"))
+        val report = stats.report()
+        assertTrue(report.contains("Unrecorded events this process: 0"))
+        assertTrue(report.contains("Pending statistics events: 1; failed flush attempts: 1"))
     }
 
     @Test
@@ -109,12 +112,14 @@ class EnhancedRadioRequestStatisticsTest {
         var saved: String? = null
         val now = 100_000_000L
         fun store() = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { now })
-        store().record("seed", false, true, now)
-        store().recordFullTrack(FullTrackDiagnostic(61, 177, FullTrackOutcome.REPLACED, 1200, 1000), now)
-        store().recordFullTrack(FullTrackDiagnostic(40, null, FullTrackOutcome.NO_MATCH, 600, 500), now)
-        store().recordFullTrack(FullTrackDiagnostic(50, null, FullTrackOutcome.TIMEOUT, 10000, null), now)
-        store().recordFullTrack(FullTrackDiagnostic(60, null, FullTrackOutcome.ERROR, 200, 150), now)
-        store().recordFullTrack(FullTrackDiagnostic(70, null, FullTrackOutcome.MISSING_METADATA, 0, null), now)
+        val original = store()
+        original.record("seed", false, true, now)
+        original.recordFullTrack(FullTrackDiagnostic(61, 177, FullTrackOutcome.REPLACED, 1200, 1000), now)
+        original.recordFullTrack(FullTrackDiagnostic(40, null, FullTrackOutcome.NO_MATCH, 600, 500), now)
+        original.recordFullTrack(FullTrackDiagnostic(50, null, FullTrackOutcome.TIMEOUT, 10000, null), now)
+        original.recordFullTrack(FullTrackDiagnostic(60, null, FullTrackOutcome.ERROR, 200, 150), now)
+        original.recordFullTrack(FullTrackDiagnostic(70, null, FullTrackOutcome.MISSING_METADATA, 0, null), now)
+        assertTrue(original.flush())
         val report = store().report()
         assertTrue(report.contains("First-page radio requests: 1"))
         assertTrue(report.contains("Short recommendations: 5"))
@@ -143,5 +148,48 @@ class EnhancedRadioRequestStatisticsTest {
         stats.record("old", false, true, now)
         assertTrue(stats.report().contains("First-page radio requests: 1"))
         assertTrue(stats.report().contains("Repeat within 24 hours: 0 (0.0%)"))
+    }
+
+    @Test
+    fun batchesReadOnceAndFlushAtEightOrNextEventAfterFiveSeconds() = runBlocking {
+        var saved: String? = null
+        var reads = 0
+        var writes = 0
+        var mono = 0L
+        val stats = EnhancedRadioRequestStatistics({ reads++; saved }, { writes++; saved = it }, { 100000L }, { mono })
+        repeat(7) { stats.record("s$it", false, true, 100000) }
+        assertEquals(0, writes)
+        stats.recordPair(null, 100000)
+        assertEquals(1, writes)
+        mono = 4999
+        stats.record("more", true, true, 100000)
+        assertEquals(1, writes)
+        mono = 5000
+        stats.recordPair("Radio B empty", 100000)
+        assertEquals(2, writes)
+        assertTrue(stats.flush())
+        assertEquals(2, writes)
+        assertTrue(stats.report().contains("Pairs decided: 2; selected: 1; missing: 1"))
+        assertEquals(1, reads)
+        val reopened = EnhancedRadioRequestStatistics({ saved }, { saved = it }, { 100000L })
+        assertTrue(reopened.report().contains("Radio B empty: 1"))
+    }
+
+    @Test
+    fun failedFlushRetainsAggregateAndResetDoesNotResurrectIt() = runBlocking {
+        var saved: String? = null
+        var fail = true
+        var wall = 100000L
+        val stats = EnhancedRadioRequestStatistics({ saved }, { if (fail) error("disk") else saved = it }, { wall }, { 0L })
+        repeat(8) { stats.record("seed", false, true, wall) }
+        assertFalse(stats.flush())
+        assertFalse(stats.reset())
+        fail = false
+        assertTrue(stats.flush())
+        assertTrue(stats.report().contains("First-page radio requests: 8"))
+        wall++
+        assertTrue(stats.reset())
+        stats.recordPair("Radio B empty", wall - 1)
+        assertTrue(stats.report().contains("Pairs decided: 0; selected: 0; missing: 0"))
     }
 }

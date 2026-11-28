@@ -244,6 +244,7 @@ internal suspend fun buildEnhancedBatchProgressively(
     onFullTrackCompleted: (FullTrackDiagnostic) -> Unit = {},
     radioCache: EnhancedRadioCache<Track>? = null,
     performance: EnhancedPerformanceDiagnostics? = null,
+    onPairDecided: (String?) -> Unit = {},
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
@@ -289,7 +290,8 @@ internal suspend fun buildEnhancedBatchProgressively(
             val started = TimeSource.Monotonic.markNow()
             diagnostic = enhancedRadioDiagnostic(pair, decision, timing)
             performance?.diagnostic(started.elapsedNow().inWholeMilliseconds)
-            performance?.pair(pair[0].title.orEmpty(), pair[1].title.orEmpty(), decision, timing)
+            val reason = performance?.pair(pair[0].title.orEmpty(), pair[1].title.orEmpty(), decision, timing)
+            if (performance != null) onPairDecided(reason)
         },
     ) { pair, recommendation ->
         val tracks = if (recommendation == null) pair else pair + recommendation

@@ -8,6 +8,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlin.time.Instant
+import kotlin.time.TimeSource
 
 internal const val ENHANCED_RADIO_STATISTICS_KEY = "enhanced_radio_statistics_v1"
 private const val MINUTE_MS = 60_000L
@@ -31,6 +32,8 @@ internal data class EnhancedRadioStatisticsState(
     val fullTrack: EnhancedFullTrackStatistics = EnhancedFullTrackStatistics(),
     val lastObservedAtMs: Long = 0,
     val elapsedClockCorrectionMs: Long = 0,
+    val pairsDecided: Long = 0,
+    val missingReasons: Map<String, Long> = emptyMap(),
 ) {
     fun asText(nowMs: Long): String = buildString {
         fun percent(n: Long): String {
@@ -53,7 +56,12 @@ internal data class EnhancedRadioStatisticsState(
         appendLine("Repeat = previous successful non-empty first page for the same seed. Windows are cumulative, not additive.")
         appendLine("Repeat windows describe network requests only; cache hits are reported separately when enabled. Cancelled requests not counted.")
         appendLine("Local statistics only; no song IDs, titles or account data in this report.")
-        append(fullTrack.asText())
+        appendLine(fullTrack.asText())
+        appendLine("Persistent recommendation statistics (since reset / since supported)")
+        val missing = missingReasons.values.sum()
+        appendLine("Pairs decided: $pairsDecided; selected: ${pairsDecided - missing}; missing: $missing")
+        if (missingReasons.isEmpty()) append("Missing reasons: None")
+        else missingReasons.toSortedMap().forEach { (reason, count) -> appendLine("$reason: $count") }
     }
 }
 
@@ -111,16 +119,56 @@ internal class EnhancedRadioRequestStatistics(
     private val read: suspend () -> String?,
     private val write: suspend (String) -> Unit,
     private val nowMs: () -> Long,
+    private val monotonicMs: () -> Long = run {
+        val start = TimeSource.Monotonic.markNow()
+        val clock: () -> Long = { start.elapsedNow().inWholeMilliseconds }
+        clock
+    },
 ) {
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private var unrecorded = 0L
+    private var state: EnhancedRadioStatisticsState? = null
+    private var pending = 0L
+    private var failedWrites = 0L
+    private var lastSavedMs = monotonicMs()
 
     private suspend fun load(): EnhancedRadioStatisticsState {
+        state?.let { return it }
         val value = read()
-        if (value.isNullOrBlank()) return EnhancedRadioStatisticsState()
-        return json.decodeFromString<EnhancedRadioStatisticsState>(value)
+        val decoded = if (value.isNullOrBlank()) EnhancedRadioStatisticsState()
+            else json.decodeFromString<EnhancedRadioStatisticsState>(value)
+        state = decoded
+        return decoded
     }
+
+    // All calls under mutex. Keep the current aggregate and pending count on
+    // failure; retry on the next event or explicit flush. Never replay events.
+    private suspend fun flushLocked(): Boolean {
+        if (pending == 0L) return true
+        val current = state ?: return false
+        return try {
+            write(json.encodeToString(current))
+            pending = 0
+            lastSavedMs = monotonicMs()
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            failedWrites++
+            false
+        }
+    }
+
+    private suspend fun accept(next: EnhancedRadioStatisticsState) {
+        state = next
+        pending++
+        // Count all accepted events, including Full Track and pair decisions,
+        // so the unsaved-event bound covers more than radio requests alone.
+        if (pending >= 8 || monotonicMs() - lastSavedMs >= 5000) flushLocked()
+    }
+
+    suspend fun flush(): Boolean = mutex.withLock { flushLocked() }
 
     suspend fun record(videoId: String, continuation: Boolean, success: Boolean, completedAtMs: Long) {
         mutex.withLock {
@@ -163,7 +211,7 @@ internal class EnhancedRadioRequestStatistics(
                     clockResets = old.clockResets + if (clockBack) 1 else 0,
                     resetAtMs = if (clockBack) 0 else old.resetAtMs,
                 )
-                write(json.encodeToString(next))
+                accept(next)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -178,7 +226,29 @@ internal class EnhancedRadioRequestStatistics(
             try {
                 val old = load()
                 if (completedAtMs < old.resetAtMs && nowMs() >= old.resetAtMs) return@withLock
-                write(json.encodeToString(old.copy(fullTrack = old.fullTrack.add(diagnostic))))
+                accept(old.copy(fullTrack = old.fullTrack.add(diagnostic)))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                unrecorded++
+            }
+        }
+    }
+
+    suspend fun recordPair(missingReason: String?, completedAtMs: Long) {
+        mutex.withLock {
+            try {
+                val old = load()
+                if (completedAtMs < old.resetAtMs && nowMs() >= old.resetAtMs) return@withLock
+                val reasons = if (missingReason == null) old.missingReasons else {
+                    val reason = when (missingReason) {
+                        "Radio B failed or no response", "Radio B empty", "No eligible B candidates",
+                        "No selection despite eligible B candidates" -> missingReason
+                        else -> "Other"
+                    }
+                    old.missingReasons + (reason to ((old.missingReasons[reason] ?: 0L) + 1))
+                }
+                accept(old.copy(pairsDecided = old.pairsDecided + 1, missingReasons = reasons))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -190,7 +260,12 @@ internal class EnhancedRadioRequestStatistics(
     suspend fun reset(): Boolean = mutex.withLock {
         try {
             val now = nowMs().coerceAtLeast(1L)
-            write(json.encodeToString(EnhancedRadioStatisticsState(startedAtMs = now, resetAtMs = now, lastObservedAtMs = now)))
+            val fresh = EnhancedRadioStatisticsState(startedAtMs = now, resetAtMs = now, lastObservedAtMs = now)
+            write(json.encodeToString(fresh))
+            state = fresh
+            pending = 0
+            failedWrites = 0
+            lastSavedMs = monotonicMs()
             unrecorded = 0
             true
         } catch (e: CancellationException) {
@@ -202,7 +277,10 @@ internal class EnhancedRadioRequestStatistics(
 
     suspend fun report(): String = mutex.withLock {
         try {
-            load().asText(nowMs()) + "\nUnrecorded events this process: $unrecorded"
+            val current = load()
+            flushLocked()
+            current.asText(nowMs()) + "\nUnrecorded events this process: $unrecorded" +
+                "\nPending statistics events: $pending; failed flush attempts: $failedWrites"
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
