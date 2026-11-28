@@ -2,61 +2,82 @@
 
 Last reviewed: 2026-11-28 (Australia/Brisbane).
 
-**Release checkpoint: Android build 96 (radio cache and updates).** User approved Stable promotion on 2026-11-28 after Lab phone tests. The signed one-hour Lab passed [CI run 46099381052](https://github.com/aenorbiko/SimpMusic/actions/runs/46099381052). Stable 96 publication and phone acceptance remain to be verified; check the [current signed Stable release](https://github.com/aenorbiko/SimpMusic/releases/tag/enhanced-latest).
+**Release checkpoint: Android build 96 (radio cache and updates).** User approved Stable promotion on 2026-11-28 after Lab phone tests. The signed one-hour Lab passed [CI run 46099381052](https://github.com/aenorbiko/SimpMusic/actions/runs/46099381052). Stable 96 publication verified (CI run 46100640729, commit 9676edb3); phone acceptance remains to be verified; check the [current signed Stable release](https://github.com/aenorbiko/SimpMusic/releases/tag/enhanced-latest).
 
 - [Download Stable APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)
 - [Release history and technical notes](CHANGELOG.md)
 - [Build and signing rules](docs/ENHANCED_BUILDS.md)
 - [Archived original detailed backlog through Stable 90](https://github.com/aenorbiko/SimpMusic/blob/1065b274a93a57aa86dc1b24ab8fe4e9d8684971/ENHANCED_FEATURE_BACKLOG.md) — historical experiments and original acceptance notes, not current status.
 
-## Active tasks, in proposed order
+## Active phase — stabilization and optimization (user-approved 2026-11-28)
 
-### 1. Enhanced radio metadata cache — implemented; Stable verification pending
+Pause new features until this phase is completed and reviewed. Use one independent branch per behavior change, short Lab acceptance, then explicit Stable promotion. Collect comparable baseline and follow-up measurements; avoid speculative tuning and unnecessary APK builds.
 
-- [x] Implement process-local anonymous radio metadata cache: 64 seeds, fixed 60-minute TTL, full returned pages, optional continuation, bounded recovery and cache statistics.
-- [x] Lab phone verified first and second page reuse, deferred token success (2/2), six avoided requests; one-hour default and expiry tested by signed Lab CI.
-- [ ] Verify Stable 96 installation and ordinary listening; monitor hits, capacity evictions and expiry. Actual heap use not measured. Recovery on rejected deferred token has automated coverage but has not occurred on the phone.
-- [ ] Tune capacity or TTL only if normal-use evidence warrants it; no speculative extra builds.
+### 1. Baseline performance (Stable 96)
+- [ ] Verify installed Stable 96 update, retained queue, pause, settings and authorization; use Stable for ordinary listening. Confirm independent Lab channel on next feature build.
+- [ ] Measure RAM (cold/warm cache, entries and tracks), CPU / metadata analysis, time to first recommendation, network counts and failures, storage writes, playback errors under parallel requests, and battery under comparable conditions. Distinguish measured data from estimates; use Android profiling when a phone connection is available. No background wakeups for instrumentation.
+- [ ] Use existing diagnostics first; add only missing measurement points. Keep test workload, build and conditions documented.
 
-### 2. Bluetooth device-specific Lyrics Offset
+### 2. Missing recommendation diagnostics
+- [ ] Count processed pairs, added/missing recommendations and evidence-based failure reasons; keep a bounded local history of failed pairs with request outcomes and exclusions. Do not change ranking or introduce extra requests.
+
+### 3. External song links
+- [ ] Treat repeated identical links as separate events and consume intents correctly.
+- [ ] Reuse Start Radio's stale-response protection: newer playback actions must win over earlier requests.
+- [ ] Investigate existing metadata methods as fallback for missing videoDetails; verify exact video ID, never substitute a different recording. Preserve working simpmusic.org/app/watch links and Android app separation. Test same-link retries, cold/warm starts, rapid A/B links, switching playlists and unavailable IDs.
+
+### 4. Playback errors
+- [ ] Distinguish connectivity, actual timeout, sign-in required, private/unavailable recording, metadata failure and unknown playback errors; do not invent causes. Keep technical details in App Log.
+- [ ] Investigate legitimate support for authenticated personal uploads (not yet confirmed). Stable 95 without Enhanced failed on a recording that official YouTube Music played while anonymous YouTube reported private; App Log showed LOGIN_REQUIRED and No URL found. Do not change extraction or authorization until the supported mechanism is established.
+
+### 5. Enhanced analysis
+- [ ] Reuse normalized metadata and analysis results across recommendation selection and diagnostics. Preserve exact output, ranking, exclusions and diagnostics; regression-test and measure CPU/time.
+
+### 6. Cache memory
+- [ ] Keep 64 seeds and fixed 60-minute TTL unless measured evidence supports tuning. Prune expired entries at existing block/cache operations, no periodic wakeups; evaluate safe Android memory-pressure handling. Preserve in-flight snapshots and continuation matching.
+- [ ] Lab already verified first/second-page reuse, two successful deferred continuations, and six avoided requests. One-hour TTL and recovery tested automatically; rejected deferred tokens not yet observed on phone. Actual heap use not measured.
+
+### 7. Statistics writes
+- [ ] Accumulate counters in memory; flush after 8 completed network requests, or on the next result when more than 5 seconds have elapsed since the last save, and after normal completion/cancellation of a block or opening/copying statistics. No independent timer, wakeup or extra network request.
+- [ ] Preserve reset ordering, out-of-order event handling, rollback protection and existing persisted history; serialize flushes, retain pending data on write failures. Target at most 7 unsaved completed events between successful count-triggered writes in normal operation; hard process death or I/O failure may lose more, and no guarantee of final lifecycle callbacks. Never affect queue, playlists or settings.
+
+### 8. Enhanced session storage
+- [ ] Serialize source metadata once and store shuffled order by video ID, retaining compatibility with existing sessions and recovery behavior. Measure payload and write overhead; do not assume equivalent heap savings.
+
+### 9. Progressive refill
+- [ ] Reuse startup progressive builder for subsequent queue refill; append each ready two-source group and optional recommendation in order without waiting for all seven pairs. Preserve current track, pause and position; advance cursor, membership, exclusions and recovery checkpoints only for committed groups. Test cancellation, stale sessions, process death mid-block and duplicate prevention.
+
+### 10. Final measurements
+- [ ] Compare against Stable 96 baseline under equivalent workloads, report actual effects and outstanding limitations. Review before resuming new features.
+
+## Deferred features (retain existing scope)
+
+### Bluetooth device-specific Lyrics Offset
 
 - [ ] Provide a default offset plus individual values for Bluetooth headphones, car and speaker; select the active device's value automatically and restore the default when disconnected.
 - [ ] Inspect and reuse only suitable code from `feature/enhanced-optimisation`, rather than merging the entire old multi-feature prototype.
 - [ ] Verify Android permissions, device identification, switching/disconnect, manual offset, backup compatibility and persistence. Phone-test with at least two devices.
 
-### 3. Diagnose missing third recommendations — lower priority
+### Existing Full Track observation
 
-- [ ] Provide a diagnostic for pairs that yield no eligible recommendation (including failed/empty radio, exclusion and exhausted candidates), without altering the selected tracks or adding network requests.
-- [ ] Keep it separate from ranking or scheduling changes. Existing blue-star diagnostics describe chosen recommendations; the missing recommendation observed in Queue Management Lab was not conclusively diagnosed.
 - [ ] Continue to observe Full Track real-world replacements: build 87 is shipped and automated coverage passed, but a successful longer replacement has not yet been observed on the phone. Do not reopen the implementation without evidence of a defect.
 
-### 4. Backup / Restore safety and portability
+### Backup / Restore safety and portability
 
 - [ ] Review current backup contents, restoration behavior and protection of account credentials. Existing YouTube Music authorization restoration works according to phone testing; do not rebuild it unnecessarily.
 - [ ] Add compatibility coverage for future Bluetooth offset profiles and relevant settings; test across Lab upgrades. Review old prototype separately from other features.
 
-### 5. Prepare for wider distribution — later
+### Prepare for wider distribution — later
 
 - [ ] Ko-fi/donation link and public-facing description/credits; confirm scope before implementation. Stable and Lab launcher icon design is approved.
 - [ ] Review release packaging for other CPU architectures and public distribution; keep ARM64-only development builds for now.
 - [ ] Consider immutable versioned release tags and a verified update manifest if useful. Current stable-only updater works.
 
-### 6. Upstream integration — later, independent
+### Upstream integration — later, independent
 
 - [ ] Compare new official SimpMusic releases and pinned `core` submodule against our latest Stable. Adopt needed fixes selectively; do not overwrite Enhanced or automatically merge upstream.
 - [ ] Use a dedicated integration branch and Lab, regression tests and phone acceptance, then explicit approval. Preserve account, playlists, queue, lyrics, Radio, notifications and Enhanced behavior.
 - [ ] Continue incremental refactoring only when a feature or demonstrated problem justifies it; avoid broad rewrites. Queue management and shared build workflows were already refactored in builds 91–92.
-
-### 7. Lab update channel and concise update dialogs — implemented; Stable verification pending
-
-- [x] Permanent independent Lab update feed, increasing revision, validated branch APK and concise What's new with clickable history.
-- [x] Lab phone accepted same-version check and in-app update into the cache Lab; account, settings, queue, current track and pause preserved.
-- [ ] Verify Stable 96 update and channel isolation after merge; verify next Lab branch update as part of normal feature development, not a dedicated extra build.
-
-### 8. Playback diagnostics for private / unavailable recordings — separate issue
-
-- [ ] Investigate authenticated personal uploads (not yet confirmed) and private recording playback using the existing extractor and official YouTube Music comparison. Reproduced in Stable 95 without Enhanced; official YouTube Music plays the record, anonymous YouTube says private, and app log reports LOGIN_REQUIRED and No URL found.
-- [ ] Distinguish access/availability failures from actual network timeouts in user-facing messages. Do not change extraction or authorization until the supported mechanism is established. Keep separate from the radio-cache release.
 
 ## Completed / shipped
 
@@ -77,7 +98,7 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 93 | Start Radio preserves current track, position and pause; prevents late radio replies overriding new playback; exits Enhanced correctly |
 | 94 | Classic player Radio shortcut beside Playlist/Queue, comments in three-dot menu, persistent Lab package; phone-tested in final Lab |
 | 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable published; Stable appearance to verify |
-| 96 | Radio metadata cache and independent Lab updates; Lab accepted, Stable promotion approved; publication and phone acceptance pending |
+| 96 | Radio metadata cache and independent Lab updates; Lab accepted, Stable published; phone acceptance pending |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -110,4 +131,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-Stable 96 promotion approved; verify signed CI and release, then update Stable on the phone and verify retained data and cache statistics. Continue the separate private-recording diagnosis without mixing it into build 96. Device-specific Lyrics Offset remains the next planned independent feature.
+Stable 96 is published. Begin baseline measurements and stabilization in the agreed order. New features including device-specific Lyrics Offset are deferred. This documentation-only change must be bundled into the next approved Stable release, not trigger an APK on its own.
