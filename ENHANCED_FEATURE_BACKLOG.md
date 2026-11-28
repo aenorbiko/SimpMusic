@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-11-28 (Australia/Brisbane).
 
-**Release checkpoint: Android build 100 (expired cache cleanup) — user approved promotion; publication and Stable phone acceptance pending.** Stable 99 signed publication verified (CI 46122014583, commit 306351bf).
+**Release checkpoint: Android build 101 (analysis reuse) — user approved promotion; publication and Stable phone acceptance pending.** Stable 100 signed publication verified (CI 46134249478, commit b36ed458).
 
 - [Download Stable APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)
 - [Release history and technical notes](CHANGELOG.md)
@@ -56,8 +56,10 @@ Pause new features until this phase is completed and reviewed. On 2026-11-28 the
 
 **Phone acceptance — 2026-11-28, temporary Cache Memory 10min Lab build 99 r46130066201 (8e81acb6).** Two expiry intervals: 13 entries / 1,267 records, then 14 entries / 1,287 records, all removed; total 27 / 2,554. Process counters preserved, network totals unchanged during expiry intervals (27 and 53). Second interval PSS 416,255 → 378,663 KiB while cache still full, then 372,841 and 358,454 KiB after prune; managed heap 62,314 → 66,780 → 65,824 → 51,930 KiB. These are whole-process snapshots, not measured cache size; no direct cache-only memory attribution. Earlier hour-long test reset process counters and lost notification, so did not prove pruning. User requested leaving cache unchanged; temporary 10-minute branch must not merge. Stable TTL remains one hour.
 
-### 6. Enhanced analysis — next independent Lab
-- [ ] Reuse normalized metadata and analysis results across recommendation selection and diagnostics. Preserve exact output, ranking, exclusions and diagnostics; regression-test and measure CPU/time. Draft PR #35 prepared against Stable 99; rebase/integrate on Stable 100 before signed Lab.
+### 6. Enhanced analysis — Lab accepted; Stable 101 promotion approved
+- [x] Reuse normalized metadata and analysis results across recommendation selection and diagnostics; preserve ranking, exclusions and diagnostic output. Automated regressions passed.
+
+**Phone acceptance — 2026-11-28, Analysis Reuse Lab build 100 r46134282761 (0083e8cd).** Two blocks, 14/14 selected and committed, no missing pairs or unrecorded events, 44 network requests and six gross avoided requests. Average/max selection wall time 15/28 ms; detailed diagnostics 25/45 ms (previous 43/58 and 153/192 ms). Detailed reports: four exact A+B, one shared artist, nine B-only; exclusions, first/second-page overlaps, cached pages and diagnostic ranks intact. Title+artist matching covered by automated tests but not observed in this phone sample. Different inputs and cache/page counts limit comparison; no isolated CPU, battery or network latency claims.
 
 ### 7. External song links
 - [ ] Treat repeated identical links as separate events and consume intents correctly.
@@ -127,7 +129,8 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 97 | Event-driven performance and missing-recommendation diagnostics, build identity in updates and reports; Lab accepted; Stable publication verified |
 | 98 | Batched statistics and persistent pair counts; Lab phone acceptance; Stable publication verified |
 | 99 | Compact session storage; legacy migration and compact reopen accepted on phone; Stable publication verified |
-| 100 | Expired cache cleanup; two phone expiry tests accepted with temporary 10-minute TTL; Stable 60-minute TTL; publication pending |
+| 100 | Expired cache cleanup; two phone expiry tests accepted with temporary 10-minute TTL; Stable 60-minute TTL; publication verified |
+| 101 | Faster recommendation analysis and diagnostics; 14 phone recommendations and detailed reports accepted; publication pending |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -160,4 +163,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-Publish and verify Stable 100. Next independent Lab: reuse metadata analysis; then repair external links and playback errors, progressive refill and final measurements. Leave cache unchanged unless a demonstrated regression requires it.
+Publish and verify Stable 101. Next independent Lab: repeated external song links and stale-response protection, then separate metadata fallback if needed, playback errors, progressive refill and final measurements. Leave cache unchanged unless a demonstrated regression requires it.

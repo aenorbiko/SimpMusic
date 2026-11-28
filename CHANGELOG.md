@@ -23,6 +23,18 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 101 — Faster Enhanced analysis (2026-11-28)
+
+**What's new**
+
+- Speed up Enhanced recommendation analysis and diagnostics.
+
+**Technical details**
+
+- Reuse normalized metadata and existing selection analysis; avoid repeated comparisons when generating the detailed diagnostic report. Preserve selection rules, exclusions and diagnostic information.
+- Signed Analysis Reuse Lab r46134282761 (0083e8cd) passed automated regressions. Phone test selected and committed all 14 recommendations; detailed reports covered exact overlaps on first and second pages, shared artist selection, exclusions and B fallback. Title-and-artist matching covered by automated tests, not observed in this phone sample.
+- Observed selection mean/max 15/28 ms versus 43/58 ms; diagnostics 25/45 ms versus 153/192 ms. Workloads and cache/page counts differ, so these are observational wall-time measurements, not controlled CPU, battery or network improvements.
+
 ### Android build 100 — Expired radio cache cleanup (2026-11-28)
 
 **What's new**

@@ -158,7 +158,7 @@ internal fun enhancedRadioDiagnostic(
     fun metadata(tracks: List<Track>) = tracks.mapIndexed { index, track -> enhancedRadioMetadata(track, index + 1) }
     val eligibleA = metadata(timing.eligibleRadioA)
     val eligibleB = metadata(timing.eligibleRadioB)
-    val metadataReport = EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB)
+    val metadataReport = decision.metadataReport ?: EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB)
     val rawA = metadata((timing.firstA.tracks + timing.secondA?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS))
     val rawB = metadata((timing.firstB.tracks + timing.secondB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS))
     val beforeExclusions = EnhancedRadioMetadataDiagnostics.beforeExclusions(

@@ -1,0 +1,32 @@
+name: SimpMusic Analysis Reuse Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-analysis-reuse]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-analysis-reuse-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Analysis Reuse Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-analysis-reuse-latest
+      asset_name: SimpMusic-Analysis-Reuse-arm64.apk
+      expected_branch: feature/enhanced-analysis-reuse
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+      shared_update: true
+      whats_new: |
+        - Reuse Enhanced recommendation analysis to reduce repeated calculations.
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}
