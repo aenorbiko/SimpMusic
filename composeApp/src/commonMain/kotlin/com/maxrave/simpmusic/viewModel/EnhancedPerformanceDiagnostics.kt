@@ -17,7 +17,8 @@ internal class EnhancedPerformanceDiagnostics(
     private val sampler: (Boolean) -> EnhancedProcessSample = ::enhancedProcessSample,
     private val nowMs: () -> Long = run {
         val start = TimeSource.Monotonic.markNow()
-        { start.elapsedNow().inWholeMilliseconds }
+        val clock: () -> Long = { start.elapsedNow().inWholeMilliseconds }
+        clock
     },
 ) {
     private var pairs = 0L
@@ -31,7 +32,7 @@ internal class EnhancedPerformanceDiagnostics(
     private var diagnosticMax = 0L
     private var statsWrites = 0L
     private var sessionWrites = 0L
-    private var sessionBytes = 0L
+    private var sessionChars = 0L
     private var sessionEncodeTotal = 0L
     private var queueSaveCalls = 0L
     private var samples = 0L
@@ -64,7 +65,7 @@ internal class EnhancedPerformanceDiagnostics(
         diagnosticMax = maxOf(diagnosticMax, ms)
     }
     fun statsWrite() { statsWrites++ }
-    fun sessionWrite(bytes: Int, encodeMs: Long) {
+    fun sessionWrite(chars: Int, encodeMs: Long) {
         sessionWrites++
         sessionBytes += bytes
         sessionEncodeTotal += encodeMs

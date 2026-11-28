@@ -329,7 +329,7 @@ class SharedViewModel(
             enhancedSessionWriteMutex.withLock {
                 if (revision == enhancedSessionWriteRevision) {
                     dataStoreManager.putString(ENHANCED_QUEUE_SESSION_KEY, encoded)
-                    enhancedPerformance.sessionWrite(encoded.encodeToByteArray().size, encodingMs)
+                    enhancedPerformance.sessionWrite(encoded.length, encodingMs)
                     if (snapshot != null) {
                         // Media3 saves its playable queue at pauses/transitions,
                         // independently of Enhanced metadata. A sudden reboot
