@@ -27,7 +27,7 @@ jobs:
       publish: true
       shared_update: true
       whats_new: |
-        - Cache Enhanced radio metadata.
+        - Cache Enhanced radio metadata for up to one hour.
         - Show cache hits in Enhanced statistics.
     secrets:
       signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

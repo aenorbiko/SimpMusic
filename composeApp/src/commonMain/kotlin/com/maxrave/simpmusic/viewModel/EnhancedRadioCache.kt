@@ -11,7 +11,7 @@ import kotlin.time.TimeSource
  * TTL is measured from the first page, never renewed by hits or extensions.
  */
 internal class EnhancedRadioCache<T>(
-    private val ttlMs: Long = 20 * 60_000L,
+    private val ttlMs: Long = 60 * 60_000L,
     private val maxEntries: Int = 64,
     private val nowMs: (() -> Long)? = null,
 ) {

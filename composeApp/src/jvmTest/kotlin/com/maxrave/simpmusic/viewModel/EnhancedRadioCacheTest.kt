@@ -12,6 +12,20 @@ class EnhancedRadioCacheTest {
         EnhancedRadioPage(tracks.toList(), continuation = next, requestMs = 500)
 
     @Test
+    fun defaultTtlIsOneHourAndHitsDoNotRenewIt() = runBlocking {
+        var now = 0L
+        val cache = EnhancedRadioCache<String>(nowMs = { now })
+        cache.newBatch().load("a", null) { page("original") }
+        now = 20 * 60_000L
+        assertTrue(cache.newBatch().load("a", null) { error("unexpected network at 20 minutes") }.fromCache)
+        now = 60 * 60_000L - 1
+        assertTrue(cache.newBatch().load("a", null) { error("unexpected network before one hour") }.fromCache)
+        now = 60 * 60_000L
+        assertFalse(cache.newBatch().load("a", null) { page("fresh") }.fromCache)
+        assertTrue(cache.report().contains("capacity: 64; TTL: 60 min"))
+    }
+
+    @Test
     fun completeRadioReusesExactPagesWithoutNetworkEvenAfterExpiryDuringBatch() = runBlocking {
         var now = 0L
         val cache = EnhancedRadioCache<String>(ttlMs = 100, nowMs = { now })
