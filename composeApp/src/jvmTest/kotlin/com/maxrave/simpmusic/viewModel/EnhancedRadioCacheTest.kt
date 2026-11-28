@@ -127,4 +127,74 @@ class EnhancedRadioCacheTest {
         } catch (_: CancellationException) {}
         assertFalse(cache.newBatch().load("a", null) { page("a") }.fromCache)
     }
+
+    @Test
+    fun unrelatedExpiredEntriesArePrunedBeforeCapacityEviction() = runBlocking {
+        var now = 0L
+        val cache = EnhancedRadioCache<String>(ttlMs = 100, maxEntries = 3, nowMs = { now })
+        val old = cache.newBatch()
+        old.load("expired", null) { page("one", "two", next = "oldToken") }
+        old.load("expired", "oldToken") { page("three") }
+        now = 50
+        cache.newBatch().load("live1", null) { page("live1") }
+        cache.newBatch().load("live2", null) { page("live2") }
+        now = 99
+        assertTrue(cache.newBatch().load("expired", null) { error("still valid") }.fromCache)
+        now = 100
+        cache.newBatch().load("fresh", null) { page("fresh") }
+        val report = cache.report()
+        assertTrue(report.contains("Expired entries pruned: 1; track records removed: 3"))
+        assertTrue(report.contains("Capacity evictions: 0"))
+        assertTrue(report.contains("Resident cache entries: 3; live: 3; expired resident: 0; stored track records: 3"))
+        assertTrue(cache.newBatch().load("live1", null) { error("live LRU must survive") }.fromCache)
+        assertFalse(cache.newBatch().load("expired", null) { page("new") }.fromCache)
+    }
+
+    @Test
+    fun reportingPrunesExpiredEntriesButPinnedContinuationSurvives() = runBlocking {
+        var now = 0L
+        val cache = EnhancedRadioCache<String>(ttlMs = 100, nowMs = { now })
+        val first = cache.newBatch()
+        first.load("a", null) { page("one", next = "token") }
+        first.load("a", "token") { page("two") }
+        val active = cache.newBatch()
+        assertTrue(active.load("a", null) { error("expected hit") }.fromCache)
+        now = 100
+        val report = cache.report()
+        assertTrue(report.contains("Expired entries pruned: 1; track records removed: 2"))
+        assertTrue(report.contains("Resident cache entries: 0; live: 0; expired resident: 0; stored track records: 0"))
+        assertEquals(listOf("two"), active.load("a", "token") { error("pinned continuation must survive") }.tracks)
+        assertFalse(cache.newBatch().load("a", null) { page("fresh") }.fromCache)
+    }
+
+    @Test
+    fun expiryPruningCannotResurrectDeferredSnapshotOrRemoveFreshReplacement() = runBlocking {
+        var now = 0L
+        val cache = EnhancedRadioCache<String>(ttlMs = 100, nowMs = { now })
+        cache.newBatch().load("a", null) { page("old", next = "token") }
+        val active = cache.newBatch()
+        assertTrue(active.load("a", null) { error("expected hit") }.fromCache)
+        now = 100
+        cache.report()
+        cache.newBatch().load("a", null) { page("fresh", next = "freshToken") }
+        assertEquals(listOf("late"), active.load("a", "token") { page("late") }.tracks)
+        val next = cache.newBatch()
+        assertEquals(listOf("fresh"), next.load("a", null) { error("expected fresh hit") }.tracks)
+        assertFalse(next.load("a", "freshToken") { page("freshSecond") }.fromCache)
+        cache.resetCounters()
+        assertTrue(cache.report().contains("Expired entries pruned: 0; track records removed: 0"))
+    }
+
+    @Test
+    fun directExpiredLookupsAreSeparateFromProactivePruning() = runBlocking {
+        var now = 0L
+        val cache = EnhancedRadioCache<String>(ttlMs = 100, nowMs = { now })
+        cache.newBatch().load("a", null) { page("a") }
+        cache.newBatch().load("b", null) { page("b") }
+        now = 100
+        cache.newBatch().load("a", null) { page("fresh") }
+        val report = cache.report()
+        assertTrue(report.contains("expired lookups: 1"))
+        assertTrue(report.contains("Expired entries pruned: 1; track records removed: 1"))
+    }
 }
