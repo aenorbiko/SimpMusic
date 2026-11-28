@@ -32,24 +32,100 @@ internal data class EnhancedQueueSession(
     val playlistLabel: String get() = "$sourceName · Enhanced 2+1"
 }
 
+/**
+ * The wire format is separate from the in-memory session. V2 stores the
+ * source metadata once and represents shuffledUpcoming by ordered video IDs.
+ * The key and restoration invariants remain identical. Legacy V1 payloads
+ * can still be decoded; a successful subsequent checkpoint migrates them.
+ */
+@Serializable
+private data class EnhancedQueueSessionWire(
+    val schemaVersion: Int = 1,
+    val sourceId: String,
+    val sourceName: String,
+    val sourceTracks: List<Track>,
+    val shuffledUpcoming: List<Track>? = null,
+    val shuffledUpcomingIds: List<String>? = null,
+    val queueVideoIds: List<String>,
+    val nextSourceIndex: Int,
+    val recommendedVideoIds: Set<String>,
+    val usedRecommendationIds: Set<String>,
+    val usedRecommendationSongKeys: Set<String> = emptySet(),
+)
+
 internal object EnhancedQueueSessionCodec {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    fun encode(snapshot: EnhancedQueueSession): String = json.encodeToString(snapshot)
+    // Do not collapse conflicting metadata for the same video ID. Unusual
+    // sources with ambiguous IDs or changed upcoming metadata keep V1.
+    private fun sourceIndex(tracks: List<Track>): Map<String, Track>? {
+        val index = HashMap<String, Track>(tracks.size)
+        for (track in tracks) {
+            val old = index.put(track.videoId, track)
+            if (old != null && old != track) return null
+        }
+        return index
+    }
+
+    fun encode(snapshot: EnhancedQueueSession): String {
+        if (snapshot.schemaVersion != 1) return json.encodeToString(snapshot)
+        val index = sourceIndex(snapshot.sourceTracks)
+        if (index == null || snapshot.shuffledUpcoming.any { index[it.videoId] != it }) {
+            return json.encodeToString(snapshot)
+        }
+        return json.encodeToString(
+            EnhancedQueueSessionWire(
+                schemaVersion = 2,
+                sourceId = snapshot.sourceId,
+                sourceName = snapshot.sourceName,
+                sourceTracks = snapshot.sourceTracks,
+                shuffledUpcomingIds = snapshot.shuffledUpcoming.map { it.videoId },
+                queueVideoIds = snapshot.queueVideoIds,
+                nextSourceIndex = snapshot.nextSourceIndex,
+                recommendedVideoIds = snapshot.recommendedVideoIds,
+                usedRecommendationIds = snapshot.usedRecommendationIds,
+                usedRecommendationSongKeys = snapshot.usedRecommendationSongKeys,
+            )
+        )
+    }
 
     fun decode(value: String?): EnhancedQueueSession? {
         if (value.isNullOrBlank()) return null
-        return runCatching { json.decodeFromString<EnhancedQueueSession>(value) }
-            .getOrNull()
-            ?.takeIf {
-                it.schemaVersion == 1 &&
-                    it.sourceId.isNotBlank() &&
-                    it.sourceName.isNotBlank() &&
-                    it.queueVideoIds.isNotEmpty() &&
-                    it.sourceTracks.isNotEmpty() &&
-                    it.shuffledUpcoming.size <= it.sourceTracks.size &&
-                    it.nextSourceIndex in 0..it.shuffledUpcoming.size
+        return runCatching {
+            val wire = json.decodeFromString<EnhancedQueueSessionWire>(value)
+            val upcoming = when (wire.schemaVersion) {
+                1 -> {
+                    if (wire.shuffledUpcomingIds != null) return null
+                    wire.shuffledUpcoming ?: return null
+                }
+                2 -> {
+                    if (wire.shuffledUpcoming != null) return null
+                    val ids = wire.shuffledUpcomingIds ?: return null
+                    if (ids.size > wire.sourceTracks.size) return null
+                    val index = sourceIndex(wire.sourceTracks) ?: return null
+                    ids.map { index[it] ?: return null }
+                }
+                else -> return null
             }
+            EnhancedQueueSession(
+                sourceId = wire.sourceId,
+                sourceName = wire.sourceName,
+                sourceTracks = wire.sourceTracks,
+                shuffledUpcoming = upcoming,
+                queueVideoIds = wire.queueVideoIds,
+                nextSourceIndex = wire.nextSourceIndex,
+                recommendedVideoIds = wire.recommendedVideoIds,
+                usedRecommendationIds = wire.usedRecommendationIds,
+                usedRecommendationSongKeys = wire.usedRecommendationSongKeys,
+            )
+        }.getOrNull()?.takeIf {
+            it.sourceId.isNotBlank() &&
+                it.sourceName.isNotBlank() &&
+                it.queueVideoIds.isNotEmpty() &&
+                it.sourceTracks.isNotEmpty() &&
+                it.shuffledUpcoming.size <= it.sourceTracks.size &&
+                it.nextSourceIndex in 0..it.shuffledUpcoming.size
+        }
     }
 }
 

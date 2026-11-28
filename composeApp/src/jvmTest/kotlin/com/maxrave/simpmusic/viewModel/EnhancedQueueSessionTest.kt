@@ -6,6 +6,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.assertSame
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class EnhancedQueueSessionTest {
     private fun track(id: String) = Track(
@@ -192,5 +195,68 @@ class EnhancedQueueSessionTest {
         assertEquals(setOf("REC1", "REC2"), restored.recommendedIds)
         assertTrue("OLD_REC" in restored.usedRecommendationIds)
         assertTrue("REC2" in restored.usedRecommendationIds)
+    }
+
+    @Test
+    fun compactFormatStoresMetadataOnceAndMigratesLegacyWithExactOrder() {
+        val source = (1..350).map { track("id-$it").copy(title = "Long title $it " + "metadata".repeat(12)) }
+        val order = source.reversed().drop(2)
+        val original = snapshot().copy(
+            sourceTracks = source,
+            shuffledUpcoming = order,
+            nextSourceIndex = 14,
+            usedRecommendationSongKeys = setOf("key1", "key2"),
+        )
+        val legacy = Json { encodeDefaults = true }.encodeToString(original)
+        val migrated = assertNotNull(EnhancedQueueSessionCodec.decode(legacy))
+        assertEquals(original, migrated)
+        val compact = EnhancedQueueSessionCodec.encode(migrated)
+        assertTrue(compact.contains("\"schemaVersion\":2"))
+        assertTrue(compact.contains("\"shuffledUpcomingIds\":"))
+        assertTrue(compact.length < legacy.length * 0.65, "Expected substantial reduction")
+        val decoded = assertNotNull(EnhancedQueueSessionCodec.decode(compact))
+        assertEquals(original, decoded)
+        assertSame(decoded.sourceTracks.last { it.videoId == order.first().videoId }, decoded.shuffledUpcoming.first())
+    }
+
+    @Test
+    fun duplicateIdsAndConflictingMetadataAreNeverSilentlyChanged() {
+        val original = snapshot()
+        val repeated = original.copy(
+            sourceTracks = original.sourceTracks + original.sourceTracks[1],
+            shuffledUpcoming = original.shuffledUpcoming + original.shuffledUpcoming[0],
+        )
+        val compact = EnhancedQueueSessionCodec.encode(repeated)
+        assertTrue(compact.contains("\"schemaVersion\":2"))
+        assertEquals(repeated, EnhancedQueueSessionCodec.decode(compact))
+        val changed = original.copy(shuffledUpcoming = original.shuffledUpcoming.map {
+            if (it.videoId == "A") it.copy(title = "different recording metadata") else it
+        })
+        val fallback = EnhancedQueueSessionCodec.encode(changed)
+        assertTrue(fallback.contains("\"schemaVersion\":1"))
+        assertEquals(changed, EnhancedQueueSessionCodec.decode(fallback))
+        val conflicting = original.copy(sourceTracks = original.sourceTracks + original.sourceTracks[1].copy(title = "other"))
+        assertEquals(conflicting, EnhancedQueueSessionCodec.decode(EnhancedQueueSessionCodec.encode(conflicting)))
+    }
+
+    @Test
+    fun compactUnknownIdsAndInvalidCursorAreRejected() {
+        val encoded = EnhancedQueueSessionCodec.encode(snapshot())
+        assertNull(EnhancedQueueSessionCodec.decode(encoded.replace("\"shuffledUpcomingIds\":[\"A\"", "\"shuffledUpcomingIds\":[\"UNKNOWN\"")))
+        assertNull(EnhancedQueueSessionCodec.decode(encoded.replace("\"nextSourceIndex\":6", "\"nextSourceIndex\":999")))
+        assertNull(EnhancedQueueSessionCodec.decode(encoded.replace("\"schemaVersion\":2", "\"schemaVersion\":99")))
+    }
+
+    @Test
+    fun legacyAndCompactProduceIdenticalRestorePlan() {
+        val original = snapshot()
+        val legacy = Json { encodeDefaults = true }.encodeToString(original)
+        val v1 = assertNotNull(EnhancedQueueSessionCodec.decode(legacy))
+        val v2 = assertNotNull(EnhancedQueueSessionCodec.decode(EnhancedQueueSessionCodec.encode(original)))
+        val actual = listOf("X", "A", "B", "REC1")
+        assertEquals(
+            planEnhancedRestoration(v1, v1.playlistLabel, actual, "B"),
+            planEnhancedRestoration(v2, v2.playlistLabel, actual, "B"),
+        )
     }
 }
