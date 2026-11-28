@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.maxrave.simpmusic.viewModel.SharedViewModel
+import com.maxrave.simpmusic.utils.EnhancedBuildIdentity
 import com.maxrave.simpmusic.expect.copyToClipboard
 
 /** Read-only diagnostic for newly generated recommendations in this process. */
@@ -43,7 +44,7 @@ internal fun EnhancedDiagnosticStar(
                     if (details == null) {
                         Text("Radio diagnostics unavailable for this restored track. Start a new Enhanced queue to capture them.")
                     } else {
-                        SelectionContainer { Text(details.asText()) }
+                        SelectionContainer { Text(EnhancedBuildIdentity.reportCaption + "\n\n" + details.asText()) }
                     }
                 }
             },
@@ -51,9 +52,9 @@ internal fun EnhancedDiagnosticStar(
             dismissButton = {
                 if (details != null) {
                     Column {
-                        TextButton(onClick = { copyToClipboard("Enhanced recommendation", details.asText()) }) { Text("Copy") }
+                        TextButton(onClick = { copyToClipboard("Enhanced recommendation", EnhancedBuildIdentity.reportCaption + "\n\n" + details.asText()) }) { Text("Copy") }
                         TextButton(onClick = {
-                            copyToClipboard("Enhanced radio diagnostics", diagnostics.values.joinToString("\n\n---\n\n") { it.asText() })
+                            copyToClipboard("Enhanced radio diagnostics", EnhancedBuildIdentity.reportCaption + "\n\n" + diagnostics.values.joinToString("\n\n---\n\n") { it.asText() })
                         }) { Text("Copy all") }
                     }
                 }

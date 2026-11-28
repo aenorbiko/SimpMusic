@@ -67,7 +67,7 @@ internal class EnhancedPerformanceDiagnostics(
     fun statsWrite() { statsWrites++ }
     fun sessionWrite(chars: Int, encodeMs: Long) {
         sessionWrites++
-        sessionBytes += bytes
+        sessionChars += chars
         sessionEncodeTotal += encodeMs
     }
     fun queueSave() { queueSaveCalls++ }
@@ -97,7 +97,7 @@ internal class EnhancedPerformanceDiagnostics(
         pairs = 0; selected = 0; committed = 0
         selectionCount = 0; selectionTotal = 0; selectionMax = 0
         diagnosticCount = 0; diagnosticTotal = 0; diagnosticMax = 0
-        statsWrites = 0; sessionWrites = 0; sessionBytes = 0; sessionEncodeTotal = 0; queueSaveCalls = 0
+        statsWrites = 0; sessionWrites = 0; sessionChars = 0; sessionEncodeTotal = 0; queueSaveCalls = 0
         samples = 0; heapPeak = 0; first = null; last = null; firstAt = 0; lastAt = 0
         reasons.clear(); recent.clear()
         sample()
@@ -112,7 +112,7 @@ internal class EnhancedPerformanceDiagnostics(
         appendLine("Final selection wall time avg/max ($selectionCount): ${avg(selectionTotal, selectionCount)} / $selectionMax ms")
         appendLine("Detailed diagnostics wall time avg/max ($diagnosticCount): ${avg(diagnosticTotal, diagnosticCount)} / $diagnosticMax ms")
         appendLine("Successful statistics writes: $statsWrites")
-        appendLine("Successful Enhanced session writes: $sessionWrites; UTF-8 payload total: $sessionBytes bytes; encoding total: $sessionEncodeTotal ms")
+        appendLine("Successful Enhanced session writes: $sessionWrites; JSON payload total: $sessionChars UTF-16 code units; encoding total: $sessionEncodeTotal ms")
         appendLine("Queue persistence calls completed: $queueSaveCalls (not physical disk writes)")
         appendLine("Managed heap samples: $samples; current / sampled peak / limit: ${(end?.heapUsedBytes ?: 0L) / 1024} / ${heapPeak / 1024} / ${(end?.heapMaxBytes ?: 0L) / 1024} KiB")
         appendLine("Process PSS at report: ${end?.pssKiB?.let { "$it KiB" } ?: "unavailable"}")

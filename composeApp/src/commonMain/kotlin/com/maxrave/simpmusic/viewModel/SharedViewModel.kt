@@ -82,6 +82,7 @@ import com.maxrave.simpmusic.expect.ui.toByteArray
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.utils.LyricsPromo
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.EnhancedBuildIdentity
 import com.maxrave.simpmusic.utils.EnhancedForkUpdateClient
 import com.maxrave.simpmusic.utils.isEnhancedStablePackage
 import com.maxrave.simpmusic.utils.isSharedEnhancedLab
@@ -305,7 +306,7 @@ class SharedViewModel(
         val radio = enhancedRadioStatistics.report()
         val cache = enhancedRadioCache.report()
         enhancedPerformance.sample(includePss = true)
-        return radio + "\n\n" + cache + "\n\n" + enhancedPerformance.report()
+        return EnhancedBuildIdentity.reportCaption + "\n\n" + radio + "\n\n" + cache + "\n\n" + enhancedPerformance.report()
     }
     suspend fun resetEnhancedStatistics(): Boolean {
         val reset = enhancedRadioStatistics.reset()
@@ -2067,7 +2068,7 @@ class SharedViewModel(
                     if (forkRelease != null) {
                         forkUpdateDownloadUrl = forkRelease.downloadUrl
                         _updateResponse.value = UpdateData(
-                            tagName = if (forkRelease.labRevision > 0) "Lab build ${forkRelease.buildCode}" else "Enhanced build ${forkRelease.buildCode}",
+                            tagName = if (forkRelease.labRevision > 0) "Lab build ${forkRelease.buildCode} · r${forkRelease.labRevision}" else "Enhanced build ${forkRelease.buildCode}",
                             releaseTime = forkRelease.releaseTime,
                             body = enhancedUserNotes(forkRelease.notes),
                         )
