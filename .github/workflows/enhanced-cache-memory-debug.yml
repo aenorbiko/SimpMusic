@@ -1,0 +1,32 @@
+name: SimpMusic Cache Memory Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-cache-memory]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-cache-memory-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Cache Memory Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-cache-memory-latest
+      asset_name: SimpMusic-Cache-Memory-arm64.apk
+      expected_branch: feature/enhanced-cache-memory
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+      shared_update: true
+      whats_new: |
+        - Remove expired radio cache entries during existing operations.
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

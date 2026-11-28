@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-11-28 (Australia/Brisbane).
 
-**Release checkpoint: Android build 99 (compact session storage) — user approved promotion; publication and Stable phone acceptance pending.** Stable 98 signed publication verified (CI 46119470364, commit 1a9856ad7).
+**Release checkpoint: Android build 100 (expired cache cleanup) — user approved promotion; publication and Stable phone acceptance pending.** Stable 99 signed publication verified (CI 46122014583, commit 306351bf).
 
 - [Download Stable APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)
 - [Release history and technical notes](CHANGELOG.md)
@@ -50,12 +50,14 @@ Pause new features until this phase is completed and reviewed. On 2026-11-28 the
 
 **Phone acceptance — 2026-11-28, Compact Session Lab build 98 r46119527495 (fe43c374).** Upgrade restored visible queue, Enhanced and recommendation stars; preserved 25 requests and 7 pair counts. Restored session payload 183,651 versus previous 358,502 UTF-16 code units (48.8% smaller); encoding 53 versus 275 ms. Fresh block: 27 requests, 6 stats writes, 7 pairs / 6 selected / 1 missing; 10 session writes, 1,283,406 units total, 160 ms encoding. Force-stop/reopen restored visible remaining order and stars, retained 27 requests and pair counts; one compact session save 183,679 units / 82 ms, no radio requests. No phone Bluetooth-specific cold-start or controlled RAM/battery measurement; core bootstrap regression passed CI. No change to save frequency. User approved promotion.
 
-### 5. Cache memory — next independent Lab
-- [ ] Keep 64 seeds and fixed 60-minute TTL unless measured evidence supports tuning. Prune expired entries at existing block/cache operations, no periodic wakeups; evaluate safe Android memory-pressure handling. Preserve in-flight snapshots and continuation matching.
-- [ ] Lab already verified first/second-page reuse, two successful deferred continuations, and six avoided requests. One-hour TTL and recovery tested automatically; rejected deferred tokens not yet observed on phone. Actual heap use not measured.
+### 5. Cache memory — Lab accepted; Stable 100 promotion approved
+- [x] Keep 64 seeds and fixed 60-minute TTL. Prune expired entries during existing cache/report operations; preserve pinned in-flight snapshots and continuation matching. No periodic wakeups, extra network requests or Android memory-pressure listener.
+- [x] Automated expiry and snapshot regression tests passed. Earlier Lab verified first/second-page reuse and deferred continuations. No further cache optimization or cache-size instrumentation requested.
 
-### 6. Enhanced analysis
-- [ ] Reuse normalized metadata and analysis results across recommendation selection and diagnostics. Preserve exact output, ranking, exclusions and diagnostics; regression-test and measure CPU/time.
+**Phone acceptance — 2026-11-28, temporary Cache Memory 10min Lab build 99 r46130066201 (8e81acb6).** Two expiry intervals: 13 entries / 1,267 records, then 14 entries / 1,287 records, all removed; total 27 / 2,554. Process counters preserved, network totals unchanged during expiry intervals (27 and 53). Second interval PSS 416,255 → 378,663 KiB while cache still full, then 372,841 and 358,454 KiB after prune; managed heap 62,314 → 66,780 → 65,824 → 51,930 KiB. These are whole-process snapshots, not measured cache size; no direct cache-only memory attribution. Earlier hour-long test reset process counters and lost notification, so did not prove pruning. User requested leaving cache unchanged; temporary 10-minute branch must not merge. Stable TTL remains one hour.
+
+### 6. Enhanced analysis — next independent Lab
+- [ ] Reuse normalized metadata and analysis results across recommendation selection and diagnostics. Preserve exact output, ranking, exclusions and diagnostics; regression-test and measure CPU/time. Draft PR #35 prepared against Stable 99; rebase/integrate on Stable 100 before signed Lab.
 
 ### 7. External song links
 - [ ] Treat repeated identical links as separate events and consume intents correctly.
@@ -64,6 +66,7 @@ Pause new features until this phase is completed and reviewed. On 2026-11-28 the
 
 ### 8. Playback errors
 - [ ] Distinguish connectivity, actual timeout, sign-in required, private/unavailable recording, metadata failure and unknown playback errors; do not invent causes. Keep technical details in App Log.
+- [ ] Investigate unexpected loss of playback notification and process restart observed during 60-minute Cache Memory phone test. User thinks music had been playing; no crash/OS termination evidence yet.
 - [ ] Investigate legitimate support for authenticated personal uploads (not yet confirmed). Stable 95 without Enhanced failed on a recording that official YouTube Music played while anonymous YouTube reported private; App Log showed LOGIN_REQUIRED and No URL found. Do not change extraction or authorization until the supported mechanism is established.
 
 ### 9. Progressive refill
@@ -123,7 +126,8 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 96 | Radio metadata cache and independent Lab updates; Lab accepted, Stable published; phone acceptance pending |
 | 97 | Event-driven performance and missing-recommendation diagnostics, build identity in updates and reports; Lab accepted; Stable publication verified |
 | 98 | Batched statistics and persistent pair counts; Lab phone acceptance; Stable publication verified |
-| 99 | Compact session storage; legacy migration and compact reopen accepted on phone; promotion approved, Stable publication pending |
+| 99 | Compact session storage; legacy migration and compact reopen accepted on phone; Stable publication verified |
+| 100 | Expired cache cleanup; two phone expiry tests accepted with temporary 10-minute TTL; Stable 60-minute TTL; publication pending |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -156,4 +160,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-Publish and verify Stable 99. Next independent Lab: prune expired cache entries at existing operations while preserving fixed one-hour TTL and pinned in-flight snapshots. Then reuse metadata analysis, repair external links and playback errors, progressive refill and final measurements.
+Publish and verify Stable 100. Next independent Lab: reuse metadata analysis; then repair external links and playback errors, progressive refill and final measurements. Leave cache unchanged unless a demonstrated regression requires it.
