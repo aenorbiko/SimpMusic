@@ -211,4 +211,47 @@ class EnhancedRadioMetadataDiagnosticsTest {
         assertEquals("B", choose(a, b).source)
         assertEquals(null, choose(a, emptyList()).recommendation)
     }
+
+    @Test
+    fun selectionReusesTheFullEligibleReportEvenForBFallback() {
+        val a = listOf(track("a", "Song"), track("owned", "Other"), track("a", "duplicate", rank = 9))
+        val b = listOf(track("b", "Other", "Unknown"), track("remix", "Song (Live)"))
+        val used = setOf("owned")
+        val decision = choose(a, b, used)
+        val eligibleA = a.filter { it.videoId !in used }.distinctBy { it.videoId }.mapIndexed { i, c -> c.copy(rank = i + 1) }
+        val eligibleB = b.mapIndexed { i, c -> c.copy(rank = i + 1) }
+        assertEquals("B", decision.source)
+        assertEquals(EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB), decision.metadataReport)
+        assertEquals(1, decision.metadataReport?.versionCount)
+        assertEquals(null, choose(a, emptyList()).metadataReport)
+        assertEquals(null, choose(a, listOf(a.first())).metadataReport)
+    }
+
+    @Test
+    fun rawRemovedCountsAndExamplesPreserveRankOrderingAndAllCategories() {
+        val a = listOf(track("a", "Song", rank = 2), track("live", "Song (Live)", rank = 4),
+            track("owned", "Different", "Bridge", rank = 5))
+        val b = listOf(track("b", "Song (Official Audio)", rank = 3), track("remix", "Song (Remix)", rank = 8),
+            track("bridge", "New", "Bridge", rank = 6))
+        val eligibleA = listOf(a[0].copy(rank = 1))
+        val eligibleB = listOf(b[0].copy(rank = 1), b[2].copy(rank = 2))
+        val report = EnhancedRadioMetadataDiagnostics.compare(eligibleA, eligibleB)
+        val lines = EnhancedRadioMetadataDiagnostics.beforeExclusions(a, b, eligibleA, eligibleB, report, 0)
+        assertTrue(lines.contains("Same title + artist(s) before / after: 1 / 1; removed: 0"))
+        assertTrue(lines.contains("Possible versions before / after: 3 / 0; removed: 3"))
+        assertTrue(lines.contains("Shared artists before / after: 2 / 1; lost: 1"))
+        assertEquals(3, lines.count { it.startsWith("Removed version match:") })
+        assertTrue(lines.first { it.startsWith("Removed version match:") }.contains("A #4 Song (Live)"))
+        assertTrue(lines.single { it.startsWith("Potential B candidate") }.contains("B candidate #6 New"))
+    }
+
+    @Test
+    fun duplicateMetadataAndArtistSpellingRetainExistingFirstAndLastSemantics() {
+        val a = listOf(track("dup", "First", "Artist", rank = 1), track("dup", "Last", "Different", rank = 9))
+        val b = listOf(track("b", "Last", "ARTIST", rank = 2))
+        val report = EnhancedRadioMetadataDiagnostics.compare(a, b)
+        assertEquals(0, report.sameTitleCount)
+        assertEquals("Artist", report.commonArtistExamples.single().name)
+        assertEquals(0, report.commonArtistDifferentSongCount)
+    }
 }

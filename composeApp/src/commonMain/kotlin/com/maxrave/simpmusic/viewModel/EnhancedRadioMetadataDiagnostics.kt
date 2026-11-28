@@ -66,6 +66,7 @@ internal object EnhancedRadioMetadataDiagnostics {
     )
     private val presentationSuffix = suffix(PRESENTATION)
     private val versionSuffix = suffix(VERSION)
+    private val whitespace = Regex("""\s+""")
     private fun stripSuffixes(title: String, pattern: Regex): String {
         var value = title.trim()
         while (true) {
@@ -82,7 +83,7 @@ internal object EnhancedRadioMetadataDiagnostics {
                 else -> append(' ')
             }
         }
-    }.trim().split(Regex("""\s+""")).filter { it.isNotEmpty() }.joinToString(" ")
+    }.trim().split(whitespace).filter { it.isNotEmpty() }.joinToString(" ")
 
     private data class Identity(val title: String, val artists: List<String>)
     private data class Indexed(
@@ -90,14 +91,26 @@ internal object EnhancedRadioMetadataDiagnostics {
         val strict: Identity,
         val base: Identity,
     )
-    private fun indexed(candidate: RadioMetadataCandidate): Indexed? {
-        val artists = candidate.artists.map(::normalized).filter { it.isNotBlank() }.distinct().sorted()
-        if (artists.isEmpty()) return null // Never infer artist identity from title alone.
-        val presentationClean = stripSuffixes(candidate.title, presentationSuffix)
-        val strict = normalized(presentationClean)
-        val base = normalized(stripSuffixes(presentationClean, versionSuffix))
-        if (strict.isBlank() || base.isBlank()) return null
-        return Indexed(candidate, Identity(strict, artists), Identity(base, artists))
+
+    // Local to one comparison; reuse normalized artist names and titles in the
+    // exact same ranking paths. Preserve the first original spelling for display.
+    private data class Prepared(
+        val track: RadioMetadataCandidate,
+        val artistNames: List<Pair<String, String>>,
+        val strictTitle: String,
+        val baseTitle: String,
+    ) {
+        fun indexed(): Indexed? {
+            val artists = artistNames.map { it.first }.distinct().sorted()
+            if (artists.isEmpty() || strictTitle.isBlank() || baseTitle.isBlank()) return null
+            return Indexed(track, Identity(strictTitle, artists), Identity(baseTitle, artists))
+        }
+    }
+
+    private fun prepare(candidate: RadioMetadataCandidate): Prepared {
+        val artists = candidate.artists.map { normalized(it) to it }.filter { it.first.isNotBlank() }
+        val clean = stripSuffixes(candidate.title, presentationSuffix)
+        return Prepared(candidate, artists, normalized(clean), normalized(stripSuffixes(clean, versionSuffix)))
     }
 
     /** Same strict identity as the title-match tier; remix/version labels stay intact.
@@ -105,57 +118,63 @@ internal object EnhancedRadioMetadataDiagnostics {
      * Missing artist/title metadata never excludes a track by title alone.
      */
     fun strictSongKey(candidate: RadioMetadataCandidate): String? =
-        indexed(candidate)?.strict?.let { (listOf(it.title) + it.artists).joinToString("|") }
+        prepare(candidate).indexed()?.strict?.let { (listOf(it.title) + it.artists).joinToString("|") }
 
     /** Artist names are matched individually, including collaborators explicitly
      * listed in metadata. Do not split channel names or guess from video titles.
      */
-    private fun artistGroups(tracks: List<RadioMetadataCandidate>): Map<String, List<RadioMetadataCandidate>> =
-        tracks.distinctBy { it.videoId }.sortedBy { it.rank }
-            .flatMap { track -> track.artists.map(::normalized).filter { it.isNotBlank() }.distinct().map { it to track } }
+    private fun artistGroups(tracks: List<Prepared>): Map<String, List<Prepared>> =
+        tracks.distinctBy { it.track.videoId }.sortedBy { it.track.rank }
+            .flatMap { track -> track.artistNames.map { it.first }.distinct().map { it to track } }
             .groupBy({ it.first }, { it.second })
 
-    private fun baseTitle(track: RadioMetadataCandidate): String =
-        normalized(stripSuffixes(stripSuffixes(track.title, presentationSuffix), versionSuffix))
+    private fun artistKeys(tracks: List<RadioMetadataCandidate>): Set<String> =
+        tracks.distinctBy { it.videoId }.flatMap { it.artists.map(::normalized) }.filter { it.isNotBlank() }.toSet()
 
-    private fun sharedArtists(a: List<RadioMetadataCandidate>, b: List<RadioMetadataCandidate>): List<RadioArtistMatch> {
+    private fun sharedArtists(a: List<Prepared>, b: List<Prepared>): List<RadioArtistMatch> {
         val groupsA = artistGroups(a)
         val groupsB = artistGroups(b)
-        val baseTitlesA = a.associate { it.videoId to baseTitle(it) }
-        val baseTitlesB = b.associate { it.videoId to baseTitle(it) }
+        // As before, artist grouping uses first occurrence, base-title lookup
+        // uses the last occurrence of an ID in the input.
+        val baseTitlesA = a.associate { it.track.videoId to it.baseTitle }
+        val baseTitlesB = b.associate { it.track.videoId to it.baseTitle }
         val pairOrder = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
             .thenBy { it.b.rank }.thenBy { it.a.rank }
         return groupsA.keys.intersect(groupsB.keys).map { key ->
             val left = groupsA.getValue(key)
             val right = groupsB.getValue(key)
-            val displayName = left.first().artists.first { normalized(it) == key }
+            val displayName = left.first().artistNames.first { it.first == key }.second
             var best: RadioMetadataMatch? = null
             for (trackA in left) {
-                val titleA = baseTitlesA[trackA.videoId].orEmpty()
+                val titleA = baseTitlesA[trackA.track.videoId].orEmpty()
                 if (titleA.isBlank()) continue
                 for (trackB in right) {
-                    val titleB = baseTitlesB[trackB.videoId].orEmpty()
-                    if (trackA.videoId == trackB.videoId || titleB.isBlank() || titleA == titleB) continue
-                    val candidate = RadioMetadataMatch(trackA, trackB)
+                    val titleB = baseTitlesB[trackB.track.videoId].orEmpty()
+                    if (trackA.track.videoId == trackB.track.videoId || titleB.isBlank() || titleA == titleB) continue
+                    val candidate = RadioMetadataMatch(trackA.track, trackB.track)
                     if (best?.let { pairOrder.compare(candidate, it) < 0 } != false) best = candidate
                 }
             }
-            RadioArtistMatch(displayName, left, right, best)
+            RadioArtistMatch(displayName, left.map { it.track }, right.map { it.track }, best)
         }.sortedWith(compareBy<RadioArtistMatch> { it.tracksA.first().rank + it.tracksB.first().rank }
             .thenBy { it.tracksB.first().rank }.thenBy { it.tracksA.first().rank }.thenBy { normalized(it.name) })
     }
 
-    /** Count distinct A/B ID pairs with eligible tracks, excluding exact-ID matches.
-     * Categories are disjoint. The final selector may use the best strict title/artist
-     * and different-song shared-artist results; looser version matches remain diagnostic.
-     */
-    fun compare(
-        a: List<RadioMetadataCandidate>,
-        b: List<RadioMetadataCandidate>,
+    private data class TitleMatches(
+        val strict: List<RadioMetadataMatch>,
+        val versions: List<RadioMetadataMatch>,
+    )
+    private val titleOrder = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
+        .thenBy { it.b.rank }.thenBy { it.a.rank }
+        .thenBy { it.a.videoId }.thenBy { it.b.videoId }
+
+    private fun titleMatches(
+        a: List<Prepared>,
+        b: List<Prepared>,
         metadataPairFilter: (RadioMetadataMatch) -> Boolean = { true },
-    ): RadioMetadataReport {
-        val first = a.distinctBy { it.videoId }.mapNotNull(::indexed)
-        val second = b.distinctBy { it.videoId }.mapNotNull(::indexed)
+    ): TitleMatches {
+        val first = a.distinctBy { it.track.videoId }.mapNotNull { it.indexed() }
+        val second = b.distinctBy { it.track.videoId }.mapNotNull { it.indexed() }
         val byBase = second.groupBy { it.base }
         val strict = mutableListOf<RadioMetadataMatch>()
         val versions = mutableListOf<RadioMetadataMatch>()
@@ -168,10 +187,22 @@ internal object EnhancedRadioMetadataDiagnostics {
                 else versions.add(match)
             }
         }
-        val order = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
-            .thenBy { it.b.rank }.thenBy { it.a.rank }
-            .thenBy { it.a.videoId }.thenBy { it.b.videoId }
-        val artists = sharedArtists(a, b)
+        return TitleMatches(strict, versions)
+    }
+
+    /** Count distinct A/B ID pairs with eligible tracks, excluding exact-ID matches.
+     * Categories are disjoint. The final selector may use the best strict title/artist
+     * and different-song shared-artist results; looser version matches remain diagnostic.
+     */
+    fun compare(
+        a: List<RadioMetadataCandidate>,
+        b: List<RadioMetadataCandidate>,
+        metadataPairFilter: (RadioMetadataMatch) -> Boolean = { true },
+    ): RadioMetadataReport {
+        val preparedA = a.map(::prepare)
+        val preparedB = b.map(::prepare)
+        val titles = titleMatches(preparedA, preparedB, metadataPairFilter)
+        val artists = sharedArtists(preparedA, preparedB)
         val differentSongArtists = artists.filter { it.bestDifferentSong != null }
         val bestDifferentSongArtist = differentSongArtists.minWithOrNull(
             compareBy<RadioArtistMatch> { it.bestDifferentSong!!.a.rank + it.bestDifferentSong.b.rank }
@@ -180,10 +211,10 @@ internal object EnhancedRadioMetadataDiagnostics {
                 .thenBy { normalized(it.name) },
         )
         return RadioMetadataReport(
-            sameTitleCount = strict.size,
-            versionCount = versions.size,
-            sameTitleExamples = strict.sortedWith(order).take(EXAMPLE_LIMIT),
-            versionExamples = versions.sortedWith(order).take(EXAMPLE_LIMIT),
+            sameTitleCount = titles.strict.size,
+            versionCount = titles.versions.size,
+            sameTitleExamples = titles.strict.sortedWith(titleOrder).take(EXAMPLE_LIMIT),
+            versionExamples = titles.versions.sortedWith(titleOrder).take(EXAMPLE_LIMIT),
             commonArtistCount = artists.size,
             commonArtistDifferentSongCount = differentSongArtists.size,
             commonArtistExamples = artists.take(EXAMPLE_LIMIT),
@@ -209,18 +240,21 @@ internal object EnhancedRadioMetadataDiagnostics {
         val b = rawB.distinctBy { it.videoId }
         val eligibleAIds = eligibleA.map { it.videoId }.toSet()
         val eligibleBIds = eligibleB.map { it.videoId }.toSet()
-        val raw = compare(a, b)
-        val removed = compare(a, b) { match ->
+        val preparedA = a.map(::prepare)
+        val preparedB = b.map(::prepare)
+        val rawTitles = titleMatches(preparedA, preparedB)
+        fun removed(match: RadioMetadataMatch) =
             match.a.videoId !in eligibleAIds || match.b.videoId !in eligibleBIds
-        }
+        val removedStrict = rawTitles.strict.filter(::removed)
+        val removedVersions = rawTitles.versions.filter(::removed)
         val bById = b.associateBy { it.videoId }
         val exact = a.mapNotNull { left -> bById[left.videoId]?.let { RadioMetadataMatch(left, it) } }
         val matchOrder = compareBy<RadioMetadataMatch> { it.a.rank + it.b.rank }
             .thenBy { it.b.rank }.thenBy { it.a.rank }
         val removedExact = exact.filter { it.a.videoId !in eligibleAIds || it.b.videoId !in eligibleBIds }
             .sortedWith(matchOrder)
-        val rawArtists = sharedArtists(a, b)
-        val eligibleArtistKeys = artistGroups(eligibleA).keys.intersect(artistGroups(eligibleB).keys)
+        val rawArtists = sharedArtists(preparedA, preparedB)
+        val eligibleArtistKeys = artistKeys(eligibleA).intersect(artistKeys(eligibleB))
         val lostArtists = rawArtists.filter { normalized(it.name) !in eligibleArtistKeys }
 
         fun marked(track: RadioMetadataCandidate, ids: Set<String>): String =
@@ -248,12 +282,12 @@ internal object EnhancedRadioMetadataDiagnostics {
             add("Excluded IDs A: ${a.count { it.videoId !in eligibleAIds }}; B: ${b.count { it.videoId !in eligibleBIds }}")
             add("Common videoIds before / after: ${exact.size} / $eligibleExactCount; removed: ${removedExact.size}")
             removedExact.take(EXAMPLE_LIMIT).forEach { add("Removed exact: " + markedMatch(it)) }
-            add("Same title + artist(s) before / after: ${raw.sameTitleCount} / ${eligibleReport.sameTitleCount}; removed: ${removed.sameTitleCount}")
-            removed.sameTitleExamples.forEach { add("Removed title match: " + markedMatch(it)) }
-            add("Possible versions before / after: ${raw.versionCount} / ${eligibleReport.versionCount}; removed: ${removed.versionCount}")
-            removed.versionExamples.forEach { add("Removed version match: " + markedMatch(it)) }
-            add("Shared artists before / after: ${raw.commonArtistCount} / ${eligibleReport.commonArtistCount}; lost: ${lostArtists.size}")
-            add("Shared artists with different base titles before / after: ${raw.commonArtistDifferentSongCount} / ${eligibleReport.commonArtistDifferentSongCount}")
+            add("Same title + artist(s) before / after: ${rawTitles.strict.size} / ${eligibleReport.sameTitleCount}; removed: ${removedStrict.size}")
+            removedStrict.sortedWith(titleOrder).take(EXAMPLE_LIMIT).forEach { add("Removed title match: " + markedMatch(it)) }
+            add("Possible versions before / after: ${rawTitles.versions.size} / ${eligibleReport.versionCount}; removed: ${removedVersions.size}")
+            removedVersions.sortedWith(titleOrder).take(EXAMPLE_LIMIT).forEach { add("Removed version match: " + markedMatch(it)) }
+            add("Shared artists before / after: ${rawArtists.size} / ${eligibleReport.commonArtistCount}; lost: ${lostArtists.size}")
+            add("Shared artists with different base titles before / after: ${rawArtists.count { it.bestDifferentSong != null }} / ${eligibleReport.commonArtistDifferentSongCount}")
             lostArtists.take(EXAMPLE_LIMIT).forEach { artist ->
                 val newA = artist.tracksA.count { it.videoId in eligibleAIds }
                 val newB = artist.tracksB.count { it.videoId in eligibleBIds }

@@ -80,6 +80,7 @@ internal object EnhancedShufflePlanner {
         val selectedRankB: Int?,
         val metadataMethod: String? = null,
         val metadataEvidence: String? = null,
+        val metadataReport: RadioMetadataReport? = null,
     ) {
         val source: String get() = when {
             recommendation == null -> "None"
@@ -137,11 +138,12 @@ internal object EnhancedShufflePlanner {
             a.mapIndexed { index, track -> metadata(track, index + 1) },
             b.mapIndexed { index, track -> metadata(track, index + 1) },
         )
+        val analyzed = exact.copy(metadataReport = report)
         val titleMatch = report.sameTitleExamples.firstOrNull()
         val artist = report.bestDifferentSongArtistExample
-        val match = titleMatch ?: artist?.bestDifferentSong ?: return exact
-        val selected = b.firstOrNull { id(it) == match.b.videoId } ?: return exact
-        return exact.copy(
+        val match = titleMatch ?: artist?.bestDifferentSong ?: return analyzed
+        val selected = b.firstOrNull { id(it) == match.b.videoId } ?: return analyzed
+        return analyzed.copy(
             recommendation = selected,
             selectedRankA = match.a.rank,
             selectedRankB = match.b.rank,
