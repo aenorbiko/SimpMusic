@@ -23,6 +23,20 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 99 — Compact Enhanced sessions (2026-11-28)
+
+**What's new**
+
+- Save Enhanced sessions in a smaller format.
+- Restore existing sessions without losing queue order.
+
+**Technical details**
+
+- Store source metadata once and shuffled order as video IDs; read legacy schema 1 and compact schema 2. Preserve exact metadata with legacy fallback for ambiguous IDs.
+- Keep the existing persistence key, save cadence and restoration validation. Cold Bluetooth notification star bootstrap supports both schemas. Older builds cannot read compact schema 2.
+- Signed Compact Session Lab r46119527495 (fe43c374) passed CI. Phone upgrade preserved the visible queue, Enhanced mode and stars; force-stop/reopen restored the compact session and persistent statistics without radio requests.
+- Comparable restored session payload decreased from 358,502 to 183,651 UTF-16 code units (48.8%); observed encoding time 275 to 53 ms. Subsequent compact restoration: 183,679 units, 82 ms. Not a controlled battery or RAM comparison.
+
 ### Android build 98 — Batched statistics (2026-11-28)
 
 **What's new**

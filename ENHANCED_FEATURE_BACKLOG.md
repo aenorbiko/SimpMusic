@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-11-28 (Australia/Brisbane).
 
-**Release checkpoint: Android build 98 (batched statistics) — user approved promotion; publication and Stable phone acceptance pending.** Stable 97 signed publication verified (CI 46115562130, commit 9322b3c8).
+**Release checkpoint: Android build 99 (compact session storage) — user approved promotion; publication and Stable phone acceptance pending.** Stable 98 signed publication verified (CI 46119470364, commit 1a9856ad7).
 
 - [Download Stable APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)
 - [Release history and technical notes](CHANGELOG.md)
@@ -45,10 +45,12 @@ Pause new features until this phase is completed and reviewed. On 2026-11-28 the
 
 **Phone acceptance — 2026-11-28, Batched Statistics Lab build 97 r46115748331, bccd3652.** Two reset-separated blocks: 27 network requests, 6 successful stats writes, 7 pairs / 6 selected / 1 missing; then 25 requests, 5 writes, 7 / 6 / 1. Both reports had zero pending events, failed flushes and unrecorded events. Baseline 28 writes: 79–82% fewer logical saves per block, not a controlled CPU/energy comparison. Force-stop and reopen retained 25 requests, 7 pairs, 6 selected and one Radio B failure; process cache and counters reset correctly. Reopened session still wrote 358,502 UTF-16 code units in 275 ms. User approved Stable 98.
 
-### 4. Enhanced session storage — next independent Lab
-- [ ] Serialize source metadata once and store shuffled order by video ID, retaining compatibility with existing sessions and recovery behavior. Measure payload and write overhead; do not assume equivalent heap savings.
+### 4. Enhanced session storage — Lab accepted; Stable 99 promotion approved
+- [x] Serialize source metadata once and store shuffled order by video ID, retaining compatibility with existing sessions and recovery behavior. Measure payload and write overhead; do not assume equivalent heap savings.
 
-### 5. Cache memory
+**Phone acceptance — 2026-11-28, Compact Session Lab build 98 r46119527495 (fe43c374).** Upgrade restored visible queue, Enhanced and recommendation stars; preserved 25 requests and 7 pair counts. Restored session payload 183,651 versus previous 358,502 UTF-16 code units (48.8% smaller); encoding 53 versus 275 ms. Fresh block: 27 requests, 6 stats writes, 7 pairs / 6 selected / 1 missing; 10 session writes, 1,283,406 units total, 160 ms encoding. Force-stop/reopen restored visible remaining order and stars, retained 27 requests and pair counts; one compact session save 183,679 units / 82 ms, no radio requests. No phone Bluetooth-specific cold-start or controlled RAM/battery measurement; core bootstrap regression passed CI. No change to save frequency. User approved promotion.
+
+### 5. Cache memory — next independent Lab
 - [ ] Keep 64 seeds and fixed 60-minute TTL unless measured evidence supports tuning. Prune expired entries at existing block/cache operations, no periodic wakeups; evaluate safe Android memory-pressure handling. Preserve in-flight snapshots and continuation matching.
 - [ ] Lab already verified first/second-page reuse, two successful deferred continuations, and six avoided requests. One-hour TTL and recovery tested automatically; rejected deferred tokens not yet observed on phone. Actual heap use not measured.
 
@@ -120,7 +122,8 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable published; Stable appearance to verify |
 | 96 | Radio metadata cache and independent Lab updates; Lab accepted, Stable published; phone acceptance pending |
 | 97 | Event-driven performance and missing-recommendation diagnostics, build identity in updates and reports; Lab accepted; Stable publication verified |
-| 98 | Batched statistics and persistent pair counts; Lab phone acceptance and promotion approved; Stable publication pending |
+| 98 | Batched statistics and persistent pair counts; Lab phone acceptance; Stable publication verified |
+| 99 | Compact session storage; legacy migration and compact reopen accepted on phone; promotion approved, Stable publication pending |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -153,4 +156,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-Publish and verify Stable 98. Next independent Lab: compact session storage with legacy migration and exact queue recovery. Then cache expiry pruning, metadata analysis reuse, external links, playback errors, progressive refill and final measurements. No new features yet.
+Publish and verify Stable 99. Next independent Lab: prune expired cache entries at existing operations while preserving fixed one-hour TTL and pinned in-flight snapshots. Then reuse metadata analysis, repair external links and playback errors, progressive refill and final measurements.
