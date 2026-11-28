@@ -31,6 +31,8 @@ internal class EnhancedRadioCache<T>(
     private var misses = 0L
     private var evictions = 0L
     private var expired = 0L
+    private var expiryPruned = 0L
+    private var expiryPrunedTrackRecords = 0L
     private var deferredSuccess = 0L
     private var deferredFailure = 0L
     private var recoveryRequests = 0L
@@ -39,9 +41,26 @@ internal class EnhancedRadioCache<T>(
     private fun cached(page: EnhancedRadioPage<T>) =
         page.copy(requestMs = 0, semaphoreWaitMs = 0, fromCache = true)
 
+    // Called only with lock held at existing cache/report events; no timer.
+    // The batch's pinned snapshot is intentionally independent of the resident map.
+    private fun pruneExpiredLocked(at: Long) {
+        val iterator = entries.values.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (at - entry.fetchedAt >= ttlMs) {
+                iterator.remove()
+                expiryPruned++
+                expiryPrunedTrackRecords += entry.first.tracks.size.toLong() + (entry.second?.tracks?.size ?: 0)
+            }
+        }
+    }
+
     private suspend fun lookup(seed: String): Entry<T>? = lock.withLock {
+        val at = now()
+        // Retain the direct expired-lookup counter, separately from unrelated expiry pruning.
         val entry = entries.remove(seed)
-        if (entry == null || now() - entry.fetchedAt >= ttlMs) {
+        pruneExpiredLocked(at)
+        if (entry == null || at - entry.fetchedAt >= ttlMs) {
             if (entry != null) expired++
             misses++
             null
@@ -53,7 +72,9 @@ internal class EnhancedRadioCache<T>(
     }
 
     private suspend fun storeFirst(seed: String, page: EnhancedRadioPage<T>): Entry<T> = lock.withLock {
-        val entry = Entry(page.copy(tracks = page.tracks.toList()), null, now())
+        val at = now()
+        pruneExpiredLocked(at)
+        val entry = Entry(page.copy(tracks = page.tracks.toList()), null, at)
         entries.remove(seed)
         entries[seed] = entry
         while (entries.size > maxEntries) {
@@ -64,9 +85,11 @@ internal class EnhancedRadioCache<T>(
     }
 
     private suspend fun storeSecond(seed: String, previous: Entry<T>, second: EnhancedRadioPage<T>) = lock.withLock {
+        val at = now()
+        pruneExpiredLocked(at)
         val current = entries[seed]
         // No late extension may resurrect an expired/evicted or replaced snapshot.
-        if (current?.first !== previous.first || now() - previous.fetchedAt >= ttlMs) return@withLock
+        if (current?.first !== previous.first || at - previous.fetchedAt >= ttlMs) return@withLock
         entries[seed] = previous.copy(second = second.copy(tracks = second.tracks.toList()))
     }
 
@@ -94,10 +117,14 @@ internal class EnhancedRadioCache<T>(
             val previous = pendingLock.withLock { pending[seed to token] }
             val pinned = previous?.entry?.second
             if (pinned != null) {
-                lock.withLock { secondHits++ }
+                lock.withLock {
+                    pruneExpiredLocked(now())
+                    secondHits++
+                }
                 return cached(pinned)
             }
             val second = network()
+            lock.withLock { pruneExpiredLocked(now()) }
             if (previous == null) return second
             if (previous.reused) {
                 lock.withLock {
@@ -120,7 +147,10 @@ internal class EnhancedRadioCache<T>(
 
         /** Called only by the pair scheduler after a failed deferred continuation. */
         suspend fun refreshFirst(seed: String, network: suspend () -> EnhancedRadioPage<T>): EnhancedRadioPage<T> {
-            lock.withLock { recoveryRequests++ }
+            lock.withLock {
+                pruneExpiredLocked(now())
+                recoveryRequests++
+            }
             val first = network()
             if (valid(first)) remember(seed, storeFirst(seed, first), false)
             return first
@@ -130,6 +160,8 @@ internal class EnhancedRadioCache<T>(
     fun newBatch() = Batch()
 
     suspend fun report(): String = lock.withLock {
+        val at = now()
+        pruneExpiredLocked(at)
         val attempts = firstHits + misses
         val pct = if (attempts == 0L) 0L else firstHits * 1000L / attempts
         buildString {
@@ -141,13 +173,15 @@ internal class EnhancedRadioCache<T>(
             appendLine("Deferred continuation requests: ${deferredSuccess + deferredFailure}; successful: $deferredSuccess; failed or empty: $deferredFailure")
             appendLine("Recovery first-page requests: $recoveryRequests")
             appendLine("Capacity evictions: $evictions; expired lookups: $expired; capacity: $maxEntries; TTL: ${ttlMs / 60_000} min")
-            val active = entries.values.filter { now() - it.fetchedAt < ttlMs }
-            append("Resident cache entries: ${entries.size}; live: ${active.size}; expired resident: ${entries.size - active.size}; stored track records: ${entries.values.sumOf { it.first.tracks.size + (it.second?.tracks?.size ?: 0) }}")
+            appendLine("Expired entries pruned: $expiryPruned; track records removed: $expiryPrunedTrackRecords (excludes direct expired lookups)")
+            append("Resident cache entries: ${entries.size}; live: ${entries.size}; expired resident: 0; stored track records: ${entries.values.sumOf { it.first.tracks.size + (it.second?.tracks?.size ?: 0) }}")
         }
     }
 
     suspend fun resetCounters() = lock.withLock {
+        pruneExpiredLocked(now())
         firstHits = 0; secondHits = 0; misses = 0; evictions = 0; expired = 0
+        expiryPruned = 0; expiryPrunedTrackRecords = 0
         deferredSuccess = 0; deferredFailure = 0; recoveryRequests = 0
     }
 }

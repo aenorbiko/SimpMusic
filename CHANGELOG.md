@@ -23,6 +23,18 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 100 — Expired radio cache cleanup (2026-11-28)
+
+**What's new**
+
+- Remove expired radio cache entries automatically.
+
+**Technical details**
+
+- Keep the fixed 60-minute TTL and 64-entry capacity. Prune during existing cache and statistics operations, without timers, wakeups or new network requests. Preserve pinned in-flight page snapshots and continuation matching.
+- Cache Memory Lab r46122047793 (91b9fcab) passed automated regressions. Temporary 10-minute Lab r46130066201 (8e81acb6) confirmed expiry on the phone twice: 13 + 14 entries and 1,267 + 1,287 track records removed, with process counters preserved and no additional Enhanced requests during each expiry interval. Temporary TTL was not merged.
+- Whole-process memory measurements do not establish cache-only retained size. User chose not to pursue further cache optimization or instrumentation. One earlier hour-long playback test ended with a process restart; cause unverified, tracked separately.
+
 ### Android build 99 — Compact Enhanced sessions (2026-11-28)
 
 **What's new**
