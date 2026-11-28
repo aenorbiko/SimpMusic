@@ -243,9 +243,11 @@ internal suspend fun buildEnhancedBatchProgressively(
     searchRepository: SearchRepository? = null,
     onFullTrackCompleted: (FullTrackDiagnostic) -> Unit = {},
     radioCache: EnhancedRadioCache<Track>? = null,
+    performance: EnhancedPerformanceDiagnostics? = null,
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
+    performance?.sample()
     val cacheBatch = radioCache?.newBatch()
     var diagnostic: EnhancedRadioDiagnostic? = null
     emitPagedEnhancedPairs(
@@ -269,7 +271,12 @@ internal suspend fun buildEnhancedBatchProgressively(
                 }
             }
         },
-        chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
+        chooseFinal = { a, b, used, id ->
+            val started = TimeSource.Monotonic.markNow()
+            EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata).also {
+                performance?.selection(started.elapsedNow().inWholeMilliseconds)
+            }
+        },
         excludedSongKeys = excludedSongKeys,
         songKey = ::enhancedSongKey,
         resolveRecommendation = { selected, used ->
@@ -278,7 +285,12 @@ internal suspend fun buildEnhancedBatchProgressively(
                     resolved.fullTrack?.let(onFullTrackCompleted)
                 }
         },
-        onDecision = { pair, decision, timing -> diagnostic = enhancedRadioDiagnostic(pair, decision, timing) },
+        onDecision = { pair, decision, timing ->
+            val started = TimeSource.Monotonic.markNow()
+            diagnostic = enhancedRadioDiagnostic(pair, decision, timing)
+            performance?.diagnostic(started.elapsedNow().inWholeMilliseconds)
+            performance?.pair(pair[0].title.orEmpty(), pair[1].title.orEmpty(), decision, timing)
+        },
     ) { pair, recommendation ->
         val tracks = if (recommendation == null) pair else pair + recommendation
         val recommendationIds = recommendation?.let { setOf(it.videoId) }.orEmpty()
@@ -286,4 +298,5 @@ internal suspend fun buildEnhancedBatchProgressively(
         diagnostic = null
         onChunkReady(EnhancedBatch(tracks, recommendationIds, details))
     }
+    performance?.sample()
 }

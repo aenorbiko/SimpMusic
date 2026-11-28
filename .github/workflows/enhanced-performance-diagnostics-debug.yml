@@ -1,0 +1,33 @@
+name: SimpMusic Performance Diagnostics Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-performance-diagnostics]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-performance-diagnostics-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Performance Diagnostics Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-performance-diagnostics-latest
+      asset_name: SimpMusic-Performance-Diagnostics-arm64.apk
+      expected_branch: feature/enhanced-performance-diagnostics
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+      shared_update: true
+      whats_new: |
+        - Measure Enhanced performance without background monitoring.
+        - Show why recommendations are missing.
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

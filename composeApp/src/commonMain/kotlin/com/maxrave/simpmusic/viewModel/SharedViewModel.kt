@@ -82,6 +82,7 @@ import com.maxrave.simpmusic.expect.ui.toByteArray
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.utils.LyricsPromo
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.EnhancedBuildIdentity
 import com.maxrave.simpmusic.utils.EnhancedForkUpdateClient
 import com.maxrave.simpmusic.utils.isEnhancedStablePackage
 import com.maxrave.simpmusic.utils.isSharedEnhancedLab
@@ -280,10 +281,11 @@ class SharedViewModel(
     // Local persistence has a separate lifetime from Media3's saved track queue.
     // The revision + mutex prevent an old in-flight write from resurrecting an
     // Enhanced session after an explicit mode/source switch.
+    private val enhancedPerformance = EnhancedPerformanceDiagnostics()
     private val enhancedRadioCache = EnhancedRadioCache<Track>()
     private val enhancedRadioStatistics = EnhancedRadioRequestStatistics(
         read = { dataStoreManager.getString(ENHANCED_RADIO_STATISTICS_KEY).first() },
-        write = { dataStoreManager.putString(ENHANCED_RADIO_STATISTICS_KEY, it) },
+        write = { dataStoreManager.putString(ENHANCED_RADIO_STATISTICS_KEY, it); enhancedPerformance.statsWrite() },
         nowMs = { Clock.System.now().toEpochMilliseconds() },
     )
 
@@ -300,10 +302,18 @@ class SharedViewModel(
         viewModelScope.launch { enhancedRadioStatistics.recordFullTrack(diagnostic, completedAt) }
     }
 
-    suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report() + "\n\n" + enhancedRadioCache.report()
+    suspend fun enhancedStatisticsReport(): String {
+        val radio = enhancedRadioStatistics.report()
+        val cache = enhancedRadioCache.report()
+        enhancedPerformance.sample(includePss = true)
+        return EnhancedBuildIdentity.reportCaption + "\n\n" + radio + "\n\n" + cache + "\n\n" + enhancedPerformance.report()
+    }
     suspend fun resetEnhancedStatistics(): Boolean {
         val reset = enhancedRadioStatistics.reset()
-        if (reset) enhancedRadioCache.resetCounters()
+        if (reset) {
+            enhancedRadioCache.resetCounters()
+            enhancedPerformance.reset()
+        }
         return reset
     }
 
@@ -314,10 +324,13 @@ class SharedViewModel(
     private fun persistEnhancedSnapshot(snapshot: EnhancedQueueSession?) {
         val revision = ++enhancedSessionWriteRevision
         viewModelScope.launch {
+            val encodingStart = kotlin.time.TimeSource.Monotonic.markNow()
             val encoded = snapshot?.let(EnhancedQueueSessionCodec::encode).orEmpty()
+            val encodingMs = encodingStart.elapsedNow().inWholeMilliseconds
             enhancedSessionWriteMutex.withLock {
                 if (revision == enhancedSessionWriteRevision) {
                     dataStoreManager.putString(ENHANCED_QUEUE_SESSION_KEY, encoded)
+                    enhancedPerformance.sessionWrite(encoded.length, encodingMs)
                     if (snapshot != null) {
                         // Media3 saves its playable queue at pauses/transitions,
                         // independently of Enhanced metadata. A sudden reboot
@@ -329,6 +342,7 @@ class SharedViewModel(
                         withContext(Dispatchers.IO) {
                             mediaPlayerHandler.mayBeSaveRecentSong(runBlocking = true)
                         }
+                        enhancedPerformance.queueSave()
                     }
                 }
             }
@@ -649,6 +663,7 @@ class SharedViewModel(
                             searchRepository = enhancedFullTrackSearchRepository,
                             onFullTrackCompleted = ::recordEnhancedFullTrack,
                             radioCache = enhancedRadioCache,
+                            performance = enhancedPerformance,
                         ) { chunk ->
                             // Every callback runs in the original cancelable session.
                             // Switching source/mode cancels all pending radio lookups.
@@ -689,6 +704,7 @@ class SharedViewModel(
                                 )
                             }
                             _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value + chunk.diagnostics.filterKeys { it in _recommendedTrackIds.value }
+                            enhancedPerformance.committed(chunk.recommendedIds.size)
                             enhancedUsedRecommendations.addAll(chunk.recommendedIds)
                             enhancedUsedSongKeys.addAll(chunk.tracks.filter { it.videoId in chunk.recommendedIds }.mapNotNull(::enhancedSongKey))
                             saveActiveEnhancedSession()
@@ -789,6 +805,7 @@ class SharedViewModel(
                         searchRepository = enhancedFullTrackSearchRepository,
                         onFullTrackCompleted = ::recordEnhancedFullTrack,
                             radioCache = enhancedRadioCache,
+                            performance = enhancedPerformance,
                     )
                     if (session != enhancedSession || start != nextEnhancedLikedIndex ||
                         _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||
@@ -808,6 +825,7 @@ class SharedViewModel(
                     if (session != enhancedSession || start != nextEnhancedLikedIndex) return@runIfCurrent
                     nextEnhancedLikedIndex = start + nextLiked.size
                     _enhancedRadioDiagnostics.value = _enhancedRadioDiagnostics.value + nextBatch.diagnostics.filterKeys { it in _recommendedTrackIds.value }
+                    enhancedPerformance.committed(nextBatch.recommendedIds.size)
                     enhancedUsedRecommendations.addAll(nextBatch.recommendedIds)
                     enhancedUsedSongKeys.addAll(nextBatch.tracks.filter { it.videoId in nextBatch.recommendedIds }.mapNotNull(::enhancedSongKey))
                     saveActiveEnhancedSession()
@@ -2050,7 +2068,7 @@ class SharedViewModel(
                     if (forkRelease != null) {
                         forkUpdateDownloadUrl = forkRelease.downloadUrl
                         _updateResponse.value = UpdateData(
-                            tagName = if (forkRelease.labRevision > 0) "Lab build ${forkRelease.buildCode}" else "Enhanced build ${forkRelease.buildCode}",
+                            tagName = if (forkRelease.labRevision > 0) "Lab build ${forkRelease.buildCode} · r${forkRelease.labRevision}" else "Enhanced build ${forkRelease.buildCode}",
                             releaseTime = forkRelease.releaseTime,
                             body = enhancedUserNotes(forkRelease.notes),
                         )

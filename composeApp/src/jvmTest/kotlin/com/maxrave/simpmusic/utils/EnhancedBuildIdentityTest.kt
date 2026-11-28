@@ -29,4 +29,10 @@ class EnhancedBuildIdentityTest {
     fun localBuildStillShowsItsChannel() {
         assertEquals("Identity Lab · local", formatEnhancedBuildIdentity("Identity Lab", "local"))
     }
+
+    @kotlin.test.Test
+    fun reportIdentityIncludesBuildAndLabRevision() {
+        kotlin.test.assertEquals("Performance Diagnostics Lab · build 96 · r46112333275 · 0e63b638", formatEnhancedReportIdentity("Performance Diagnostics Lab", 96, "46112333275", "0e63b638035f"))
+        kotlin.test.assertEquals("Enhanced Stable · build 96 · 9676edb3", formatEnhancedReportIdentity("Enhanced Stable", 96, "0", "9676edb3c275"))
+    }
 }

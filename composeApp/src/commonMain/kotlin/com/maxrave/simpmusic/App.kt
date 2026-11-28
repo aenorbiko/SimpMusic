@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic
 
+import com.maxrave.simpmusic.utils.EnhancedBuildIdentity
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -1004,6 +1006,10 @@ fun App(
                                         rememberScrollState(),
                                     ),
                             ) {
+                                if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
+                                    Text("Installed: ${EnhancedBuildIdentity.reportCaption}", style = typo().bodySmall)
+                                    Text("Available: ${response.tagName}", style = typo().bodySmall)
+                                }
                                 Text(
                                     text = if (BuildKonfig.enhancedBuildChannel.isNotBlank()) "What's new" else updateMessage,
                                     style = typo().labelMedium,

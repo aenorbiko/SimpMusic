@@ -23,6 +23,21 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 97 — Performance diagnostics (2026-11-28)
+
+**What's new**
+
+- Show Enhanced performance and missing recommendation reasons.
+- Show build numbers in updates and diagnostic reports.
+
+**Technical details**
+
+- Event-driven, process-local counters for selection and diagnostic wall time, managed heap samples, report-time process PSS, whole-process CPU time, logical statistics/session writes and cache residency. No extra network requests, periodic timers or diagnostic disk writes.
+- Bounded local history of the last ten missing pairs. Selection, scheduling and cache policy unchanged.
+- Lab build 96 r46112717816 (2ed58513) passed CI and phone tests: 14 pairs, 13 recommendations committed, one missing due to radio B failure. Baseline reports and limitations recorded in backlog. Battery consumption and exact cache-only heap not measured; new diagnostic counters reset on process death.
+- Add installed/offered build identity to updater and build identity to copied diagnostics; update dialog will be verified on the next real update.
+- User approved promotion and prioritized write/memory optimizations before external-link work. No new playback features in this release.
+
 ### Android build 96 — Radio cache and updates (2026-11-28)
 
 **What's new**

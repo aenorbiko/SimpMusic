@@ -140,7 +140,9 @@ internal class EnhancedRadioCache<T>(
             appendLine("First-page misses: $misses")
             appendLine("Deferred continuation requests: ${deferredSuccess + deferredFailure}; successful: $deferredSuccess; failed or empty: $deferredFailure")
             appendLine("Recovery first-page requests: $recoveryRequests")
-            append("Capacity evictions: $evictions; expired lookups: $expired; capacity: $maxEntries; TTL: ${ttlMs / 60_000} min")
+            appendLine("Capacity evictions: $evictions; expired lookups: $expired; capacity: $maxEntries; TTL: ${ttlMs / 60_000} min")
+            val active = entries.values.filter { now() - it.fetchedAt < ttlMs }
+            append("Resident cache entries: ${entries.size}; live: ${active.size}; expired resident: ${entries.size - active.size}; stored track records: ${entries.values.sumOf { it.first.tracks.size + (it.second?.tracks?.size ?: 0) }}")
         }
     }
 

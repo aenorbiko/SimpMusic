@@ -35,6 +35,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -498,7 +500,11 @@ fun SettingScreen(
         AlertDialog(
             onDismissRequest = { enhancedStatisticsReport = null },
             title = { Text("Enhanced statistics") },
-            text = { Text(report + if (resetStatisticsError) "\nReset failed. Please try again." else "") },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    Text(report + if (resetStatisticsError) "\nReset failed. Please try again." else "")
+                }
+            },
             confirmButton = {
                 TextButton(onClick = { enhancedStatisticsReport = null }) { Text("Close") }
             },
@@ -2860,7 +2866,7 @@ fun SettingScreen(
                 if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
                     SettingItem(
                         title = "Enhanced statistics",
-                        subtitle = "Local repeat-radio counts; no radio cache",
+                        subtitle = "Radio, cache and performance diagnostics",
                         onClick = {
                             coroutineScope.launch {
                                 enhancedStatisticsReport = sharedViewModel.enhancedStatisticsReport()
