@@ -1,0 +1,33 @@
+name: SimpMusic Shared Lab Updater Lab ARM64 APK
+on:
+  push:
+    branches: [feature/shared-lab-updater]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-shared-lab-updater-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Shared Lab Updater Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-shared-lab-updater-latest
+      asset_name: SimpMusic-Lab-Updater-arm64.apk
+      expected_branch: feature/shared-lab-updater
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+      shared_update: true
+      whats_new: |
+        - In-app Lab updates.
+        - Shorter What's New.
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

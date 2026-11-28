@@ -26,6 +26,12 @@ on:
       publish:
         type: boolean
         default: true
+      shared_update:
+        type: boolean
+        default: false
+      whats_new:
+        type: string
+        default: ''
       extra_tests:
         type: string
         default: ''
@@ -35,6 +41,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ inputs.shared_update && 'enhanced-shared-lab-publication' || format('enhanced-lab-{0}', inputs.release_tag) }}
+      cancel-in-progress: false
     timeout-minutes: 40
     steps:
       - name: Validate Lab isolation
@@ -67,7 +76,7 @@ jobs:
           signing_bundle: ${{ secrets.signing_bundle }}
           extra_tests: ${{ inputs.extra_tests }}
       - name: Publish isolated signed ARM64 APK
-        if: inputs.publish
+        if: inputs.publish && !inputs.shared_update
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,3 +86,17 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/publish_enhanced_apk.sh "$TAG" "$ASSET" "SimpMusic $CHANNEL" "Signed $CHANNEL ARM64 APK. Source commit: $GITHUB_SHA."
+
+      - name: Publish shared Lab update and branch APK
+        if: inputs.publish && inputs.shared_update
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+          ASSET: ${{ inputs.asset_name }}
+          CHANNEL: ${{ inputs.channel }}
+          EXPECTED_BRANCH: ${{ inputs.expected_branch }}
+          LAB_PROPERTY: ${{ inputs.lab_property }}
+          EXPECTED_PACKAGE: ${{ inputs.expected_package }}
+          WHATS_NEW: ${{ inputs.whats_new }}
+        run: bash scripts/publish_shared_lab_update.sh

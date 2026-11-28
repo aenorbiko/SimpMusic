@@ -851,6 +851,9 @@ buildkonfig {
         val enhancedCommit = System.getenv("GITHUB_SHA")?.take(8) ?: "local"
         buildConfigField(STRING, "enhancedBuildChannel", enhancedChannel)
         buildConfigField(STRING, "enhancedBuildCommit", enhancedCommit)
+        val labRevision = if (providers.gradleProperty("simpmusicSharedLabExperimental").orNull == "true")
+            System.getenv("GITHUB_RUN_ID") ?: "0" else "0"
+        buildConfigField(STRING, "enhancedLabRevision", labRevision)
 
         if (isFullBuild) {
             try {

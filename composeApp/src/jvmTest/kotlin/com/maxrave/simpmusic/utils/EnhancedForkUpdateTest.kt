@@ -60,6 +60,41 @@ class EnhancedForkUpdateTest {
         assertFalse(isNewerEnhancedBuild(65, "Enhanced build nonexistent"))
     }
 
+    private fun labPointer(revision: Long = 100, code: Int = 95): LabReleasePointer =
+        LabReleasePointer(revision, code, "enhanced-test-latest", "SimpMusic-Test-r$revision-arm64.apk", "a".repeat(40))
+
+    private fun labBody(p: LabReleasePointer) =
+        "What's new\n\n- New Lab updater.\n\nPackage: $ENHANCED_LAB_PACKAGE\nAndroid build: ${p.buildCode}\nLab revision: ${p.revision}\nSource commit: ${p.commit}\nLab release: ${p.tag}\nLab asset: ${p.asset}"
+
+    @Test
+    fun sharedLabUsesRevisionAndRejectsDowngradesAndOtherPackages() {
+        val p = labPointer()
+        assertTrue(isSharedEnhancedLab("Any Feature Lab", ENHANCED_LAB_PACKAGE, 99))
+        assertFalse(isSharedEnhancedLab("Enhanced Stable", ENHANCED_LAB_PACKAGE, 99))
+        assertFalse(isSharedEnhancedLab("Any Feature Lab", ENHANCED_STABLE_PACKAGE, 99))
+        assertFalse(isSharedEnhancedLab("Any Feature Lab", ENHANCED_LAB_PACKAGE, 0))
+        assertTrue(isNewerLabBuild(95, 99, p))
+        assertFalse(isNewerLabBuild(95, 100, p))
+        assertFalse(isNewerLabBuild(96, 99, p))
+    }
+
+    @Test
+    fun labPointerMustMatchVerifiedBranchAssetAndNotes() {
+        val p = labPointer()
+        val body = labBody(p)
+        val pointer = githubRelease(tag = "enhanced-shared-lab-feed-latest", body = body)
+        assertEquals(p, parseLabPointer(pointer))
+        assertNull(parseLabPointer(githubRelease(tag = "enhanced-latest", body = body)))
+        assertNull(parseLabPointer(githubRelease(tag = "enhanced-shared-lab-feed-latest", body = body.replace(ENHANCED_LAB_PACKAGE, ENHANCED_STABLE_PACKAGE))))
+        val url = "https://github.com/aenorbiko/SimpMusic/releases/download/${p.tag}/${p.asset}"
+        val release = githubRelease(tag = p.tag, assetName = p.asset, assetUrl = url, body = body)
+        assertEquals(url, assertNotNull(parseLabAsset(release, p)).downloadUrl)
+        assertNull(parseLabAsset(release, labPointer(101)))
+        assertNull(parseLabAsset(githubRelease(tag = p.tag, assetName = p.asset, assetUrl = "https://evil.invalid/app.apk", body = body), p))
+        assertEquals("- New Lab updater.", enhancedUserNotes(body))
+        assertEquals("See full version history.", enhancedUserNotes("Android build: 95"))
+    }
+
     @Test
     fun neverSuggestsStableApkToLabOrUpstreamPackage() {
         assertTrue(isEnhancedStablePackage("Enhanced Stable", ENHANCED_STABLE_PACKAGE))

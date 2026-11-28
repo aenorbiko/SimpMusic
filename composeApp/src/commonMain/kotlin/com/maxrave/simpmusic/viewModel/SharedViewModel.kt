@@ -84,6 +84,8 @@ import com.maxrave.simpmusic.utils.LyricsPromo
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.utils.EnhancedForkUpdateClient
 import com.maxrave.simpmusic.utils.isEnhancedStablePackage
+import com.maxrave.simpmusic.utils.isSharedEnhancedLab
+import com.maxrave.simpmusic.utils.enhancedUserNotes
 import com.maxrave.simpmusic.utils.decodeLyricsPromos
 import com.maxrave.simpmusic.utils.decodePromos
 import com.maxrave.simpmusic.utils.shownPromoIds
@@ -278,6 +280,7 @@ class SharedViewModel(
     // Local persistence has a separate lifetime from Media3's saved track queue.
     // The revision + mutex prevent an old in-flight write from resurrecting an
     // Enhanced session after an explicit mode/source switch.
+    private val enhancedRadioCache = EnhancedRadioCache<Track>()
     private val enhancedRadioStatistics = EnhancedRadioRequestStatistics(
         read = { dataStoreManager.getString(ENHANCED_RADIO_STATISTICS_KEY).first() },
         write = { dataStoreManager.putString(ENHANCED_RADIO_STATISTICS_KEY, it) },
@@ -297,8 +300,12 @@ class SharedViewModel(
         viewModelScope.launch { enhancedRadioStatistics.recordFullTrack(diagnostic, completedAt) }
     }
 
-    suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report()
-    suspend fun resetEnhancedStatistics(): Boolean = enhancedRadioStatistics.reset()
+    suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report() + "\n\n" + enhancedRadioCache.report()
+    suspend fun resetEnhancedStatistics(): Boolean {
+        val reset = enhancedRadioStatistics.reset()
+        if (reset) enhancedRadioCache.resetCounters()
+        return reset
+    }
 
     private val enhancedSessionWriteMutex = Mutex()
     private var enhancedSessionWriteRevision = 0L
@@ -641,6 +648,7 @@ class SharedViewModel(
                             onRadioPageCompleted = ::recordEnhancedRadioPage,
                             searchRepository = enhancedFullTrackSearchRepository,
                             onFullTrackCompleted = ::recordEnhancedFullTrack,
+                            radioCache = enhancedRadioCache,
                         ) { chunk ->
                             // Every callback runs in the original cancelable session.
                             // Switching source/mode cancels all pending radio lookups.
@@ -780,6 +788,7 @@ class SharedViewModel(
                         onRadioPageCompleted = ::recordEnhancedRadioPage,
                         searchRepository = enhancedFullTrackSearchRepository,
                         onFullTrackCompleted = ::recordEnhancedFullTrack,
+                            radioCache = enhancedRadioCache,
                     )
                     if (session != enhancedSession || start != nextEnhancedLikedIndex ||
                         _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||
@@ -1997,6 +2006,8 @@ class SharedViewModel(
 
     private var _updateResponse = MutableStateFlow<UpdateData?>(null)
     val updateResponse: StateFlow<UpdateData?> = _updateResponse
+    var forkUpdateDownloadUrl: String? = null
+        private set
 
     /** A safe end-to-end network test for the separate Update Lab package. */
     fun inspectEnhancedReleaseInLab() {
@@ -2022,22 +2033,26 @@ class SharedViewModel(
                 "CheckForUpdateAt",
                 System.currentTimeMillis().toString(),
             )
-            // A fork app must NEVER check the upstream SimpMusic or F-Droid update feeds.
-            // Lab packages have a different Android application ID, so cannot install Stable.
-            // Only the signed Stable channel checks our own known GitHub release.
+            // Fork packages never check upstream or the other fork channel.
             if (BuildKonfig.enhancedBuildChannel.isNotBlank()) {
                 _updateResponse.value = null
                 showedUpdateDialog = false
-                if (getPlatform() == Platform.Android &&
-                    isEnhancedStablePackage(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId)
-                ) {
-                    val forkRelease = EnhancedForkUpdateClient.check()
-                    if (forkRelease != null && forkRelease.buildCode > BuildKonfig.versionCode) {
+                forkUpdateDownloadUrl = null
+                if (getPlatform() == Platform.Android) {
+                    val revision = BuildKonfig.enhancedLabRevision.toLongOrNull() ?: 0L
+                    val forkRelease = when {
+                        isEnhancedStablePackage(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId) ->
+                            EnhancedForkUpdateClient.check()?.takeIf { it.buildCode > BuildKonfig.versionCode }
+                        isSharedEnhancedLab(BuildKonfig.enhancedBuildChannel, appIdentity.applicationId, revision) ->
+                            EnhancedForkUpdateClient.checkLab(BuildKonfig.versionCode, revision)
+                        else -> null
+                    }
+                    if (forkRelease != null) {
+                        forkUpdateDownloadUrl = forkRelease.downloadUrl
                         _updateResponse.value = UpdateData(
-                            tagName = "Enhanced build ${forkRelease.buildCode}",
+                            tagName = if (forkRelease.labRevision > 0) "Lab build ${forkRelease.buildCode}" else "Enhanced build ${forkRelease.buildCode}",
                             releaseTime = forkRelease.releaseTime,
-                            // GitHub release notes already link to the Enhanced changelog.
-                            body = forkRelease.notes,
+                            body = enhancedUserNotes(forkRelease.notes),
                         )
                         showedUpdateDialog = true
                     }

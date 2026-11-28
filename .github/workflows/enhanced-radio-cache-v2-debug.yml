@@ -1,0 +1,33 @@
+name: SimpMusic Radio Cache V2 Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-radio-cache-v2]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-radio-cache-v2-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Radio Cache V2 Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-radio-cache-v2-latest
+      asset_name: SimpMusic-Radio-Cache-V2-arm64.apk
+      expected_branch: feature/enhanced-radio-cache-v2
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+      shared_update: true
+      whats_new: |
+        - Cache Enhanced radio metadata for up to one hour.
+        - Show cache hits in Enhanced statistics.
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}

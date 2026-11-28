@@ -23,13 +23,29 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 96 — Radio cache and updates (2026-11-28)
+
+**What's new**
+
+- Faster Enhanced recommendations with a one-hour radio cache.
+- SimpMusic Lab can now update from within the app.
+- Shorter update notes.
+
+**Technical details**
+
+- Keep up to 64 anonymous per-song radio snapshots in process memory for a fixed 60 minutes. Store all returned first-page metadata immediately and cache the optional matching continuation on success. No audio is stored; invalid deferred continuations trigger bounded refresh without mixing snapshots.
+- Report cache hits, deferred continuation outcomes, recovery requests and evictions separately from network request statistics. Preserve selection, exclusions and progressive delivery.
+- Phone acceptance on Lab 7bb3468f confirmed first-page and continuation reuse, two successful deferred continuation requests, six avoided requests in the targeted test, and a 57 ms first cached pair decision. The one-hour configuration passed signed Lab CI run 46099381052; extended one-hour phone testing was not required by the user.
+- Independent Lab feed and compact update dialog: phone update preserved authorization, settings, queue, current track and pause state. Stable keeps its existing package, signing and release channel.
+- Existing playback failures for a private/unavailable YouTube recording were reproduced in Stable 95 without Enhanced and are tracked separately; no extractor changes in this release.
+- Bundle approved PRs #27, #28 and #29 in one Stable build; publication and Stable phone acceptance are separate checkpoints.
+
 ### Android build 95 — Distinct Stable and Lab icons (2026-11-28)
 
 **What's new**
 
-- The stable app has an updated glass icon with two blue stars and a subtle blue accent.
-- Development builds have a purple LAB corner, making the two apps easy to distinguish.
-- App identities, saved data, accounts and playback behavior are unchanged.
+- New Enhanced icon with blue stars.
+- Purple LAB badge on the test app icon.
 
 **Technical details**
 

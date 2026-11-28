@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-11-28 (Australia/Brisbane).
 
-**Release checkpoint: Android build 95 (launcher icons).** The revised Launcher Icons Lab `d87fe3e8` passed [CI run 46025859981](https://github.com/aenorbiko/SimpMusic/actions/runs/46025859981) and the user accepted its appearance on the phone. Previous published Stable 94 passed [CI run 46016353638](https://github.com/aenorbiko/SimpMusic/actions/runs/46016353638). Check the [current signed Stable release](https://github.com/aenorbiko/SimpMusic/releases/tag/enhanced-latest) for actual publication status; the Stable icon itself still needs a visual phone check after installation.
+**Release checkpoint: Android build 96 (radio cache and updates).** User approved Stable promotion on 2026-11-28 after Lab phone tests. The signed one-hour Lab passed [CI run 46099381052](https://github.com/aenorbiko/SimpMusic/actions/runs/46099381052). Stable 96 publication and phone acceptance remain to be verified; check the [current signed Stable release](https://github.com/aenorbiko/SimpMusic/releases/tag/enhanced-latest).
 
 - [Download Stable APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)
 - [Release history and technical notes](CHANGELOG.md)
@@ -11,13 +11,12 @@ Last reviewed: 2026-11-28 (Australia/Brisbane).
 
 ## Active tasks, in proposed order
 
-### 1. Enhanced radio metadata cache — next experiment
+### 1. Enhanced radio metadata cache — implemented; Stable verification pending
 
-- [ ] Collect a fresh report after ordinary listening: Settings → About us → Enhanced statistics → Copy statistics. Review request counts, repeat percentages (20 min / 1 h / 24 h), observation duration, and actual clock resets.
-- [ ] Choose capacity, TTL and process-local versus persistent storage based on the data, not the old prototype defaults.
-- [ ] Create an independent branch from latest Stable. The old `feature/enhanced-radio-cache` prototype (64 lists, 20 minutes, old signed-in radio algorithm) is reference only, not merge-ready.
-- [ ] Cache metadata, never audio; preserve anonymous A/B requests, conditional page-two logic, four-tier ranking, deduplication, session cancellation and ordered progressive delivery. Do not mix account contexts; do not reuse failed responses.
-- [ ] Measure actual cache hits, avoided network requests, and time to first recommendation against uncached behavior. Verify expiry, eviction, continuation and cancellation; cold-start speed gains are not guaranteed.
+- [x] Implement process-local anonymous radio metadata cache: 64 seeds, fixed 60-minute TTL, full returned pages, optional continuation, bounded recovery and cache statistics.
+- [x] Lab phone verified first and second page reuse, deferred token success (2/2), six avoided requests; one-hour default and expiry tested by signed Lab CI.
+- [ ] Verify Stable 96 installation and ordinary listening; monitor hits, capacity evictions and expiry. Actual heap use not measured. Recovery on rejected deferred token has automated coverage but has not occurred on the phone.
+- [ ] Tune capacity or TTL only if normal-use evidence warrants it; no speculative extra builds.
 
 ### 2. Bluetooth device-specific Lyrics Offset
 
@@ -48,6 +47,17 @@ Last reviewed: 2026-11-28 (Australia/Brisbane).
 - [ ] Use a dedicated integration branch and Lab, regression tests and phone acceptance, then explicit approval. Preserve account, playlists, queue, lyrics, Radio, notifications and Enhanced behavior.
 - [ ] Continue incremental refactoring only when a feature or demonstrated problem justifies it; avoid broad rewrites. Queue management and shared build workflows were already refactored in builds 91–92.
 
+### 7. Lab update channel and concise update dialogs — implemented; Stable verification pending
+
+- [x] Permanent independent Lab update feed, increasing revision, validated branch APK and concise What's new with clickable history.
+- [x] Lab phone accepted same-version check and in-app update into the cache Lab; account, settings, queue, current track and pause preserved.
+- [ ] Verify Stable 96 update and channel isolation after merge; verify next Lab branch update as part of normal feature development, not a dedicated extra build.
+
+### 8. Playback diagnostics for private / unavailable recordings — separate issue
+
+- [ ] Investigate authenticated personal uploads (not yet confirmed) and private recording playback using the existing extractor and official YouTube Music comparison. Reproduced in Stable 95 without Enhanced; official YouTube Music plays the record, anonymous YouTube says private, and app log reports LOGIN_REQUIRED and No URL found.
+- [ ] Distinguish access/availability failures from actual network timeouts in user-facing messages. Do not change extraction or authorization until the supported mechanism is established. Keep separate from the radio-cache release.
+
 ## Completed / shipped
 
 See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
@@ -66,7 +76,8 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 92 | Readable What's New and common build/test/publish infrastructure |
 | 93 | Start Radio preserves current track, position and pause; prevents late radio replies overriding new playback; exits Enhanced correctly |
 | 94 | Classic player Radio shortcut beside Playlist/Queue, comments in three-dot menu, persistent Lab package; phone-tested in final Lab |
-| 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable publication/appearance to verify |
+| 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable published; Stable appearance to verify |
+| 96 | Radio metadata cache and independent Lab updates; Lab accepted, Stable promotion approved; publication and phone acceptance pending |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -74,13 +85,13 @@ Do not reopen confirmed fixes absent a regression. The previously discussed Like
 
 ## Old experiments and open pull requests
 
-The following were still open when reviewed. Do not merge old experimental branches wholesale.
+Historical experiments: do not merge old experimental branches wholesale.
 
 | PR / branch | Current disposition |
 | --- | --- |
-| [#12](https://github.com/aenorbiko/SimpMusic/pull/12) anonymous radio | Superseded by the shipped build-76 implementation; review remaining unique changes before closing |
-| [#11](https://github.com/aenorbiko/SimpMusic/pull/11) restored notification star | Shipped through build 76; review remaining unique changes before closing |
-| [#9](https://github.com/aenorbiko/SimpMusic/pull/9) ephemeral playback session | Superseded by the accepted persistent recovery design; do not merge |
+| [#12](https://github.com/aenorbiko/SimpMusic/pull/12) anonymous radio | Superseded by the shipped build-76 implementation; closed |
+| [#11](https://github.com/aenorbiko/SimpMusic/pull/11) restored notification star | Shipped through build 76; closed |
+| [#9](https://github.com/aenorbiko/SimpMusic/pull/9) ephemeral playback session | Superseded by the accepted persistent recovery design; closed, do not merge |
 | `feature/enhanced-radio-relevance` | Old top-15 algorithm superseded by the four-tier engine |
 | `feature/enhanced-radio-cache` | Old prototype; reference for task 1 only |
 | `feature/enhanced-optimisation` | Old multi-feature prototype; extract individual changes only if needed |
@@ -99,4 +110,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-Launcher Icons Lab is accepted. Build 95 includes the updated backlog; verify the signed Stable publication and launcher appearance after installation. Next work: review radio statistics and agree on a cache design before implementation.
+Stable 96 promotion approved; verify signed CI and release, then update Stable on the phone and verify retained data and cache statistics. Continue the separate private-recording diagnosis without mixing it into build 96. Device-specific Lyrics Offset remains the next planned independent feature.

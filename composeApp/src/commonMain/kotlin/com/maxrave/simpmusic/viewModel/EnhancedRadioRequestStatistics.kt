@@ -51,7 +51,7 @@ internal data class EnhancedRadioStatisticsState(
         appendLine("Repeat within 24 hours: $repeat24Hours (${percent(repeat24Hours)})")
         appendLine("History capacity evictions: $historyEvictions; clock resets: $clockResets")
         appendLine("Repeat = previous successful non-empty first page for the same seed. Windows are cumulative, not additive.")
-        appendLine("Upper-bound estimates with refreshed TTL; no actual cache or continuation reuse. Cancelled requests not counted.")
+        appendLine("Repeat windows describe network requests only; cache hits are reported separately when enabled. Cancelled requests not counted.")
         appendLine("Local statistics only; no song IDs, titles or account data in this report.")
         append(fullTrack.asText())
     }
