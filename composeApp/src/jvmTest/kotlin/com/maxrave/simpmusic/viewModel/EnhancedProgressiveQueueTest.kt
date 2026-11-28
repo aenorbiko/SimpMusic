@@ -382,7 +382,7 @@ class EnhancedProgressiveQueueTest {
             },
             refreshFirst = { EnhancedRadioPage(listOf("Shared"), "new") },
         ) { _, recommendation -> emitted.add(recommendation) }
-        assertEquals(listOf("Shared"), emitted)
+        assertEquals(listOf<String?>("Shared"), emitted)
         assertFalse(calls.any { it.second == "new" })
     }
 
@@ -407,7 +407,7 @@ class EnhancedProgressiveQueueTest {
             refreshFirst = { EnhancedRadioPage(listOf("Fresh"), "new") },
             onDecision = { _, _, timing -> assertEquals(listOf("Fresh"), timing.firstA.tracks) },
         ) { _, recommendation -> emitted.add(recommendation) }
-        assertEquals(listOf("Shared"), emitted)
+        assertEquals(listOf<String?>("Shared"), emitted)
         assertEquals(listOf(null, "old", "new"), calls)
     }
 
