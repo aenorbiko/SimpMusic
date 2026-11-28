@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-11-28 (Australia/Brisbane).
 
-**Release checkpoint: Android build 97 (performance diagnostics) — promotion approved; publication and phone acceptance pending.** Previous build 96 (radio cache and updates): User approved Stable promotion on 2026-11-28 after Lab phone tests. The signed one-hour Lab passed [CI run 46099381052](https://github.com/aenorbiko/SimpMusic/actions/runs/46099381052). Stable 96 publication verified (CI run 46100640729, commit 9676edb3); phone acceptance remains to be verified; check the [current signed Stable release](https://github.com/aenorbiko/SimpMusic/releases/tag/enhanced-latest).
+**Release checkpoint: Android build 98 (batched statistics) — user approved promotion; publication and Stable phone acceptance pending.** Stable 97 signed publication verified (CI 46115562130, commit 9322b3c8).
 
 - [Download Stable APK](https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk)
 - [Release history and technical notes](CHANGELOG.md)
@@ -38,12 +38,14 @@ Pause new features until this phase is completed and reviewed. On 2026-11-28 the
 ### 2. Missing recommendation diagnostics — Lab verified; Stable promotion approved
 - [x] Count processed pairs, added/missing recommendations and evidence-based failure reasons; keep a bounded local history of failed pairs with request outcomes and exclusions. Ranking unchanged; no extra requests. Phone verified a missing pair due to radio B failure. Persistent diagnostic counters remain for grouped-statistics work.
 
-### 3. Statistics writes — next independent Lab
-- [ ] Accumulate counters in memory; flush after 8 completed network requests, or on the next result when more than 5 seconds have elapsed since the last save, and after normal completion/cancellation of a block or opening/copying statistics. No independent timer, wakeup or extra network request.
-- [ ] Persist new aggregate missing-recommendation counters without per-event writes; recent title history may remain bounded and process-local. Keep performance samples labeled by process.
-- [ ] Preserve reset ordering, out-of-order event handling, rollback protection and existing persisted history; serialize flushes, retain pending data on write failures. Target at most 7 unsaved completed events between successful count-triggered writes in normal operation; hard process death or I/O failure may lose more, and no guarantee of final lifecycle callbacks. Never affect queue, playlists or settings.
+### 3. Statistics writes — Lab accepted; Stable 98 promotion approved
+- [x] Accumulate counters in memory; flush after 8 accepted events (radio, Full Track or pair decision), or on the next result when more than 5 seconds have elapsed since the last save, and after normal completion/cancellation of a block or opening/copying statistics. No independent timer, wakeup or extra network request.
+- [x] Persist new aggregate missing-recommendation counters without per-event writes; recent title history may remain bounded and process-local. Keep performance samples labeled by process.
+- [x] Preserve reset ordering, out-of-order event handling, rollback protection and existing persisted history; serialize flushes, retain pending data on write failures. Target at most 7 unsaved completed events between successful count-triggered writes in normal operation; hard process death or I/O failure may lose more, and no guarantee of final lifecycle callbacks. Never affect queue, playlists or settings.
 
-### 4. Enhanced session storage
+**Phone acceptance — 2026-11-28, Batched Statistics Lab build 97 r46115748331, bccd3652.** Two reset-separated blocks: 27 network requests, 6 successful stats writes, 7 pairs / 6 selected / 1 missing; then 25 requests, 5 writes, 7 / 6 / 1. Both reports had zero pending events, failed flushes and unrecorded events. Baseline 28 writes: 79–82% fewer logical saves per block, not a controlled CPU/energy comparison. Force-stop and reopen retained 25 requests, 7 pairs, 6 selected and one Radio B failure; process cache and counters reset correctly. Reopened session still wrote 358,502 UTF-16 code units in 275 ms. User approved Stable 98.
+
+### 4. Enhanced session storage — next independent Lab
 - [ ] Serialize source metadata once and store shuffled order by video ID, retaining compatibility with existing sessions and recovery behavior. Measure payload and write overhead; do not assume equivalent heap savings.
 
 ### 5. Cache memory
@@ -117,7 +119,8 @@ See [CHANGELOG.md](CHANGELOG.md) for precise build history and evidence.
 | 94 | Classic player Radio shortcut beside Playlist/Queue, comments in three-dot menu, persistent Lab package; phone-tested in final Lab |
 | 95 | Distinct Stable and Lab launcher icons, two blue stars on white, purple LAB corner for development builds; final Lab phone-approved, Stable published; Stable appearance to verify |
 | 96 | Radio metadata cache and independent Lab updates; Lab accepted, Stable published; phone acceptance pending |
-| 97 | Event-driven performance and missing-recommendation diagnostics, build identity in updates and reports; Lab accepted and promotion approved; Stable publication pending |
+| 97 | Event-driven performance and missing-recommendation diagnostics, build identity in updates and reports; Lab accepted; Stable publication verified |
+| 98 | Batched statistics and persistent pair counts; Lab phone acceptance and promotion approved; Stable publication pending |
 
 Repeat One / manual Next — phone-verified 2026-11-28: the current song repeats normally; manually pressing Next advances to the next track and disables Repeat One. No fix required.
 
@@ -150,5 +153,4 @@ Branch cleanup is a separate maintenance task; check for unique commits and pres
 
 ## Next checkpoint
 
-User approved promotion of Diagnostics Lab and reordered optimization priorities on 2026-11-28. Publish and verify Stable 97; next independent Lab is grouped statistics persistence (no timers/wakeups). Then compact session storage, prune expired cache, reuse metadata analysis, repair links and playback errors, progressive refill and final measurements. New features remain deferred. Preserve baseline reports and do not change recommendation selection in optimization branches.
-
+Publish and verify Stable 98. Next independent Lab: compact session storage with legacy migration and exact queue recovery. Then cache expiry pruning, metadata analysis reuse, external links, playback errors, progressive refill and final measurements. No new features yet.

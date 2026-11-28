@@ -23,6 +23,20 @@ The recommendation engine is a practical approximation based on YouTube Music's 
 
 ## Stable releases
 
+### Android build 98 — Batched statistics (2026-11-28)
+
+**What's new**
+
+- Save Enhanced statistics less often.
+- Keep missing recommendation counts across restarts.
+
+**Technical details**
+
+- Load the persistent aggregate once, flush after eight accepted events, on the next event after five seconds, at block completion/cancellation or when opening statistics. No periodic timer or extra requests.
+- Keep pending aggregates on storage failure; retain existing history, reset and clock handling. A hard process stop can lose unsaved events.
+- Signed Lab r46115748331 (bccd3652) passed CI and phone tests: 27 requests / 6 saves and 25 requests / 5 saves, zero pending or failed events at report. Compared with the earlier 28-save block, 79–82% fewer logical statistics saves. Force-stop/reopen preserved 25 requests, 7 pairs and one missing reason.
+- Queue selection and session format unchanged.
+
 ### Android build 97 — Performance diagnostics (2026-11-28)
 
 **What's new**

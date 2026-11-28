@@ -73,11 +73,11 @@ internal class EnhancedPerformanceDiagnostics(
     fun queueSave() { queueSaveCalls++ }
     fun committed(count: Int) { committed += count }
 
-    fun <T> pair(a: String, b: String, decision: EnhancedShufflePlanner.RadioSelection<T>, timing: EnhancedPairTiming<T>) {
+    fun <T> pair(a: String, b: String, decision: EnhancedShufflePlanner.RadioSelection<T>, timing: EnhancedPairTiming<T>): String? {
         pairs++
         if (decision.recommendation != null) {
             selected++
-            return
+            return null
         }
         val pagesB = listOfNotNull(timing.firstB, timing.secondB)
         val reason = when {
@@ -91,6 +91,7 @@ internal class EnhancedPerformanceDiagnostics(
         val line = "${a.take(100)} + ${b.take(100)}: $reason; A1=${page(timing.firstA)}, A2=${page(timing.secondA)}, B1=${page(timing.firstB)}, B2=${page(timing.secondB)}; eligible A/B=${decision.eligibleA}/${decision.eligibleB}"
         if (recent.size == 10) recent.removeFirst()
         recent.addLast(line)
+        return reason
     }
 
     fun reset() {
