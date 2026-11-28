@@ -365,4 +365,50 @@ class EnhancedProgressiveQueueTest {
         assertEquals(listOf(listOf("A", "B", "Candidate"), listOf("C", "D", "Fallback-D")), emitted)
         assertEquals(4, calls.count { it.second != null })
     }
+    @Test
+    fun failedDeferredTokenRefreshesFirstAndSkipsUnneededNewContinuation() = runBlocking {
+        val calls = mutableListOf<Pair<String, String?>>()
+        val emitted = mutableListOf<String?>()
+        emitPagedEnhancedPairs(
+            seeds = listOf("A", "B"), excludedIds = emptySet(), id = { it },
+            fetchPage = { seed, token ->
+                calls.add(seed to token)
+                when {
+                    seed == "A" && token == null -> EnhancedRadioPage(listOf("Old"), "old", fromCache = true)
+                    seed == "B" && token == null -> EnhancedRadioPage(listOf("Shared"))
+                    token == "old" -> EnhancedRadioPage(emptyList(), status = "Error", retryFirst = true)
+                    else -> error("Unexpected token")
+                }
+            },
+            refreshFirst = { EnhancedRadioPage(listOf("Shared"), "new") },
+        ) { _, recommendation -> emitted.add(recommendation) }
+        assertEquals(listOf("Shared"), emitted)
+        assertFalse(calls.any { it.second == "new" })
+    }
+
+    @Test
+    fun failedDeferredTokenUsesOnlyRefreshedPagesWhenMoreCandidatesNeeded() = runBlocking {
+        val calls = mutableListOf<String?>()
+        val emitted = mutableListOf<String?>()
+        emitPagedEnhancedPairs(
+            seeds = listOf("A", "B"), excludedIds = emptySet(), id = { it },
+            fetchPage = { seed, token ->
+                if (seed == "B") EnhancedRadioPage(listOf("Shared"))
+                else {
+                    calls.add(token)
+                    when (token) {
+                        null -> EnhancedRadioPage(listOf("Old"), "old", fromCache = true)
+                        "old" -> EnhancedRadioPage(emptyList(), status = "Error", retryFirst = true)
+                        "new" -> EnhancedRadioPage(listOf("Shared"))
+                        else -> error("Unexpected token")
+                    }
+                }
+            },
+            refreshFirst = { EnhancedRadioPage(listOf("Fresh"), "new") },
+            onDecision = { _, _, timing -> assertEquals(listOf("Fresh"), timing.firstA.tracks) },
+        ) { _, recommendation -> emitted.add(recommendation) }
+        assertEquals(listOf("Shared"), emitted)
+        assertEquals(listOf(null, "old", "new"), calls)
+    }
+
 }

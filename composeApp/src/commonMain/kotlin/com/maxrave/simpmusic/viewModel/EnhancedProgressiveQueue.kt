@@ -25,6 +25,7 @@ internal data class EnhancedRadioPage<T>(
     val semaphoreWaitMs: Long = 0,
     val status: String = "OK",
     val fromCache: Boolean = false,
+    val retryFirst: Boolean = false,
 )
 
 internal data class EnhancedPairTiming<T>(
@@ -67,6 +68,7 @@ internal suspend fun <T> emitPagedEnhancedPairs(
     songKey: (T) -> String? = { null },
     onDecision: (List<T>, EnhancedShufflePlanner.RadioSelection<T>, EnhancedPairTiming<T>) -> Unit = { _, _, _ -> },
     resolveRecommendation: suspend (T, Set<String>) -> EnhancedResolvedRecommendation<T> = { selected, _ -> EnhancedResolvedRecommendation(selected) },
+    refreshFirst: (suspend (T) -> EnhancedRadioPage<T>)? = null,
     onChunk: suspend (sourcePair: List<T>, recommended: T?) -> Unit,
 ) = coroutineScope {
     val pairs = seeds.chunked(2)
@@ -92,33 +94,71 @@ internal suspend fun <T> emitPagedEnhancedPairs(
                     null
                 } else {
                     val begin = TimeSource.Monotonic.markNow()
-                    val (a, b) = coroutineScope {
+                    val initial = coroutineScope {
                         val first = async { fetchPage(pair[0], null) }
                         val second = async { fetchPage(pair[1], null) }
                         first.await() to second.await()
                     }
+                    var a = initial.first
+                    var b = initial.second
                     val initialMs = begin.elapsedNow().inWholeMilliseconds
-                    val firstA = a.tracks.take(ENHANCED_RADIO_MAX_TRACKS)
-                    val firstB = b.tracks.take(ENHANCED_RADIO_MAX_TRACKS)
+                    var firstA = a.tracks.take(ENHANCED_RADIO_MAX_TRACKS)
+                    var firstB = b.tracks.take(ENHANCED_RADIO_MAX_TRACKS)
                     var extraA: EnhancedRadioPage<T>? = null
                     var extraB: EnhancedRadioPage<T>? = null
                     var extensionMs = 0L
-                    var extensionAttempted = false
+                    var attemptedA = false
+                    var attemptedB = false
 
-                    suspend fun loadExtra() {
-                        if (extensionAttempted) return
-                        extensionAttempted = true
-                        val tokenA = a.continuation?.takeIf { it.isNotBlank() && firstA.size < ENHANCED_RADIO_MAX_TRACKS }
-                        val tokenB = b.continuation?.takeIf { it.isNotBlank() && firstB.size < ENHANCED_RADIO_MAX_TRACKS }
-                        if (tokenA == null && tokenB == null) return
+                    suspend fun requestMissingPages() = coroutineScope {
+                        val tokenA = a.continuation?.takeIf { !attemptedA && it.isNotBlank() && firstA.size < ENHANCED_RADIO_MAX_TRACKS }
+                        val tokenB = b.continuation?.takeIf { !attemptedB && it.isNotBlank() && firstB.size < ENHANCED_RADIO_MAX_TRACKS }
+                        val requestA = tokenA?.let { token -> async { fetchPage(pair[0], token) } }
+                        val requestB = tokenB?.let { token -> async { fetchPage(pair[1], token) } }
+                        if (requestA != null) { attemptedA = true; extraA = requestA.await() }
+                        if (requestB != null) { attemptedB = true; extraB = requestB.await() }
+                    }
+
+                    suspend fun loadExtra(ids: Set<String> = excludedIds, keys: Set<String> = excludedSongKeys) {
                         val extensionStart = TimeSource.Monotonic.markNow()
-                        coroutineScope {
-                            val requestA = tokenA?.let { token -> async { fetchPage(pair[0], token) } }
-                            val requestB = tokenB?.let { token -> async { fetchPage(pair[1], token) } }
-                            extraA = requestA?.await()
-                            extraB = requestB?.await()
+                        requestMissingPages()
+                        val refresh = refreshFirst
+                        if (refresh != null) {
+                            // Only a failed deferred token may trigger recovery. Fresh-token
+                            // failures retain the usual fallback, with no recursive retries.
+                            val recoverA = extraA?.retryFirst == true
+                            val recoverB = extraB?.retryFirst == true
+                            if (recoverA || recoverB) {
+                                val fresh = coroutineScope {
+                                    val ra = if (recoverA) async { refresh(pair[0]) } else null
+                                    val rb = if (recoverB) async { refresh(pair[1]) } else null
+                                    ra?.await() to rb?.await()
+                                }
+                                if (recoverA) {
+                                    extraA = null
+                                    val page = fresh.first
+                                    if (page != null && page.status == "OK" && page.tracks.isNotEmpty()) {
+                                        a = page
+                                        firstA = a.tracks.take(ENHANCED_RADIO_MAX_TRACKS)
+                                        attemptedA = false
+                                    }
+                                }
+                                if (recoverB) {
+                                    extraB = null
+                                    val page = fresh.second
+                                    if (page != null && page.status == "OK" && page.tracks.isNotEmpty()) {
+                                        b = page
+                                        firstB = b.tracks.take(ENHANCED_RADIO_MAX_TRACKS)
+                                        attemptedB = false
+                                    }
+                                }
+                                // Recheck the new first pages before fetching new continuations.
+                                // If refresh fails, retain the original first page for this pair only.
+                                val refreshed = EnhancedShufflePlanner.analyzePair(firstA, firstB, blockedIds(firstA, firstB, ids, keys), id)
+                                if (refreshed.matches.isEmpty()) requestMissingPages()
+                            }
                         }
-                        extensionMs = extensionStart.elapsedNow().inWholeMilliseconds
+                        extensionMs += extensionStart.elapsedNow().inWholeMilliseconds
                     }
 
                     // Exclusions only grow. If no match exists with the original
@@ -129,8 +169,11 @@ internal suspend fun <T> emitPagedEnhancedPairs(
                     val orderStart = TimeSource.Monotonic.markNow()
                     val (usedIds, usedKeys) = orderedExclusions[index].await()
                     val orderWaitMs = orderStart.elapsedNow().inWholeMilliseconds
-                    val firstDecision = EnhancedShufflePlanner.analyzePair(firstA, firstB, blockedIds(firstA, firstB, usedIds, usedKeys), id)
-                    if (firstDecision.matches.isEmpty()) loadExtra()
+                    var firstDecision = EnhancedShufflePlanner.analyzePair(firstA, firstB, blockedIds(firstA, firstB, usedIds, usedKeys), id)
+                    if (firstDecision.matches.isEmpty()) {
+                        loadExtra(usedIds, usedKeys)
+                        firstDecision = EnhancedShufflePlanner.analyzePair(firstA, firstB, blockedIds(firstA, firstB, usedIds, usedKeys), id)
+                    }
 
                     val allA = (firstA + extraA?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
                     val allB = (firstB + extraB?.tracks.orEmpty()).take(ENHANCED_RADIO_MAX_TRACKS)
@@ -216,6 +259,15 @@ internal suspend fun buildEnhancedBatchProgressively(
                 page
             }
             if (cacheBatch == null) network() else cacheBatch.load(track.videoId, token, network)
+        },
+        refreshFirst = cacheBatch?.let { batch ->
+            { track: Track ->
+                batch.refreshFirst(track.videoId) {
+                    val page = fetchEnhancedRadio(track, songRepository, semaphore, null)
+                    onRadioPageCompleted(track.videoId, false, page.status == "OK" && page.tracks.isNotEmpty())
+                    page
+                }
+            }
         },
         chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
         excludedSongKeys = excludedSongKeys,
