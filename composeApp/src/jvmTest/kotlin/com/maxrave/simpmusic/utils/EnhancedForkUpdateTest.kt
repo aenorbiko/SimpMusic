@@ -82,10 +82,10 @@ class EnhancedForkUpdateTest {
     fun labPointerMustMatchVerifiedBranchAssetAndNotes() {
         val p = labPointer()
         val body = labBody(p)
-        val pointer = githubRelease(tag = "enhanced-lab-latest", body = body)
+        val pointer = githubRelease(tag = "enhanced-shared-lab-feed-latest", body = body)
         assertEquals(p, parseLabPointer(pointer))
         assertNull(parseLabPointer(githubRelease(tag = "enhanced-latest", body = body)))
-        assertNull(parseLabPointer(githubRelease(tag = "enhanced-lab-latest", body = body.replace(ENHANCED_LAB_PACKAGE, ENHANCED_STABLE_PACKAGE))))
+        assertNull(parseLabPointer(githubRelease(tag = "enhanced-shared-lab-feed-latest", body = body.replace(ENHANCED_LAB_PACKAGE, ENHANCED_STABLE_PACKAGE))))
         val url = "https://github.com/aenorbiko/SimpMusic/releases/download/${p.tag}/${p.asset}"
         val release = githubRelease(tag = p.tag, assetName = p.asset, assetUrl = url, body = body)
         assertEquals(url, assertNotNull(parseLabAsset(release, p)).downloadUrl)

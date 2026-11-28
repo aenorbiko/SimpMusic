@@ -8,7 +8,7 @@ Enhanced Stable uses the original glass SimpMusic logo with two solid blue, whit
 
 ## Shared Lab update feed
 
-New shared Lab callers should set `shared_update: true` and provide short `whats_new` bullets. Copy the shared Lab updater workflow as the template. The reusable workflow serializes shared publications, verifies the current branch head and that it is ahead of main, and publishes one revision-named APK in its existing branch-specific release. A metadata-only `enhanced-lab-latest` release points to that APK. The app validates both releases, package, source, revision, asset name/URL and size; Android enforces signing and package on manual install. Older runs cannot replace newer revisions. GitHub workflow run ID is the Lab revision, independent of the Android versionCode; rebuilds of the same completed run do not supersede it. Historical branch APKs remain separate, and obsolete assets on the current branch are removed only after the pointer is updated.
+New shared Lab callers should set `shared_update: true` and provide short `whats_new` bullets. Copy the shared Lab updater workflow as the template. The reusable workflow serializes shared publications, verifies the current branch head and that it is ahead of main, and publishes one revision-named APK in its existing branch-specific release. A metadata-only `enhanced-shared-lab-feed-latest` release points to that APK. The app validates both releases, package, source, revision, asset name/URL and size; Android enforces signing and package on manual install. Older runs cannot replace newer revisions. GitHub workflow run ID is the Lab revision, independent of the Android versionCode; rebuilds of the same completed run do not supersede it. Historical branch APKs remain separate, and obsolete assets on the current branch are removed only after the pointer is updated.
 
 Stable continues to check only `enhanced-latest`. A Lab without the new updater must install the first updater APK manually. No second copy of the APK is uploaded for the pointer.
 
@@ -23,3 +23,5 @@ Optional extra regression tests may be a `scripts/test_*.sh` file passed via `ex
 The workflow validation caller runs one signed build and the full test suite without publishing an APK. Stable publication is allowed only on main; Lab publication rejects main and the Stable release destination. Existing historical workflows remain unchanged to preserve prior experiments and their source guards. Stable release notes generation remains in the Stable caller, so the readable release-notes PR can be merged separately.
 
 A Stable release still requires a new versionCode, matching changelog entry, and explicit approval after any user-visible changes have been tested. Never use a manual Stable dispatch from a Lab branch.
+
+The old `enhanced-lab-latest` tag belongs to a historical radio-cache experiment and must not be reused or modified.

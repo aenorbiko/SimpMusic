@@ -27,7 +27,7 @@ internal const val ENHANCED_STABLE_CHANNEL = "Enhanced Stable"
 internal const val ENHANCED_STABLE_APK_URL =
     "https://github.com/aenorbiko/SimpMusic/releases/download/enhanced-latest/SimpMusic-Enhanced-arm64.apk"
 internal const val ENHANCED_LAB_PACKAGE = "com.maxrave.simpmusic.dev.startradio"
-private const val ENHANCED_LAB_TAG = "enhanced-lab-latest"
+private const val ENHANCED_LAB_TAG = "enhanced-shared-lab-feed-latest"
 private const val RELEASE_API = "https://api.github.com/repos/aenorbiko/SimpMusic/releases/tags/"
 private const val RELEASE_DOWNLOAD = "https://github.com/aenorbiko/SimpMusic/releases/download/"
 internal fun isSharedEnhancedLab(channel: String, applicationId: String, revision: Long): Boolean =

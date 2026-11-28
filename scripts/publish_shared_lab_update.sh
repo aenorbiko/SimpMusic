@@ -7,7 +7,7 @@ test "$LAB_PROPERTY" = simpmusicSharedLabExperimental
 test "$EXPECTED_PACKAGE" = com.maxrave.simpmusic.dev.startradio
 test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
 test "$EXPECTED_BRANCH" != main
-test "$TAG" != enhanced-lab-latest
+test "$TAG" != enhanced-shared-lab-feed-latest
 [[ "$TAG" =~ ^enhanced-[a-z0-9-]+-latest$ ]]
 [[ "$ASSET" =~ ^SimpMusic-[A-Za-z0-9-]+-arm64\.apk$ ]]
 [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
@@ -22,7 +22,7 @@ check_head() {
 }
 check_head
 # A completed newer workflow must never be replaced by an old rerun.
-if gh release view enhanced-lab-latest --json body > "$RUNNER_TEMP/lab-pointer.json" 2>/dev/null; then
+if gh release view enhanced-shared-lab-feed-latest --json body > "$RUNNER_TEMP/lab-pointer.json" 2>/dev/null; then
   old="$(python3 -c 'import json,re,sys; b=json.load(open(sys.argv[1]))["body"]; m=re.findall(r"^Lab revision: ([0-9]+)$", b, re.M); assert len(m)==1; print(m[0])' "$RUNNER_TEMP/lab-pointer.json")"
   if [ "$old" -ge "$revision" ]; then
     echo "Shared Lab already points to revision $old; not republishing $revision."
@@ -39,13 +39,13 @@ notes="$(printf "What's new\n\n%s\n\nPackage: %s\nAndroid build: %s\nLab revisio
 # A revision-specific filename cannot silently download a newer/different build.
 bash scripts/publish_enhanced_apk.sh "$TAG" "$name" "SimpMusic $CHANNEL" "$notes"
 check_head
-if gh release view enhanced-lab-latest >/dev/null 2>&1; then
-  gh release edit enhanced-lab-latest --notes "$notes"
+if gh release view enhanced-shared-lab-feed-latest >/dev/null 2>&1; then
+  gh release edit enhanced-shared-lab-feed-latest --notes "$notes"
 else
-  gh release create enhanced-lab-latest --target "$GITHUB_SHA" --title "SimpMusic Lab (latest update)" --notes "$notes" --prerelease
+  gh release create enhanced-shared-lab-feed-latest --target "$GITHUB_SHA" --title "SimpMusic Lab (latest update)" --notes "$notes" --prerelease
 fi
 # Verify pointer publication before removing older APKs for this branch only.
-test "$(gh release view enhanced-lab-latest --json body --jq .body)" = "$notes"
+test "$(gh release view enhanced-shared-lab-feed-latest --json body --jq .body)" = "$notes"
 gh release view "$TAG" --json assets --jq '.assets[].name' | while IFS= read -r asset; do
   if [[ "$asset" == "${ASSET%-arm64.apk}-r"*-arm64.apk && "$asset" != "$name" ]]; then
     gh release delete-asset "$TAG" "$asset" --yes
