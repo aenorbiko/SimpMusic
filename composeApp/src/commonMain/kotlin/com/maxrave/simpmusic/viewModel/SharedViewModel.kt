@@ -282,7 +282,8 @@ class SharedViewModel(
     // The revision + mutex prevent an old in-flight write from resurrecting an
     // Enhanced session after an explicit mode/source switch.
     private val enhancedPerformance = EnhancedPerformanceDiagnostics()
-    private val enhancedRadioCache = EnhancedRadioCache<Track>()
+    // Temporary phone expiry test only; never merge this branch into Stable.
+    private val enhancedRadioCache = EnhancedRadioCache<Track>(ttlMs = 10 * 60_000L)
     private val enhancedRadioStatistics = EnhancedRadioRequestStatistics(
         read = { dataStoreManager.getString(ENHANCED_RADIO_STATISTICS_KEY).first() },
         write = { dataStoreManager.putString(ENHANCED_RADIO_STATISTICS_KEY, it); enhancedPerformance.statsWrite() },

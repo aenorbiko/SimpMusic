@@ -1,0 +1,32 @@
+name: SimpMusic Cache Memory 10min Lab ARM64 APK
+on:
+  push:
+    branches: [feature/enhanced-cache-memory-10min]
+  workflow_dispatch:
+    inputs:
+      clean_build:
+        description: Build without restored Gradle caches
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: enhanced-cache-memory-10min-latest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-debug:
+    uses: ./.github/workflows/enhanced-lab-build.yml
+    with:
+      channel: Cache Memory 10min Lab
+      lab_property: simpmusicSharedLabExperimental
+      expected_package: com.maxrave.simpmusic.dev.startradio
+      release_tag: enhanced-cache-memory-10min-latest
+      asset_name: SimpMusic-Cache-Memory-10min-arm64.apk
+      expected_branch: feature/enhanced-cache-memory-10min
+      clean_build: ${{ inputs.clean_build == true }}
+      publish: true
+      shared_update: true
+      whats_new: |
+        - Temporary test: radio cache expires after 10 minutes.
+    secrets:
+      signing_bundle: ${{ secrets.SIMP_SIGNING_BUNDLE }}
