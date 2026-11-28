@@ -24,6 +24,7 @@ internal data class EnhancedRadioPage<T>(
     val requestMs: Long = 0,
     val semaphoreWaitMs: Long = 0,
     val status: String = "OK",
+    val fromCache: Boolean = false,
 )
 
 internal data class EnhancedPairTiming<T>(
@@ -198,18 +199,23 @@ internal suspend fun buildEnhancedBatchProgressively(
     excludedSongKeys: Set<String> = emptySet(),
     searchRepository: SearchRepository? = null,
     onFullTrackCompleted: (FullTrackDiagnostic) -> Unit = {},
+    radioCache: EnhancedRadioCache<Track>? = null,
     onChunkReady: suspend (EnhancedBatch) -> Unit,
 ) {
     val semaphore = enhancedRadioRequestSlots
+    val cacheBatch = radioCache?.newBatch()
     var diagnostic: EnhancedRadioDiagnostic? = null
     emitPagedEnhancedPairs(
         seeds = likedBatch,
         excludedIds = excludedIds,
         id = { it.videoId },
         fetchPage = { track, token ->
-            val page = fetchEnhancedRadio(track, songRepository, semaphore, token)
-            onRadioPageCompleted(track.videoId, token != null, page.status == "OK" && page.tracks.isNotEmpty())
-            page
+            val network: suspend () -> EnhancedRadioPage<Track> = {
+                val page = fetchEnhancedRadio(track, songRepository, semaphore, token)
+                onRadioPageCompleted(track.videoId, token != null, page.status == "OK" && page.tracks.isNotEmpty())
+                page
+            }
+            if (cacheBatch == null) network() else cacheBatch.load(track.videoId, token, network)
         },
         chooseFinal = { a, b, used, id -> EnhancedShufflePlanner.analyzePairWithMetadata(a, b, used, id, ::enhancedRadioMetadata) },
         excludedSongKeys = excludedSongKeys,

@@ -19,7 +19,7 @@ assert "best?.track ?: b.firstOrNull()" in planner
 assert "fun <T> selectForAllPairs(" in planner
 assert "analyzePair(" in progressive
 assert "val neighbours =" not in progressive, "Do not borrow other pairs' radio for progressive loading"
-assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository, onFullTrackCompleted)" in prefetch, "Prefetch must use the SAME pair selector"
+assert "buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository, onFullTrackCompleted, radioCache)" in prefetch, "Prefetch must use the SAME pair selector"
 assert "if (firstDecision.matches.isEmpty())" in progressive
 assert "ENHANCED_RADIO_MAX_TRACKS = 100" in progressive
 assert "ENHANCED_RADIO_MAX_PARALLEL_PAIRS = 4" in progressive

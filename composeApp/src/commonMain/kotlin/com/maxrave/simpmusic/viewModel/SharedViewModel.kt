@@ -280,6 +280,7 @@ class SharedViewModel(
     // Local persistence has a separate lifetime from Media3's saved track queue.
     // The revision + mutex prevent an old in-flight write from resurrecting an
     // Enhanced session after an explicit mode/source switch.
+    private val enhancedRadioCache = EnhancedRadioCache<Track>()
     private val enhancedRadioStatistics = EnhancedRadioRequestStatistics(
         read = { dataStoreManager.getString(ENHANCED_RADIO_STATISTICS_KEY).first() },
         write = { dataStoreManager.putString(ENHANCED_RADIO_STATISTICS_KEY, it) },
@@ -299,8 +300,12 @@ class SharedViewModel(
         viewModelScope.launch { enhancedRadioStatistics.recordFullTrack(diagnostic, completedAt) }
     }
 
-    suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report()
-    suspend fun resetEnhancedStatistics(): Boolean = enhancedRadioStatistics.reset()
+    suspend fun enhancedStatisticsReport(): String = enhancedRadioStatistics.report() + "\n\n" + enhancedRadioCache.report()
+    suspend fun resetEnhancedStatistics(): Boolean {
+        val reset = enhancedRadioStatistics.reset()
+        if (reset) enhancedRadioCache.resetCounters()
+        return reset
+    }
 
     private val enhancedSessionWriteMutex = Mutex()
     private var enhancedSessionWriteRevision = 0L
@@ -643,6 +648,7 @@ class SharedViewModel(
                             onRadioPageCompleted = ::recordEnhancedRadioPage,
                             searchRepository = enhancedFullTrackSearchRepository,
                             onFullTrackCompleted = ::recordEnhancedFullTrack,
+                            radioCache = enhancedRadioCache,
                         ) { chunk ->
                             // Every callback runs in the original cancelable session.
                             // Switching source/mode cancels all pending radio lookups.
@@ -782,6 +788,7 @@ class SharedViewModel(
                         onRadioPageCompleted = ::recordEnhancedRadioPage,
                         searchRepository = enhancedFullTrackSearchRepository,
                         onFullTrackCompleted = ::recordEnhancedFullTrack,
+                            radioCache = enhancedRadioCache,
                     )
                     if (session != enhancedSession || start != nextEnhancedLikedIndex ||
                         _smartShuffleMode.value != SmartShuffleMode.ENHANCED ||

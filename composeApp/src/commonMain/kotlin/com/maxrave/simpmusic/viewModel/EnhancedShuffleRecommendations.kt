@@ -164,7 +164,7 @@ internal fun enhancedRadioDiagnostic(
     val beforeExclusions = EnhancedRadioMetadataDiagnostics.beforeExclusions(
         rawA, rawB, eligibleA, eligibleB, metadataReport, decision.matches.size,
     )
-    fun page(label: String, p: EnhancedRadioPage<Track>?): String = if (p == null) "$label: not requested" else "$label: ${p.tracks.size} received; ${p.requestMs} ms request + ${p.semaphoreWaitMs} ms wait; ${p.status}; next page available: ${!p.continuation.isNullOrBlank()}"
+    fun page(label: String, p: EnhancedRadioPage<Track>?): String = if (p == null) "$label: not requested" else "$label: ${p.tracks.size} received; ${p.requestMs} ms request + ${p.semaphoreWaitMs} ms wait; ${p.status}${if (p.fromCache) " (cache)" else ""}; next page available: ${!p.continuation.isNullOrBlank()}"
     return EnhancedRadioDiagnostic(
         songA = pair[0].title.orEmpty(),
         songB = pair[1].title.orEmpty(),
@@ -216,12 +216,13 @@ internal suspend fun buildEnhancedBatch(
     excludedSongKeys: Set<String> = emptySet(),
     searchRepository: SearchRepository? = null,
     onFullTrackCompleted: (FullTrackDiagnostic) -> Unit = {},
+    radioCache: EnhancedRadioCache<Track>? = null,
 ): EnhancedBatch {
     val result = mutableListOf<Track>()
     val recommendations = mutableSetOf<String>()
     val diagnostics = mutableMapOf<String, EnhancedRadioDiagnostic>()
     // The same paged selection path as startup; collect the completed prefetch batch.
-    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository, onFullTrackCompleted) { chunk ->
+    buildEnhancedBatchProgressively(likedBatch, songRepository, excludedIds, onRadioPageCompleted, excludedSongKeys, searchRepository, onFullTrackCompleted, radioCache) { chunk ->
         result.addAll(chunk.tracks)
         recommendations.addAll(chunk.recommendedIds)
         diagnostics.putAll(chunk.diagnostics)
