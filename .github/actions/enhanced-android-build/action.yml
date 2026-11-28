@@ -176,6 +176,7 @@ runs:
           --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioMetadataDiagnosticsTest" \
           --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioRequestStatisticsTest" \
           --tests "com.maxrave.simpmusic.viewModel.EnhancedRadioCacheTest" \
+          --tests "com.maxrave.simpmusic.viewModel.EnhancedPerformanceDiagnosticsTest" \
           --tests "com.maxrave.simpmusic.viewModel.EnhancedTrackDeduplicationTest" \
           --tests "com.maxrave.simpmusic.viewModel.EnhancedFullTrackTest" \
           --tests "com.maxrave.simpmusic.viewModel.EnhancedCompleteSourceTest" \
